@@ -1,0 +1,15 @@
+{
+  "timezone": "Europe/London",
+  "errorWorkflow": "iTxd64lDk3gI0bKG",
+  "workflows": {
+    "01-apply-form.ts": { "id": "ngtApplyForm0001", "description": "CV screening (project 10): public application form. Checks the answers and the PDF CV, starts screening in the background and shows a thank-you page." },
+    "02-screen-application.ts": { "id": "ngtScreenApp0002", "description": "CV screening (project 10): reads the CV (GPT-5.4 mini), anonymises it, scores it against the job criteria (GPT-5.4), bands it in code, saves it and sends emails." },
+    "03-send-email.ts": { "id": "ngtSendEmail0003", "description": "CV screening (project 10): sends an email with Gmail in live mode, or writes it to the Northgate Outbox table in test mode." },
+    "04-recruiter-dashboard.ts": { "id": "ngtDashboard0004", "description": "CV screening (project 10): the recruiter dashboard page, its action endpoint (invite, reject, hold) and CV downloads. Protected by a key." },
+    "05-candidate-action.ts": { "id": "ngtCandAction005", "description": "CV screening (project 10): carries out a recruiter decision. Invite offers interview slots by email, reject sends a polite note, hold parks the candidate." },
+    "06-book-interview.ts": { "id": "ngtBookIntvw0006", "description": "CV screening (project 10): the candidate picks an interview slot from their email link; the slot is re-checked and booked in the calendar." },
+    "07-weekly-report.ts": { "id": "ngtWeeklyRpt0007", "description": "CV screening (project 10): Monday 8 am pipeline report for the recruiter: applications, bands, decisions waiting and interviews." },
+    "08-reset-demo.ts": { "id": "ngtResetDemo0008", "description": "CV screening (project 10): clears candidates, emails, files and events and puts example busy times in the test calendar.", "errorWorkflow": false },
+    "09-calendar.ts": { "id": "ngtCalendar00009", "description": "CV screening (project 10): calendar adapter. Lists busy times and books interviews in Google Calendar (live) or the Northgate Calendar table (test)." }
+  }
+}

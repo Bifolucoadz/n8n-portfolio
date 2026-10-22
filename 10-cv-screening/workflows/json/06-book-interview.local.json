@@ -1,0 +1,774 @@
+{
+  "id": "ngtBookIntvw0006",
+  "name": "Northgate 6: Book Interview",
+  "description": "CV screening (project 10): the candidate picks an interview slot from their email link; the slot is re-checked and booked in the calendar.",
+  "nodes": [
+    {
+      "id": "6f456dd5-c3f6-4587-9eac-638121f1df04",
+      "name": "Booking Link",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        200,
+        400
+      ],
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "northgate/book",
+        "responseMode": "responseNode",
+        "options": {
+          "ignoreBots": true
+        }
+      },
+      "webhookId": "c8d57189-18ff-445c-83ca-7ae0555357c3"
+    },
+    {
+      "id": "1d289b15-97a7-4208-aa1a-0bb516128192",
+      "name": "Read Settings",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        420,
+        400
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "LXDSXYJhXdqQV8KO",
+          "cachedResultName": "Northgate Settings"
+        },
+        "returnAll": true
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "90d02cd5-2a78-42c2-bf20-02646279f91b",
+      "name": "Read Candidate",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        640,
+        400
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Gf6MbtbZDBcTRWhX",
+          "cachedResultName": "Northgate Candidates"
+        },
+        "returnAll": true,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "candidate_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Booking Link').first().json.query.c || 'none' }}"
+            }
+          ]
+        }
+      },
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "id": "a88d9b7b-213e-4c79-93ec-bfdf49b203a2",
+      "name": "Read Jobs",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        860,
+        400
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "qycslNJXs6wOwRxE",
+          "cachedResultName": "Northgate Jobs"
+        },
+        "returnAll": true
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "cf63e4ca-afd9-4b10-a66f-73876c2dfac4",
+      "name": "Check Link",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1080,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Checks the booking link (candidate, private token, one of the times offered) before anything is booked.\n// ---- lib-ngt.js (included by build.py): shared helpers for the Northgate workflows ----\nconst TZ = 'Europe/London';\nconst esc = s => String(s === null || s === undefined ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');\nconst settingsOf = items => Object.fromEntries(items.map(i => i.json).filter(r => r && r.key).map(r => [r.key, r.value]));\nconst parseJson = (s, d) => { try { return typeof s === 'string' ? JSON.parse(s) : (s === null || s === undefined ? d : s); } catch (e) { return d; } };\nconst nowIso = () => DateTime.now().setZone(TZ).toISO();\nconst newToken = n => Array.from({ length: n || 24 }, () => 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 56)]).join('');\nconst pounds = n => '£' + Math.round(Number(n) || 0).toLocaleString('en-GB');\nconst whenText = iso => DateTime.fromISO(String(iso), { zone: TZ }).toFormat(\"cccc d LLLL 'at' h:mm a\").replace(':00 ', ' ');\nconst firstName = name => String(name || '').trim().split(/\\s+/)[0] || 'there';\n\n// OpenAI node (Responses API) output: the JSON object from the first output_text part, or null.\nfunction aiJson(res) {\n  if (!res || res.error) return null;\n  const msg = (res.output || []).find(o => o && o.type === 'message');\n  const part = msg && (msg.content || []).find(c => c && c.type === 'output_text');\n  let t = part ? part.text : null;\n  if (typeof t === 'string') { try { t = JSON.parse(t); } catch (e) { t = null; } }\n  return t && typeof t === 'object' ? t : null;\n}\n\n// Plain, left-aligned email body with the agency's name at the top.\nfunction emailHtml(company, paragraphs, extraHtml) {\n  const p = paragraphs.map(t => '<p style=\"margin:0 0 14px;text-align:left\">' + t + '</p>').join('');\n  return '<div style=\"font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.55;color:#1f2933;max-width:560px;text-align:left\">'\n    + '<div style=\"font-weight:700;font-size:13px;letter-spacing:1px;text-transform:uppercase;color:#0b6e4f;margin:0 0 18px\">' + esc(company) + '</div>'\n    + p + (extraHtml || '') + '</div>';\n}\n\n// A small standalone web page for candidates (booking links, confirmations, problems).\nfunction pageHtml(company, title, bodyHtml) {\n  return '<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>' + esc(title) + ' · ' + esc(company) + '</title>'\n    + '<style>body{margin:0;background:#eef3f0;font:16px/1.55 -apple-system,\"Segoe UI\",Helvetica,Arial,sans-serif;color:#10231a}'\n    + '.card{max-width:520px;margin:48px auto;background:#fff;border:1px solid #dbe5df;border-radius:16px;padding:32px 30px;box-shadow:0 6px 24px rgba(16,35,26,.06)}'\n    + '.brand{font-size:12px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#0b6e4f;margin-bottom:18px}'\n    + 'h1{font-size:23px;margin:0 0 10px;letter-spacing:-.3px}p{color:#3d4f45;margin:0 0 12px}'\n    + '.slot{display:block;padding:12px 16px;border:1px solid #dbe5df;border-radius:12px;margin:8px 0;color:#0b6e4f;font-weight:600;text-decoration:none}.slot:hover{border-color:#0b6e4f;background:#f3faf6}'\n    + '.big{font-size:19px;font-weight:700;color:#10231a;margin:6px 0 14px}.muted{color:#6b7c72;font-size:13px}</style></head><body><div class=\"card\">'\n    + '<div class=\"brand\">' + esc(company) + '</div><h1>' + esc(title) + '</h1>' + bodyHtml + '</div></body></html>';\n}\n\nconst BAND_LABEL = { shortlist: 'Shortlist', review: 'Worth a look', unlikely: 'Unlikely fit', knockout: 'Knockout' };\n// ---- end lib-ngt.js ----\nconst q = $('Booking Link').first().json.query || {};\nconst s = settingsOf($('Read Settings').all());\nconst c = $('Read Candidate').all().map(i => i.json).find(r => r.candidate_id === q.c) || null;\nconst job = c ? ($('Read Jobs').all().map(i => i.json).find(j => j.job_id === c.job_id) || {}) : {};\nconst slots = c ? parseJson(c.slots_json, []) : [];\nconst n = Number(q.s);\nconst slot = Number.isInteger(n) && n >= 0 ? slots[n] || null : null;\nlet route = 'ok';\nif (!c || !q.t || q.t !== c.token) route = 'invalid';\nelse if (c.status === 'interview_booked') route = 'already';\nelse if (c.status !== 'invited' || !slot) route = 'closed';\nelse if (Date.parse(slot.start) < Date.now() + 2 * 3600 * 1000) route = 'too_late';\nreturn [{ json: { route, candidate: c, job, slot, slot_index: n, slots, settings: s, action: 'busy', from: slot ? slot.start : '', to: slot ? slot.end : '' } }];\n"
+      }
+    },
+    {
+      "id": "8fcdc06e-d318-4385-8462-c066165dabb0",
+      "name": "Link OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1300,
+        400
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.route }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "rightValue": "ok"
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "0e018502-bab6-4510-b050-d667b7482be2",
+      "name": "Busy at That Time?",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        1540,
+        300
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "ngtCalendar00009",
+          "cachedResultName": "Northgate 9: Calendar"
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    },
+    {
+      "id": "32e920b5-00dd-4482-affc-ac09d7de9d36",
+      "name": "Still Free",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Is the chosen time still free? (Another candidate may have taken it, or the interviewer got busy.)\n// ---- lib-ngt.js (included by build.py): shared helpers for the Northgate workflows ----\nconst TZ = 'Europe/London';\nconst esc = s => String(s === null || s === undefined ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');\nconst settingsOf = items => Object.fromEntries(items.map(i => i.json).filter(r => r && r.key).map(r => [r.key, r.value]));\nconst parseJson = (s, d) => { try { return typeof s === 'string' ? JSON.parse(s) : (s === null || s === undefined ? d : s); } catch (e) { return d; } };\nconst nowIso = () => DateTime.now().setZone(TZ).toISO();\nconst newToken = n => Array.from({ length: n || 24 }, () => 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 56)]).join('');\nconst pounds = n => '£' + Math.round(Number(n) || 0).toLocaleString('en-GB');\nconst whenText = iso => DateTime.fromISO(String(iso), { zone: TZ }).toFormat(\"cccc d LLLL 'at' h:mm a\").replace(':00 ', ' ');\nconst firstName = name => String(name || '').trim().split(/\\s+/)[0] || 'there';\n\n// OpenAI node (Responses API) output: the JSON object from the first output_text part, or null.\nfunction aiJson(res) {\n  if (!res || res.error) return null;\n  const msg = (res.output || []).find(o => o && o.type === 'message');\n  const part = msg && (msg.content || []).find(c => c && c.type === 'output_text');\n  let t = part ? part.text : null;\n  if (typeof t === 'string') { try { t = JSON.parse(t); } catch (e) { t = null; } }\n  return t && typeof t === 'object' ? t : null;\n}\n\n// Plain, left-aligned email body with the agency's name at the top.\nfunction emailHtml(company, paragraphs, extraHtml) {\n  const p = paragraphs.map(t => '<p style=\"margin:0 0 14px;text-align:left\">' + t + '</p>').join('');\n  return '<div style=\"font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.55;color:#1f2933;max-width:560px;text-align:left\">'\n    + '<div style=\"font-weight:700;font-size:13px;letter-spacing:1px;text-transform:uppercase;color:#0b6e4f;margin:0 0 18px\">' + esc(company) + '</div>'\n    + p + (extraHtml || '') + '</div>';\n}\n\n// A small standalone web page for candidates (booking links, confirmations, problems).\nfunction pageHtml(company, title, bodyHtml) {\n  return '<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>' + esc(title) + ' · ' + esc(company) + '</title>'\n    + '<style>body{margin:0;background:#eef3f0;font:16px/1.55 -apple-system,\"Segoe UI\",Helvetica,Arial,sans-serif;color:#10231a}'\n    + '.card{max-width:520px;margin:48px auto;background:#fff;border:1px solid #dbe5df;border-radius:16px;padding:32px 30px;box-shadow:0 6px 24px rgba(16,35,26,.06)}'\n    + '.brand{font-size:12px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#0b6e4f;margin-bottom:18px}'\n    + 'h1{font-size:23px;margin:0 0 10px;letter-spacing:-.3px}p{color:#3d4f45;margin:0 0 12px}'\n    + '.slot{display:block;padding:12px 16px;border:1px solid #dbe5df;border-radius:12px;margin:8px 0;color:#0b6e4f;font-weight:600;text-decoration:none}.slot:hover{border-color:#0b6e4f;background:#f3faf6}'\n    + '.big{font-size:19px;font-weight:700;color:#10231a;margin:6px 0 14px}.muted{color:#6b7c72;font-size:13px}</style></head><body><div class=\"card\">'\n    + '<div class=\"brand\">' + esc(company) + '</div><h1>' + esc(title) + '</h1>' + bodyHtml + '</div></body></html>';\n}\n\nconst BAND_LABEL = { shortlist: 'Shortlist', review: 'Worth a look', unlikely: 'Unlikely fit', knockout: 'Knockout' };\n// ---- end lib-ngt.js ----\nconst p = $('Check Link').first().json;\nconst free = ($input.first().json.busy || []).length === 0;\nconst c = p.candidate, job = p.job;\nreturn [{ json: {\n  free,\n  action: 'book', start: p.slot.start, end: p.slot.end, candidate_id: c.candidate_id,\n  title: 'Interview: ' + c.name + ' for ' + job.title,\n  description: 'Video interview for ' + job.title + ' (' + job.job_id + '). Candidate ' + c.candidate_id + ', screening score ' + c.score + '. Booked by the candidate from the Northgate invitation.',\n  attendees: [c.email, job.interviewer_email].filter(Boolean).join(',')\n} }];\n"
+      }
+    },
+    {
+      "id": "4c455ef3-d3f6-4b3b-a614-d98b87e76593",
+      "name": "Free?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1980,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.free }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "30e0156c-c457-494f-9f55-f73c60b0af15",
+      "name": "Book Interview",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        2200,
+        200
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "ngtCalendar00009",
+          "cachedResultName": "Northgate 9: Calendar"
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    },
+    {
+      "id": "025157d3-e7fb-4922-9313-13a2c7b63abb",
+      "name": "Booked",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2420,
+        200
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// The interview is in the calendar: update the candidate, write the history line, email both sides and\n// show the candidate a confirmation page.\n// ---- lib-ngt.js (included by build.py): shared helpers for the Northgate workflows ----\nconst TZ = 'Europe/London';\nconst esc = s => String(s === null || s === undefined ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');\nconst settingsOf = items => Object.fromEntries(items.map(i => i.json).filter(r => r && r.key).map(r => [r.key, r.value]));\nconst parseJson = (s, d) => { try { return typeof s === 'string' ? JSON.parse(s) : (s === null || s === undefined ? d : s); } catch (e) { return d; } };\nconst nowIso = () => DateTime.now().setZone(TZ).toISO();\nconst newToken = n => Array.from({ length: n || 24 }, () => 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 56)]).join('');\nconst pounds = n => '£' + Math.round(Number(n) || 0).toLocaleString('en-GB');\nconst whenText = iso => DateTime.fromISO(String(iso), { zone: TZ }).toFormat(\"cccc d LLLL 'at' h:mm a\").replace(':00 ', ' ');\nconst firstName = name => String(name || '').trim().split(/\\s+/)[0] || 'there';\n\n// OpenAI node (Responses API) output: the JSON object from the first output_text part, or null.\nfunction aiJson(res) {\n  if (!res || res.error) return null;\n  const msg = (res.output || []).find(o => o && o.type === 'message');\n  const part = msg && (msg.content || []).find(c => c && c.type === 'output_text');\n  let t = part ? part.text : null;\n  if (typeof t === 'string') { try { t = JSON.parse(t); } catch (e) { t = null; } }\n  return t && typeof t === 'object' ? t : null;\n}\n\n// Plain, left-aligned email body with the agency's name at the top.\nfunction emailHtml(company, paragraphs, extraHtml) {\n  const p = paragraphs.map(t => '<p style=\"margin:0 0 14px;text-align:left\">' + t + '</p>').join('');\n  return '<div style=\"font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.55;color:#1f2933;max-width:560px;text-align:left\">'\n    + '<div style=\"font-weight:700;font-size:13px;letter-spacing:1px;text-transform:uppercase;color:#0b6e4f;margin:0 0 18px\">' + esc(company) + '</div>'\n    + p + (extraHtml || '') + '</div>';\n}\n\n// A small standalone web page for candidates (booking links, confirmations, problems).\nfunction pageHtml(company, title, bodyHtml) {\n  return '<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>' + esc(title) + ' · ' + esc(company) + '</title>'\n    + '<style>body{margin:0;background:#eef3f0;font:16px/1.55 -apple-system,\"Segoe UI\",Helvetica,Arial,sans-serif;color:#10231a}'\n    + '.card{max-width:520px;margin:48px auto;background:#fff;border:1px solid #dbe5df;border-radius:16px;padding:32px 30px;box-shadow:0 6px 24px rgba(16,35,26,.06)}'\n    + '.brand{font-size:12px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#0b6e4f;margin-bottom:18px}'\n    + 'h1{font-size:23px;margin:0 0 10px;letter-spacing:-.3px}p{color:#3d4f45;margin:0 0 12px}'\n    + '.slot{display:block;padding:12px 16px;border:1px solid #dbe5df;border-radius:12px;margin:8px 0;color:#0b6e4f;font-weight:600;text-decoration:none}.slot:hover{border-color:#0b6e4f;background:#f3faf6}'\n    + '.big{font-size:19px;font-weight:700;color:#10231a;margin:6px 0 14px}.muted{color:#6b7c72;font-size:13px}</style></head><body><div class=\"card\">'\n    + '<div class=\"brand\">' + esc(company) + '</div><h1>' + esc(title) + '</h1>' + bodyHtml + '</div></body></html>';\n}\n\nconst BAND_LABEL = { shortlist: 'Shortlist', review: 'Worth a look', unlikely: 'Unlikely fit', knockout: 'Knockout' };\n// ---- end lib-ngt.js ----\nconst p = $('Check Link').first().json;\nconst ev = $input.first().json || {};\nconst c = p.candidate, job = p.job, s = p.settings, slot = p.slot;\nconst company = s.company || 'Northgate Talent';\nconst when = whenText(slot.start);\nconst now = nowIso();\nreturn [{ json: {\n  candidate_id: c.candidate_id, status: 'interview_booked', slots_json: c.slots_json, interview_at: slot.start, updated_at: now,\n  event: 'interview_booked', detail: 'Booked an interview for ' + when, actor: 'candidate', at: now,\n  emails: [\n    { to: c.email, kind: 'interview_confirmed', candidate_id: c.candidate_id, subject: 'Confirmed: your interview on ' + DateTime.fromISO(slot.start, { zone: TZ }).toFormat('ccc d LLL'),\n      html: emailHtml(company, [\n        'Hi ' + esc(firstName(c.name)) + ',',\n        'You\\'re booked in for your <b>' + esc(job.title) + '</b> interview with ' + esc(job.interviewer) + ' on <b>' + esc(when) + '</b> (UK time).',\n        'It\\'s a video call of about ' + (s.interview_minutes || 45) + ' minutes; the link will be in the calendar invitation. If you need to change the time, just reply to this email.',\n        'Good luck!<br>' + esc(s.recruiter_name || 'The Northgate team')\n      ]) },\n    { to: job.interviewer_email || s.recruiter_email, kind: 'interviewer_notice', candidate_id: c.candidate_id, subject: 'Interview booked: ' + c.name + ', ' + job.title,\n      html: emailHtml(company, [\n        '<b>' + esc(c.name) + '</b> booked an interview for <b>' + esc(job.title) + '</b> on <b>' + esc(when) + '</b>.',\n        'Screening score ' + c.score + '. ' + esc(c.summary)\n      ]) }\n  ],\n  page: pageHtml(company, 'You\\'re booked in', '<p class=\"big\">' + esc(when) + '</p><p>Your ' + esc(job.title) + ' interview with ' + esc(job.interviewer) + ' is confirmed. We\\'ve emailed you the details.</p><p class=\"muted\">Need a different time? Reply to the email and we\\'ll sort it out.</p>'),\n  event_id: ev.event_id || ''\n} }];\n"
+      }
+    },
+    {
+      "id": "1f677c75-d4e1-4ebc-9688-d3be617d6be9",
+      "name": "Update Candidate",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2640,
+        200
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Gf6MbtbZDBcTRWhX",
+          "cachedResultName": "Northgate Candidates"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "candidate_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.candidate_id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status": "={{ $json.status }}",
+            "slots_json": "={{ $json.slots_json }}",
+            "interview_at": "={{ $json.interview_at }}",
+            "updated_at": "={{ $json.updated_at }}"
+          },
+          "schema": [
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "slots_json",
+              "displayName": "slots_json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "interview_at",
+              "displayName": "interview_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "updated_at",
+              "displayName": "updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "5e807934-214f-444e-b849-623a3845966a",
+      "name": "Log Event",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2860,
+        200
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "v5LAsWSJxw2Uj4Ig",
+          "cachedResultName": "Northgate Events"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "candidate_id": "={{ $('Booked').first().json.candidate_id }}",
+            "event": "={{ $('Booked').first().json.event }}",
+            "detail": "={{ $('Booked').first().json.detail }}",
+            "actor": "={{ $('Booked').first().json.actor }}",
+            "at": "={{ $('Booked').first().json.at }}"
+          },
+          "schema": [
+            {
+              "id": "candidate_id",
+              "displayName": "candidate_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "event",
+              "displayName": "event",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "detail",
+              "displayName": "detail",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "actor",
+              "displayName": "actor",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "at",
+              "displayName": "at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ]
+        }
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "a8f3db2d-f721-43a5-b0ed-3136ec75ebc8",
+      "name": "Emails",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3080,
+        200
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// The two emails for a booking.\nreturn ($('Booked').first().json.emails || []).map(json => ({ json }));\n"
+      }
+    },
+    {
+      "id": "20df968e-6723-4e25-bee9-d31441a02c40",
+      "name": "Send Emails",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        3300,
+        200
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "ngtSendEmail0003",
+          "cachedResultName": "Northgate 3: Send Email"
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "d6bbd555-ef3d-4e59-9e03-7275e764eb00",
+      "name": "Confirmation Page",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3520,
+        200
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// The confirmation page.\nreturn [{ json: { code: 200, html: $('Booked').first().json.page } }];\n"
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "c6d6571f-ecb1-46b9-be3e-375df11270f6",
+      "name": "Send Page",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        3740,
+        400
+      ],
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.html }}",
+        "options": {
+          "responseCode": "={{ $json.code }}",
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/html; charset=utf-8"
+              },
+              {
+                "name": "Cache-Control",
+                "value": "no-store"
+              },
+              {
+                "name": "X-Robots-Tag",
+                "value": "noindex"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "6c0033aa-2450-40f0-bc7e-409600770aed",
+      "name": "Taken Page",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2200,
+        420
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// That time has gone: offer the other times from the invitation (each is checked again when clicked).\n// ---- lib-ngt.js (included by build.py): shared helpers for the Northgate workflows ----\nconst TZ = 'Europe/London';\nconst esc = s => String(s === null || s === undefined ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');\nconst settingsOf = items => Object.fromEntries(items.map(i => i.json).filter(r => r && r.key).map(r => [r.key, r.value]));\nconst parseJson = (s, d) => { try { return typeof s === 'string' ? JSON.parse(s) : (s === null || s === undefined ? d : s); } catch (e) { return d; } };\nconst nowIso = () => DateTime.now().setZone(TZ).toISO();\nconst newToken = n => Array.from({ length: n || 24 }, () => 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 56)]).join('');\nconst pounds = n => '£' + Math.round(Number(n) || 0).toLocaleString('en-GB');\nconst whenText = iso => DateTime.fromISO(String(iso), { zone: TZ }).toFormat(\"cccc d LLLL 'at' h:mm a\").replace(':00 ', ' ');\nconst firstName = name => String(name || '').trim().split(/\\s+/)[0] || 'there';\n\n// OpenAI node (Responses API) output: the JSON object from the first output_text part, or null.\nfunction aiJson(res) {\n  if (!res || res.error) return null;\n  const msg = (res.output || []).find(o => o && o.type === 'message');\n  const part = msg && (msg.content || []).find(c => c && c.type === 'output_text');\n  let t = part ? part.text : null;\n  if (typeof t === 'string') { try { t = JSON.parse(t); } catch (e) { t = null; } }\n  return t && typeof t === 'object' ? t : null;\n}\n\n// Plain, left-aligned email body with the agency's name at the top.\nfunction emailHtml(company, paragraphs, extraHtml) {\n  const p = paragraphs.map(t => '<p style=\"margin:0 0 14px;text-align:left\">' + t + '</p>').join('');\n  return '<div style=\"font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.55;color:#1f2933;max-width:560px;text-align:left\">'\n    + '<div style=\"font-weight:700;font-size:13px;letter-spacing:1px;text-transform:uppercase;color:#0b6e4f;margin:0 0 18px\">' + esc(company) + '</div>'\n    + p + (extraHtml || '') + '</div>';\n}\n\n// A small standalone web page for candidates (booking links, confirmations, problems).\nfunction pageHtml(company, title, bodyHtml) {\n  return '<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>' + esc(title) + ' · ' + esc(company) + '</title>'\n    + '<style>body{margin:0;background:#eef3f0;font:16px/1.55 -apple-system,\"Segoe UI\",Helvetica,Arial,sans-serif;color:#10231a}'\n    + '.card{max-width:520px;margin:48px auto;background:#fff;border:1px solid #dbe5df;border-radius:16px;padding:32px 30px;box-shadow:0 6px 24px rgba(16,35,26,.06)}'\n    + '.brand{font-size:12px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#0b6e4f;margin-bottom:18px}'\n    + 'h1{font-size:23px;margin:0 0 10px;letter-spacing:-.3px}p{color:#3d4f45;margin:0 0 12px}'\n    + '.slot{display:block;padding:12px 16px;border:1px solid #dbe5df;border-radius:12px;margin:8px 0;color:#0b6e4f;font-weight:600;text-decoration:none}.slot:hover{border-color:#0b6e4f;background:#f3faf6}'\n    + '.big{font-size:19px;font-weight:700;color:#10231a;margin:6px 0 14px}.muted{color:#6b7c72;font-size:13px}</style></head><body><div class=\"card\">'\n    + '<div class=\"brand\">' + esc(company) + '</div><h1>' + esc(title) + '</h1>' + bodyHtml + '</div></body></html>';\n}\n\nconst BAND_LABEL = { shortlist: 'Shortlist', review: 'Worth a look', unlikely: 'Unlikely fit', knockout: 'Knockout' };\n// ---- end lib-ngt.js ----\nconst p = $('Check Link').first().json;\nconst c = p.candidate, s = p.settings;\nconst base = (s.base_url || 'http://localhost:5678') + '/webhook/northgate/book?c=' + c.candidate_id + '&t=' + c.token + '&s=';\nconst others = p.slots.map((t, i) => ({ ...t, i })).filter(t => t.i !== p.slot_index && Date.parse(t.start) > Date.now() + 2 * 3600 * 1000);\nconst list = others.map(t => '<a class=\"slot\" href=\"' + esc(base + t.i) + '\">' + esc(t.label) + '</a>').join('');\nconst body = '<p>Sorry, <b>' + esc(p.slot.label) + '</b> has just been taken.</p>'\n  + (list ? '<p>Please choose another time:</p>' + list : '<p>Please reply to your invitation email and we\\'ll find another time.</p>');\nreturn [{ json: { code: 409, html: pageHtml(s.company || 'Northgate Talent', 'That time has gone', body) } }];\n"
+      }
+    },
+    {
+      "id": "4d5a5f96-f948-4ba9-b00c-00624ed4c854",
+      "name": "Message Page",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        600
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Every other case: a bad or old link, a time that's too soon, or already booked.\n// ---- lib-ngt.js (included by build.py): shared helpers for the Northgate workflows ----\nconst TZ = 'Europe/London';\nconst esc = s => String(s === null || s === undefined ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');\nconst settingsOf = items => Object.fromEntries(items.map(i => i.json).filter(r => r && r.key).map(r => [r.key, r.value]));\nconst parseJson = (s, d) => { try { return typeof s === 'string' ? JSON.parse(s) : (s === null || s === undefined ? d : s); } catch (e) { return d; } };\nconst nowIso = () => DateTime.now().setZone(TZ).toISO();\nconst newToken = n => Array.from({ length: n || 24 }, () => 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 56)]).join('');\nconst pounds = n => '£' + Math.round(Number(n) || 0).toLocaleString('en-GB');\nconst whenText = iso => DateTime.fromISO(String(iso), { zone: TZ }).toFormat(\"cccc d LLLL 'at' h:mm a\").replace(':00 ', ' ');\nconst firstName = name => String(name || '').trim().split(/\\s+/)[0] || 'there';\n\n// OpenAI node (Responses API) output: the JSON object from the first output_text part, or null.\nfunction aiJson(res) {\n  if (!res || res.error) return null;\n  const msg = (res.output || []).find(o => o && o.type === 'message');\n  const part = msg && (msg.content || []).find(c => c && c.type === 'output_text');\n  let t = part ? part.text : null;\n  if (typeof t === 'string') { try { t = JSON.parse(t); } catch (e) { t = null; } }\n  return t && typeof t === 'object' ? t : null;\n}\n\n// Plain, left-aligned email body with the agency's name at the top.\nfunction emailHtml(company, paragraphs, extraHtml) {\n  const p = paragraphs.map(t => '<p style=\"margin:0 0 14px;text-align:left\">' + t + '</p>').join('');\n  return '<div style=\"font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.55;color:#1f2933;max-width:560px;text-align:left\">'\n    + '<div style=\"font-weight:700;font-size:13px;letter-spacing:1px;text-transform:uppercase;color:#0b6e4f;margin:0 0 18px\">' + esc(company) + '</div>'\n    + p + (extraHtml || '') + '</div>';\n}\n\n// A small standalone web page for candidates (booking links, confirmations, problems).\nfunction pageHtml(company, title, bodyHtml) {\n  return '<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>' + esc(title) + ' · ' + esc(company) + '</title>'\n    + '<style>body{margin:0;background:#eef3f0;font:16px/1.55 -apple-system,\"Segoe UI\",Helvetica,Arial,sans-serif;color:#10231a}'\n    + '.card{max-width:520px;margin:48px auto;background:#fff;border:1px solid #dbe5df;border-radius:16px;padding:32px 30px;box-shadow:0 6px 24px rgba(16,35,26,.06)}'\n    + '.brand{font-size:12px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#0b6e4f;margin-bottom:18px}'\n    + 'h1{font-size:23px;margin:0 0 10px;letter-spacing:-.3px}p{color:#3d4f45;margin:0 0 12px}'\n    + '.slot{display:block;padding:12px 16px;border:1px solid #dbe5df;border-radius:12px;margin:8px 0;color:#0b6e4f;font-weight:600;text-decoration:none}.slot:hover{border-color:#0b6e4f;background:#f3faf6}'\n    + '.big{font-size:19px;font-weight:700;color:#10231a;margin:6px 0 14px}.muted{color:#6b7c72;font-size:13px}</style></head><body><div class=\"card\">'\n    + '<div class=\"brand\">' + esc(company) + '</div><h1>' + esc(title) + '</h1>' + bodyHtml + '</div></body></html>';\n}\n\nconst BAND_LABEL = { shortlist: 'Shortlist', review: 'Worth a look', unlikely: 'Unlikely fit', knockout: 'Knockout' };\n// ---- end lib-ngt.js ----\nconst p = $('Check Link').first().json;\nconst s = p.settings || {};\nconst company = s.company || 'Northgate Talent';\nconst c = p.candidate;\nconst pages = {\n  invalid: [404, 'Link not recognised', '<p>This link isn\\'t valid. Please use the link in your invitation email.</p>'],\n  closed: [410, 'This invitation has closed', '<p>This invitation is no longer open. If you think that\\'s a mistake, reply to the email and we\\'ll help.</p>'],\n  too_late: [409, 'That time is too soon', '<p>Interviews need at least two hours\\' notice. Please pick a later time from your email.</p>'],\n  already: [200, 'You\\'re already booked', '<p>Your interview is booked for <b>' + esc(c && c.interview_at ? whenText(c.interview_at) : '') + '</b>. To change it, reply to your confirmation email.</p>']\n};\nconst [code, title, body] = pages[p.route] || pages.invalid;\nreturn [{ json: { code, html: pageHtml(company, title, body) } }];\n"
+      }
+    },
+    {
+      "id": "cc189d9b-99fd-400b-a609-51c42e613151",
+      "name": "Sticky Note cc189d9b",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        160,
+        -20
+      ],
+      "parameters": {
+        "content": "## Northgate 6: Book Interview\nThe candidate clicks a time in their invitation (`/webhook/northgate/book?c=…&t=…&s=…`).\n1. **Check Link**: the private token must match, the candidate must still be invited, and the time must be one of those offered and at least 2 hours away.\n2. The time is checked against the calendar again right now (**Northgate 9**), so two candidates can't get the same slot.\n3. The interview is booked with both people as guests, the candidate is marked **interview booked**, both get an email and the candidate sees a confirmation page. If the time has gone, they see the other times.",
+        "color": 5,
+        "width": 1400,
+        "height": 240
+      }
+    }
+  ],
+  "connections": {
+    "Booking Link": {
+      "main": [
+        [
+          {
+            "node": "Read Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Settings": {
+      "main": [
+        [
+          {
+            "node": "Read Candidate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Candidate": {
+      "main": [
+        [
+          {
+            "node": "Read Jobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Jobs": {
+      "main": [
+        [
+          {
+            "node": "Check Link",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Link": {
+      "main": [
+        [
+          {
+            "node": "Link OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Link OK?": {
+      "main": [
+        [
+          {
+            "node": "Busy at That Time?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Message Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Busy at That Time?": {
+      "main": [
+        [
+          {
+            "node": "Still Free",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Still Free": {
+      "main": [
+        [
+          {
+            "node": "Free?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Free?": {
+      "main": [
+        [
+          {
+            "node": "Book Interview",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Taken Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Book Interview": {
+      "main": [
+        [
+          {
+            "node": "Booked",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Booked": {
+      "main": [
+        [
+          {
+            "node": "Update Candidate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Candidate": {
+      "main": [
+        [
+          {
+            "node": "Log Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Event": {
+      "main": [
+        [
+          {
+            "node": "Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Emails": {
+      "main": [
+        [
+          {
+            "node": "Send Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Emails": {
+      "main": [
+        [
+          {
+            "node": "Confirmation Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Confirmation Page": {
+      "main": [
+        [
+          {
+            "node": "Send Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Taken Page": {
+      "main": [
+        [
+          {
+            "node": "Send Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message Page": {
+      "main": [
+        [
+          {
+            "node": "Send Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "timezone": "Europe/London",
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "iTxd64lDk3gI0bKG"
+  }
+}

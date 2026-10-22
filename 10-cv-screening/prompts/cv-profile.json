@@ -1,0 +1,23 @@
+{
+  "type": "object", "additionalProperties": false,
+  "required": ["is_cv", "unreadable", "contact", "headline", "total_years_experience", "roles", "skills", "education", "certifications", "languages", "document_flags"],
+  "properties": {
+    "is_cv": { "type": "boolean" },
+    "unreadable": { "type": "boolean" },
+    "contact": { "type": "object", "additionalProperties": false, "required": ["name", "email", "phone", "location"],
+      "properties": { "name": { "type": "string" }, "email": { "type": "string" }, "phone": { "type": "string" }, "location": { "type": "string" } } },
+    "headline": { "type": "string" },
+    "total_years_experience": { "type": "number" },
+    "roles": { "type": "array", "items": { "type": "object", "additionalProperties": false,
+      "required": ["title", "organisation", "start", "end", "months", "highlights"],
+      "properties": { "title": { "type": "string" }, "organisation": { "type": "string" }, "start": { "type": "string" }, "end": { "type": "string" },
+        "months": { "type": "number" }, "highlights": { "type": "array", "items": { "type": "string" } } } } },
+    "skills": { "type": "array", "items": { "type": "string" } },
+    "education": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["qualification", "institution", "year"],
+      "properties": { "qualification": { "type": "string" }, "institution": { "type": "string" }, "year": { "type": "string" } } } },
+    "certifications": { "type": "array", "items": { "type": "string" } },
+    "languages": { "type": "array", "items": { "type": "string" } },
+    "document_flags": { "type": "object", "additionalProperties": false, "required": ["embedded_instructions", "embedded_instructions_text"],
+      "properties": { "embedded_instructions": { "type": "boolean" }, "embedded_instructions_text": { "type": "string" } } }
+  }
+}

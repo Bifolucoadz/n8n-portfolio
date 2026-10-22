@@ -1,0 +1,944 @@
+{
+  "id": "tdwCrmAdapter003",
+  "name": "Tidewater 3: CRM",
+  "description": "Call to CRM (project 8): CRM adapter. Reads deals and writes notes, tasks and deal fields in HubSpot (live) or the Tidewater tables (test).",
+  "nodes": [
+    {
+      "id": "4499ba32-b13e-47fe-bc0e-f1a44f1854d6",
+      "name": "When Called",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        200,
+        600
+      ],
+      "parameters": {
+        "inputSource": "passthrough"
+      }
+    },
+    {
+      "id": "aa107859-2c3e-406b-a353-0d1b52a4b6cb",
+      "name": "Read Settings",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        420,
+        600
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "IFuurjqqfST0GLCi",
+          "cachedResultName": "Tidewater Settings"
+        },
+        "returnAll": true
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "4783f287-151c-4c7f-89c3-a5aa929e6992",
+      "name": "Route",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        640,
+        600
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Which CRM: HubSpot in live mode, the Tidewater tables in test mode.\n// ---- lib-tdw.js (included by build.py): shared helpers for the Tidewater workflows ----\nconst TZ = 'America/New_York';\nconst esc = s => String(s === null || s === undefined ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');\nconst settingsOf = items => Object.fromEntries(items.map(i => i.json).filter(r => r && r.key).map(r => [r.key, r.value]));\nconst parseJson = (s, d) => { try { return typeof s === 'string' ? JSON.parse(s) : (s === null || s === undefined ? d : s); } catch (e) { return d; } };\nconst nowIso = () => DateTime.now().setZone(TZ).toISO();\nconst newId = (prefix, n) => prefix + Array.from({ length: n || 5 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 32)]).join('');\nconst newToken = n => Array.from({ length: n || 24 }, () => 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 56)]).join('');\nconst dollars = n => '$' + Math.round(Number(n) || 0).toLocaleString('en-US');\nconst mmss = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');\n\n// HubSpot's default sales pipeline.\nconst STAGES = [\n  ['appointmentscheduled', 'Appointment scheduled', 'A first meeting is booked.'],\n  ['qualifiedtobuy', 'Qualified to buy', 'Need, rough budget, decision process and timeline are understood.'],\n  ['presentationscheduled', 'Presentation scheduled', 'A demo or presentation is booked or has been given.'],\n  ['decisionmakerboughtin', 'Decision maker bought-in', 'The person who signs has seen it and supports it.'],\n  ['contractsent', 'Contract sent', 'A proposal or contract has been sent.'],\n  ['closedwon', 'Closed won', 'Signed.'],\n  ['closedlost', 'Closed lost', 'The prospect said no.']\n];\nconst stageIndex = id => STAGES.findIndex(s => s[0] === id);\nconst stageLabel = id => (STAGES.find(s => s[0] === id) || [id, id])[1];\n\n// OpenAI node (Responses API) output: the JSON object from the first output_text part, or null.\nfunction aiJson(res) {\n  if (!res || res.error) return null;\n  const msg = (res.output || []).find(o => o && o.type === 'message');\n  const part = msg && (msg.content || []).find(c => c && c.type === 'output_text');\n  let t = part ? part.text : null;\n  if (typeof t === 'string') { try { t = JSON.parse(t); } catch (e) { t = null; } }\n  return t && typeof t === 'object' ? t : null;\n}\n\n// Is this quote really in the transcript? (case, punctuation and spacing ignored)\nconst norm = s => String(s || '').toLowerCase().replace(/[’']/g, \"'\").replace(/[^a-z0-9' ]+/g, ' ').replace(/\\s+/g, ' ').trim();\nconst quoteFound = (quote, transcriptNorm) => { const q = norm(quote); return q.length >= 6 && transcriptNorm.includes(q); };\n\nfunction emailHtml(company, paragraphs, extraHtml) {\n  const p = paragraphs.map(t => '<p style=\"margin:0 0 14px;text-align:left\">' + t + '</p>').join('');\n  return '<div style=\"font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.55;color:#1f2933;max-width:560px;text-align:left\">'\n    + '<div style=\"font-weight:700;font-size:13px;letter-spacing:1px;text-transform:uppercase;color:#1d4ed8;margin:0 0 18px\">' + esc(company) + '</div>'\n    + p + (extraHtml || '') + '</div>';\n}\nconst plainToHtml = t => String(t || '').split(/\\n{2,}/).map(p => '<p style=\"margin:0 0 14px;text-align:left\">' + esc(p).replace(/\\n/g, '<br>') + '</p>').join('');\n// ---- end lib-tdw.js ----\nconst s = settingsOf($('Read Settings').all());\nconst i = $('When Called').first().json;\nreturn [{ json: { ...i, route: (s.mode === 'live' ? 'live_' : 'test_') + i.action, pipeline: s.hubspot_pipeline || 'default' } }];\n"
+      }
+    },
+    {
+      "id": "8e193c45-9ac1-449c-8cd9-567a4fdb3df7",
+      "name": "Which Action?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        860,
+        600
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "outputKey": "test get deal",
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "test_get_deal"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "outputKey": "test update deal",
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "test_update_deal"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "outputKey": "test note or task",
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "regex"
+                    },
+                    "rightValue": "^test_(add_note|create_task)$"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "outputKey": "live get deal",
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "live_get_deal"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "outputKey": "live write",
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "regex"
+                    },
+                    "rightValue": "^live_(update_deal|add_note|create_task)$"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "54ca0c37-73a5-4077-b1df-c4a63a8bac3e",
+      "name": "Read Deal",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1100,
+        200
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "6fad2EyLoty9oElv",
+          "cachedResultName": "Tidewater Deals"
+        },
+        "returnAll": true,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "deal_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Route').first().json.deal_id }}"
+            }
+          ]
+        }
+      },
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "id": "0350df5e-9474-4ab8-9218-912ccf0d38aa",
+      "name": "Read Companies",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1320,
+        200
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "h1O24r8zgxQeqODi",
+          "cachedResultName": "Tidewater Companies"
+        },
+        "returnAll": true
+      },
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "id": "d3fdd36b-1ffe-428d-ab39-832393f27f69",
+      "name": "Read Contacts",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1540,
+        200
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "0jlx2ckch1Gj6Qtr",
+          "cachedResultName": "Tidewater Contacts"
+        },
+        "returnAll": true
+      },
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "id": "fcc10276-5a29-4552-b69b-61159cff13fe",
+      "name": "Read Activity",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1760,
+        200
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "VUrS7HRsgmNpXROv",
+          "cachedResultName": "Tidewater Activity"
+        },
+        "returnAll": true,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "deal_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Route').first().json.deal_id }}"
+            }
+          ]
+        }
+      },
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "id": "5ef6c5d2-1840-47d4-83e0-99165a343d4d",
+      "name": "Deal (Test)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1980,
+        200
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// The deal with its company, contacts and recent activity, from the test tables.\n// ---- lib-tdw.js (included by build.py): shared helpers for the Tidewater workflows ----\nconst TZ = 'America/New_York';\nconst esc = s => String(s === null || s === undefined ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');\nconst settingsOf = items => Object.fromEntries(items.map(i => i.json).filter(r => r && r.key).map(r => [r.key, r.value]));\nconst parseJson = (s, d) => { try { return typeof s === 'string' ? JSON.parse(s) : (s === null || s === undefined ? d : s); } catch (e) { return d; } };\nconst nowIso = () => DateTime.now().setZone(TZ).toISO();\nconst newId = (prefix, n) => prefix + Array.from({ length: n || 5 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 32)]).join('');\nconst newToken = n => Array.from({ length: n || 24 }, () => 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 56)]).join('');\nconst dollars = n => '$' + Math.round(Number(n) || 0).toLocaleString('en-US');\nconst mmss = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');\n\n// HubSpot's default sales pipeline.\nconst STAGES = [\n  ['appointmentscheduled', 'Appointment scheduled', 'A first meeting is booked.'],\n  ['qualifiedtobuy', 'Qualified to buy', 'Need, rough budget, decision process and timeline are understood.'],\n  ['presentationscheduled', 'Presentation scheduled', 'A demo or presentation is booked or has been given.'],\n  ['decisionmakerboughtin', 'Decision maker bought-in', 'The person who signs has seen it and supports it.'],\n  ['contractsent', 'Contract sent', 'A proposal or contract has been sent.'],\n  ['closedwon', 'Closed won', 'Signed.'],\n  ['closedlost', 'Closed lost', 'The prospect said no.']\n];\nconst stageIndex = id => STAGES.findIndex(s => s[0] === id);\nconst stageLabel = id => (STAGES.find(s => s[0] === id) || [id, id])[1];\n\n// OpenAI node (Responses API) output: the JSON object from the first output_text part, or null.\nfunction aiJson(res) {\n  if (!res || res.error) return null;\n  const msg = (res.output || []).find(o => o && o.type === 'message');\n  const part = msg && (msg.content || []).find(c => c && c.type === 'output_text');\n  let t = part ? part.text : null;\n  if (typeof t === 'string') { try { t = JSON.parse(t); } catch (e) { t = null; } }\n  return t && typeof t === 'object' ? t : null;\n}\n\n// Is this quote really in the transcript? (case, punctuation and spacing ignored)\nconst norm = s => String(s || '').toLowerCase().replace(/[’']/g, \"'\").replace(/[^a-z0-9' ]+/g, ' ').replace(/\\s+/g, ' ').trim();\nconst quoteFound = (quote, transcriptNorm) => { const q = norm(quote); return q.length >= 6 && transcriptNorm.includes(q); };\n\nfunction emailHtml(company, paragraphs, extraHtml) {\n  const p = paragraphs.map(t => '<p style=\"margin:0 0 14px;text-align:left\">' + t + '</p>').join('');\n  return '<div style=\"font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.55;color:#1f2933;max-width:560px;text-align:left\">'\n    + '<div style=\"font-weight:700;font-size:13px;letter-spacing:1px;text-transform:uppercase;color:#1d4ed8;margin:0 0 18px\">' + esc(company) + '</div>'\n    + p + (extraHtml || '') + '</div>';\n}\nconst plainToHtml = t => String(t || '').split(/\\n{2,}/).map(p => '<p style=\"margin:0 0 14px;text-align:left\">' + esc(p).replace(/\\n/g, '<br>') + '</p>').join('');\n// ---- end lib-tdw.js ----\nconst id = $('Route').first().json.deal_id;\nconst deal = $('Read Deal').all().map(i => i.json).find(d => d.deal_id === id) || null;\nconst company = deal ? ($('Read Companies').all().map(i => i.json).find(c => c.company_id === deal.company_id) || null) : null;\nconst contacts = deal ? $('Read Contacts').all().map(i => i.json).filter(c => c.company_id === deal.company_id).map(c => ({ contact_id: c.contact_id, name: c.name, email: c.email, title: c.title })) : [];\nconst activity = $('Read Activity').all().map(i => i.json).filter(a => a.deal_id === id).sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))\n  .map(a => ({ kind: a.kind, title: a.title, body: a.body, due: a.due, status: a.status, created_at: a.created_at }));\nif (!deal) return [{ json: { found: false } }];\nconst { id: _1, createdAt: _2, updatedAt: _3, ...d } = deal;\nreturn [{ json: { found: true, deal: d, company, contacts, activity } }];\n"
+      }
+    },
+    {
+      "id": "2af21e91-77c0-4602-b9c7-ca9f58fb092f",
+      "name": "Changed Fields",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        420
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Only the fields being changed, so the rest of the deal row is left alone.\n// ---- lib-tdw.js (included by build.py): shared helpers for the Tidewater workflows ----\nconst TZ = 'America/New_York';\nconst esc = s => String(s === null || s === undefined ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');\nconst settingsOf = items => Object.fromEntries(items.map(i => i.json).filter(r => r && r.key).map(r => [r.key, r.value]));\nconst parseJson = (s, d) => { try { return typeof s === 'string' ? JSON.parse(s) : (s === null || s === undefined ? d : s); } catch (e) { return d; } };\nconst nowIso = () => DateTime.now().setZone(TZ).toISO();\nconst newId = (prefix, n) => prefix + Array.from({ length: n || 5 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 32)]).join('');\nconst newToken = n => Array.from({ length: n || 24 }, () => 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 56)]).join('');\nconst dollars = n => '$' + Math.round(Number(n) || 0).toLocaleString('en-US');\nconst mmss = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');\n\n// HubSpot's default sales pipeline.\nconst STAGES = [\n  ['appointmentscheduled', 'Appointment scheduled', 'A first meeting is booked.'],\n  ['qualifiedtobuy', 'Qualified to buy', 'Need, rough budget, decision process and timeline are understood.'],\n  ['presentationscheduled', 'Presentation scheduled', 'A demo or presentation is booked or has been given.'],\n  ['decisionmakerboughtin', 'Decision maker bought-in', 'The person who signs has seen it and supports it.'],\n  ['contractsent', 'Contract sent', 'A proposal or contract has been sent.'],\n  ['closedwon', 'Closed won', 'Signed.'],\n  ['closedlost', 'Closed lost', 'The prospect said no.']\n];\nconst stageIndex = id => STAGES.findIndex(s => s[0] === id);\nconst stageLabel = id => (STAGES.find(s => s[0] === id) || [id, id])[1];\n\n// OpenAI node (Responses API) output: the JSON object from the first output_text part, or null.\nfunction aiJson(res) {\n  if (!res || res.error) return null;\n  const msg = (res.output || []).find(o => o && o.type === 'message');\n  const part = msg && (msg.content || []).find(c => c && c.type === 'output_text');\n  let t = part ? part.text : null;\n  if (typeof t === 'string') { try { t = JSON.parse(t); } catch (e) { t = null; } }\n  return t && typeof t === 'object' ? t : null;\n}\n\n// Is this quote really in the transcript? (case, punctuation and spacing ignored)\nconst norm = s => String(s || '').toLowerCase().replace(/[’']/g, \"'\").replace(/[^a-z0-9' ]+/g, ' ').replace(/\\s+/g, ' ').trim();\nconst quoteFound = (quote, transcriptNorm) => { const q = norm(quote); return q.length >= 6 && transcriptNorm.includes(q); };\n\nfunction emailHtml(company, paragraphs, extraHtml) {\n  const p = paragraphs.map(t => '<p style=\"margin:0 0 14px;text-align:left\">' + t + '</p>').join('');\n  return '<div style=\"font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.55;color:#1f2933;max-width:560px;text-align:left\">'\n    + '<div style=\"font-weight:700;font-size:13px;letter-spacing:1px;text-transform:uppercase;color:#1d4ed8;margin:0 0 18px\">' + esc(company) + '</div>'\n    + p + (extraHtml || '') + '</div>';\n}\nconst plainToHtml = t => String(t || '').split(/\\n{2,}/).map(p => '<p style=\"margin:0 0 14px;text-align:left\">' + esc(p).replace(/\\n/g, '<br>') + '</p>').join('');\n// ---- end lib-tdw.js ----\nconst i = $('Route').first().json;\nconst f = i.fields || {};\nconst out = { deal_id: i.deal_id, updated_at: nowIso() };\nfor (const k of ['stage', 'amount', 'close_date', 'next_step']) if (f[k] !== undefined && f[k] !== null && f[k] !== '') out[k] = f[k];\nreturn [{ json: out }];\n"
+      }
+    },
+    {
+      "id": "57508afe-1046-4e2d-842c-f58a86552d18",
+      "name": "Update Deal Row",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1320,
+        420
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "6fad2EyLoty9oElv",
+          "cachedResultName": "Tidewater Deals"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "deal_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.deal_id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "schema": [
+            {
+              "id": "deal_id",
+              "displayName": "deal_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "company_id",
+              "displayName": "company_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "stage",
+              "displayName": "stage",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "amount",
+              "displayName": "amount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "close_date",
+              "displayName": "close_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "owner",
+              "displayName": "owner",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "next_step",
+              "displayName": "next_step",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "updated_at",
+              "displayName": "updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "7acf9e07-64ee-4533-8c31-eecb77584a40",
+      "name": "Done",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        720
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// The same answer shape for every write, in both modes.\nconst i = $('Route').first().json;\nreturn [{ json: { ok: true, action: i.action, deal_id: i.deal_id, title: i.title || '', id: String(($input.first().json || {}).activity_id || ($input.first().json || {}).id || '') } }];\n"
+      }
+    },
+    {
+      "id": "f06f2e04-09ca-423d-b984-30b4122d073a",
+      "name": "Activity Row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        620
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// A note (logged call) or task row for the test CRM.\n// ---- lib-tdw.js (included by build.py): shared helpers for the Tidewater workflows ----\nconst TZ = 'America/New_York';\nconst esc = s => String(s === null || s === undefined ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');\nconst settingsOf = items => Object.fromEntries(items.map(i => i.json).filter(r => r && r.key).map(r => [r.key, r.value]));\nconst parseJson = (s, d) => { try { return typeof s === 'string' ? JSON.parse(s) : (s === null || s === undefined ? d : s); } catch (e) { return d; } };\nconst nowIso = () => DateTime.now().setZone(TZ).toISO();\nconst newId = (prefix, n) => prefix + Array.from({ length: n || 5 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 32)]).join('');\nconst newToken = n => Array.from({ length: n || 24 }, () => 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 56)]).join('');\nconst dollars = n => '$' + Math.round(Number(n) || 0).toLocaleString('en-US');\nconst mmss = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');\n\n// HubSpot's default sales pipeline.\nconst STAGES = [\n  ['appointmentscheduled', 'Appointment scheduled', 'A first meeting is booked.'],\n  ['qualifiedtobuy', 'Qualified to buy', 'Need, rough budget, decision process and timeline are understood.'],\n  ['presentationscheduled', 'Presentation scheduled', 'A demo or presentation is booked or has been given.'],\n  ['decisionmakerboughtin', 'Decision maker bought-in', 'The person who signs has seen it and supports it.'],\n  ['contractsent', 'Contract sent', 'A proposal or contract has been sent.'],\n  ['closedwon', 'Closed won', 'Signed.'],\n  ['closedlost', 'Closed lost', 'The prospect said no.']\n];\nconst stageIndex = id => STAGES.findIndex(s => s[0] === id);\nconst stageLabel = id => (STAGES.find(s => s[0] === id) || [id, id])[1];\n\n// OpenAI node (Responses API) output: the JSON object from the first output_text part, or null.\nfunction aiJson(res) {\n  if (!res || res.error) return null;\n  const msg = (res.output || []).find(o => o && o.type === 'message');\n  const part = msg && (msg.content || []).find(c => c && c.type === 'output_text');\n  let t = part ? part.text : null;\n  if (typeof t === 'string') { try { t = JSON.parse(t); } catch (e) { t = null; } }\n  return t && typeof t === 'object' ? t : null;\n}\n\n// Is this quote really in the transcript? (case, punctuation and spacing ignored)\nconst norm = s => String(s || '').toLowerCase().replace(/[’']/g, \"'\").replace(/[^a-z0-9' ]+/g, ' ').replace(/\\s+/g, ' ').trim();\nconst quoteFound = (quote, transcriptNorm) => { const q = norm(quote); return q.length >= 6 && transcriptNorm.includes(q); };\n\nfunction emailHtml(company, paragraphs, extraHtml) {\n  const p = paragraphs.map(t => '<p style=\"margin:0 0 14px;text-align:left\">' + t + '</p>').join('');\n  return '<div style=\"font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.55;color:#1f2933;max-width:560px;text-align:left\">'\n    + '<div style=\"font-weight:700;font-size:13px;letter-spacing:1px;text-transform:uppercase;color:#1d4ed8;margin:0 0 18px\">' + esc(company) + '</div>'\n    + p + (extraHtml || '') + '</div>';\n}\nconst plainToHtml = t => String(t || '').split(/\\n{2,}/).map(p => '<p style=\"margin:0 0 14px;text-align:left\">' + esc(p).replace(/\\n/g, '<br>') + '</p>').join('');\n// ---- end lib-tdw.js ----\nconst i = $('Route').first().json;\nreturn [{ json: {\n  activity_id: newId(i.action === 'create_task' ? 'T-' : 'N-'), deal_id: i.deal_id, kind: i.action === 'create_task' ? 'task' : (i.kind || 'call'),\n  title: i.title || '', body: i.body || '', owner: i.owner || '', due: i.due || '', status: i.action === 'create_task' ? 'open' : 'done',\n  source: i.source || 'call-autopilot', created_at: nowIso()\n} }];\n"
+      }
+    },
+    {
+      "id": "eeec9101-99cd-4c30-a59c-b68ef149cd7f",
+      "name": "Add Activity",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1320,
+        620
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "VUrS7HRsgmNpXROv",
+          "cachedResultName": "Tidewater Activity"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "activity_id": "={{ $json.activity_id }}",
+            "deal_id": "={{ $json.deal_id }}",
+            "kind": "={{ $json.kind }}",
+            "title": "={{ $json.title }}",
+            "body": "={{ $json.body }}",
+            "owner": "={{ $json.owner }}",
+            "due": "={{ $json.due }}",
+            "status": "={{ $json.status }}",
+            "source": "={{ $json.source }}",
+            "created_at": "={{ $json.created_at }}"
+          },
+          "schema": [
+            {
+              "id": "activity_id",
+              "displayName": "activity_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "deal_id",
+              "displayName": "deal_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "kind",
+              "displayName": "kind",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "title",
+              "displayName": "title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "body",
+              "displayName": "body",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "owner",
+              "displayName": "owner",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "due",
+              "displayName": "due",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "source",
+              "displayName": "source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "3b5f7ff9-7949-4ff6-a056-4421b7fe17ef",
+      "name": "HubSpot Deal",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1100,
+        860
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.hubapi.com/crm/v3/objects/deals/{{ encodeURIComponent($('Route').first().json.deal_id) }}?properties=dealname,dealstage,amount,closedate,hubspot_owner_id,hs_next_step&associations=companies,contacts",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "hubspotAppToken"
+      },
+      "credentials": {},
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "disabled": true
+    },
+    {
+      "id": "75eaff76-ae2e-4257-833a-b6c2d424f02c",
+      "name": "HubSpot Contacts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1320,
+        860
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/contacts/batch/read",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "hubspotAppToken",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ properties: [\"firstname\", \"lastname\", \"email\", \"jobtitle\"], inputs: ((($json.associations || {}).contacts || {}).results || []).map(c => ({ id: c.id })) }) }}",
+        "options": {}
+      },
+      "credentials": {},
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "disabled": true
+    },
+    {
+      "id": "b6a436bf-52b7-4533-8e53-b952c6a68aa2",
+      "name": "Deal (Live)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        860
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// The deal with its company and contacts, from HubSpot (deal properties plus associated contacts).\nconst d = $('HubSpot Deal').first().json || {};\nconst p = d.properties || {};\nconst contacts = $('HubSpot Contacts').all().map(i => i.json).filter(c => c && c.properties).map(c => ({\n  contact_id: String(c.id), name: [c.properties.firstname, c.properties.lastname].filter(Boolean).join(' '), email: c.properties.email || '', title: c.properties.jobtitle || ''\n}));\nconst companyId = (((d.associations || {}).companies || {}).results || [])[0];\nreturn [{ json: {\n  found: !!d.id,\n  deal: { deal_id: String(d.id || ''), name: p.dealname || '', company_id: companyId ? String(companyId.id) : '', stage: p.dealstage || '', amount: Number(p.amount) || 0,\n    close_date: (p.closedate || '').slice(0, 10), owner: p.hubspot_owner_id || '', next_step: p.hs_next_step || '' },\n  company: { name: p.dealname ? p.dealname.split(':')[0] : '' },\n  contacts,\n  activity: []\n} }];\n"
+      }
+    },
+    {
+      "id": "6f68c95e-a061-4e16-bfa9-1e418c4dee29",
+      "name": "HubSpot Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        1060
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// The HubSpot API request for a write: PATCH the deal, or create a note or task linked to the deal\n// (association types 214 note→deal, 216 task→deal).\n// ---- lib-tdw.js (included by build.py): shared helpers for the Tidewater workflows ----\nconst TZ = 'America/New_York';\nconst esc = s => String(s === null || s === undefined ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');\nconst settingsOf = items => Object.fromEntries(items.map(i => i.json).filter(r => r && r.key).map(r => [r.key, r.value]));\nconst parseJson = (s, d) => { try { return typeof s === 'string' ? JSON.parse(s) : (s === null || s === undefined ? d : s); } catch (e) { return d; } };\nconst nowIso = () => DateTime.now().setZone(TZ).toISO();\nconst newId = (prefix, n) => prefix + Array.from({ length: n || 5 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 32)]).join('');\nconst newToken = n => Array.from({ length: n || 24 }, () => 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 56)]).join('');\nconst dollars = n => '$' + Math.round(Number(n) || 0).toLocaleString('en-US');\nconst mmss = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');\n\n// HubSpot's default sales pipeline.\nconst STAGES = [\n  ['appointmentscheduled', 'Appointment scheduled', 'A first meeting is booked.'],\n  ['qualifiedtobuy', 'Qualified to buy', 'Need, rough budget, decision process and timeline are understood.'],\n  ['presentationscheduled', 'Presentation scheduled', 'A demo or presentation is booked or has been given.'],\n  ['decisionmakerboughtin', 'Decision maker bought-in', 'The person who signs has seen it and supports it.'],\n  ['contractsent', 'Contract sent', 'A proposal or contract has been sent.'],\n  ['closedwon', 'Closed won', 'Signed.'],\n  ['closedlost', 'Closed lost', 'The prospect said no.']\n];\nconst stageIndex = id => STAGES.findIndex(s => s[0] === id);\nconst stageLabel = id => (STAGES.find(s => s[0] === id) || [id, id])[1];\n\n// OpenAI node (Responses API) output: the JSON object from the first output_text part, or null.\nfunction aiJson(res) {\n  if (!res || res.error) return null;\n  const msg = (res.output || []).find(o => o && o.type === 'message');\n  const part = msg && (msg.content || []).find(c => c && c.type === 'output_text');\n  let t = part ? part.text : null;\n  if (typeof t === 'string') { try { t = JSON.parse(t); } catch (e) { t = null; } }\n  return t && typeof t === 'object' ? t : null;\n}\n\n// Is this quote really in the transcript? (case, punctuation and spacing ignored)\nconst norm = s => String(s || '').toLowerCase().replace(/[’']/g, \"'\").replace(/[^a-z0-9' ]+/g, ' ').replace(/\\s+/g, ' ').trim();\nconst quoteFound = (quote, transcriptNorm) => { const q = norm(quote); return q.length >= 6 && transcriptNorm.includes(q); };\n\nfunction emailHtml(company, paragraphs, extraHtml) {\n  const p = paragraphs.map(t => '<p style=\"margin:0 0 14px;text-align:left\">' + t + '</p>').join('');\n  return '<div style=\"font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.55;color:#1f2933;max-width:560px;text-align:left\">'\n    + '<div style=\"font-weight:700;font-size:13px;letter-spacing:1px;text-transform:uppercase;color:#1d4ed8;margin:0 0 18px\">' + esc(company) + '</div>'\n    + p + (extraHtml || '') + '</div>';\n}\nconst plainToHtml = t => String(t || '').split(/\\n{2,}/).map(p => '<p style=\"margin:0 0 14px;text-align:left\">' + esc(p).replace(/\\n/g, '<br>') + '</p>').join('');\n// ---- end lib-tdw.js ----\nconst i = $('Route').first().json;\nconst f = i.fields || {};\nlet method = 'POST', url = '', body = {};\nif (i.action === 'update_deal') {\n  method = 'PATCH';\n  url = 'https://api.hubapi.com/crm/v3/objects/deals/' + encodeURIComponent(i.deal_id);\n  const props = {};\n  if (f.stage) props.dealstage = f.stage;\n  if (f.amount) props.amount = String(f.amount);\n  if (f.close_date) props.closedate = f.close_date;\n  if (f.next_step) props.hs_next_step = f.next_step;\n  body = { properties: props };\n} else if (i.action === 'create_task') {\n  url = 'https://api.hubapi.com/crm/v3/objects/tasks';\n  body = { properties: { hs_timestamp: DateTime.fromISO(i.due || DateTime.now().toISODate(), { zone: TZ }).set({ hour: 9 }).toISO(), hs_task_subject: i.title, hs_task_body: i.body || '', hs_task_status: 'NOT_STARTED', hs_task_priority: 'MEDIUM' },\n    associations: [{ to: { id: i.deal_id }, types: [{ associationCategory: 'HUBSPOT_DEFINED', associationTypeId: 216 }] }] };\n} else {\n  url = 'https://api.hubapi.com/crm/v3/objects/notes';\n  body = { properties: { hs_timestamp: nowIso(), hs_note_body: '<b>' + esc(i.title) + '</b><br>' + esc(i.body).replace(/\\n/g, '<br>') },\n    associations: [{ to: { id: i.deal_id }, types: [{ associationCategory: 'HUBSPOT_DEFINED', associationTypeId: 214 }] }] };\n}\nreturn [{ json: { method, url, body } }];\n"
+      }
+    },
+    {
+      "id": "c42607bb-2e67-4963-bd6e-6340a8289e15",
+      "name": "HubSpot Write",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1320,
+        1060
+      ],
+      "parameters": {
+        "method": "={{ $json.method }}",
+        "url": "={{ $json.url }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "hubspotAppToken",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      },
+      "credentials": {},
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "disabled": true
+    },
+    {
+      "id": "92b906ca-6a6e-4fd7-af48-2f1fc0410ee9",
+      "name": "Sticky Note 92b906ca",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        160,
+        0
+      ],
+      "parameters": {
+        "content": "## Tidewater 3: CRM\nThe only place that talks to the CRM, so the rest of the system doesn't care which one it is.\n- **get_deal**: the deal with its company, contacts and recent activity.\n- **update_deal**: changes only the fields given (stage, amount, close date, next step).\n- **add_note** / **create_task**: logged on the deal.\nTest mode uses the **Tidewater** tables. Live mode uses the HubSpot CRM API (deal properties, notes and tasks associated with the deal); those nodes stay off until a **HubSpot account** (private app token) credential exists.",
+        "color": 7,
+        "width": 1300,
+        "height": 200
+      }
+    }
+  ],
+  "connections": {
+    "When Called": {
+      "main": [
+        [
+          {
+            "node": "Read Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Settings": {
+      "main": [
+        [
+          {
+            "node": "Route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route": {
+      "main": [
+        [
+          {
+            "node": "Which Action?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Which Action?": {
+      "main": [
+        [
+          {
+            "node": "Read Deal",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Changed Fields",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Activity Row",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HubSpot Deal",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HubSpot Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Deal": {
+      "main": [
+        [
+          {
+            "node": "Read Companies",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Companies": {
+      "main": [
+        [
+          {
+            "node": "Read Contacts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Contacts": {
+      "main": [
+        [
+          {
+            "node": "Read Activity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Activity": {
+      "main": [
+        [
+          {
+            "node": "Deal (Test)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Changed Fields": {
+      "main": [
+        [
+          {
+            "node": "Update Deal Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Deal Row": {
+      "main": [
+        [
+          {
+            "node": "Done",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Activity Row": {
+      "main": [
+        [
+          {
+            "node": "Add Activity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add Activity": {
+      "main": [
+        [
+          {
+            "node": "Done",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HubSpot Deal": {
+      "main": [
+        [
+          {
+            "node": "HubSpot Contacts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HubSpot Contacts": {
+      "main": [
+        [
+          {
+            "node": "Deal (Live)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HubSpot Request": {
+      "main": [
+        [
+          {
+            "node": "HubSpot Write",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HubSpot Write": {
+      "main": [
+        [
+          {
+            "node": "Done",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "timezone": "America/New_York",
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "iTxd64lDk3gI0bKG"
+  }
+}

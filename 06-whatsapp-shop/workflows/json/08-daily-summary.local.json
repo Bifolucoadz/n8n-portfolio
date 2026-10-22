@@ -1,0 +1,242 @@
+{
+  "id": "honeycrumb-daily-summary",
+  "name": "Honeycrumb 8: Daily Summary",
+  "nodes": [
+    {
+      "id": "8f7b3eeb-ca23-4555-b879-bf0b699392d2",
+      "name": "Every Night 9 pm",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        200,
+        300
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 0 21 * * *"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "939275d3-c2ee-4b66-9356-da79c73b5f6d",
+      "name": "Read Settings",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        420,
+        400
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "PJ1UINshV66iby3v",
+          "cachedResultName": "Honeycrumb Settings"
+        },
+        "returnAll": true
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "d4e1de88-03cd-48fc-96ba-0a229de25f35",
+      "name": "Read Orders",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        640,
+        400
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "K3QpMm9jFMF8Daui",
+          "cachedResultName": "Honeycrumb Orders"
+        },
+        "returnAll": true
+      },
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "id": "ec0e1a6f-6cf0-4b73-a2c2-9f2db1b97e95",
+      "name": "Build Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// ---- lib-shop.js (included by build.py): prices, carts, zones and delivery rules ----\nconst SHOP = {\n  TZ: \"Africa/Lagos\",\n  OPEN_DAYS: [1, 2, 3, 4, 5, 6], // Monday-Saturday\n  CLOSED: [\"2026-12-25\", \"2026-12-26\", \"2027-01-01\"],\n  // window label -> start hour\n  WINDOWS: {\n    delivery: { \"10am-1pm\": 10, \"1pm-4pm\": 13, \"4pm-6pm\": 16 },\n    pickup: { \"9am-12pm\": 9, \"12pm-3pm\": 12, \"3pm-7pm\": 15 },\n  },\n  DAYS_AHEAD: 21,\n  MAX_QTY: 50,\n  CAKE_MESSAGE_MAX: 30,\n  PICKUP: \"14 Admiralty Way, Lekki Phase 1, Lagos\",\n};\n\nconst naira = n => \"₦\" + String(Math.round(Number(n) || 0)).replace(/\\B(?=(\\d{3})+(?!\\d))/g, \",\");\nconst clean = s => String(s ?? \"\").toLowerCase().replace(/[^a-z0-9 ]+/g, \" \").replace(/\\s+/g, \" \").trim();\nconst parseItems = json => {\n  try { const a = JSON.parse(json || \"[]\"); return Array.isArray(a) ? a : []; } catch (e) { return []; }\n};\nconst subtotalOf = items => items.reduce((s, i) => s + i.qty * i.unit_ngn, 0);\nconst itemLine = i => i.qty + \" × \" + i.name + (i.cake_message ? ' (message: \"' + i.cake_message + '\")' : \"\") + \" = \" + naira(i.qty * i.unit_ngn);\nconst newId = prefix => prefix + Array.from({ length: 4 }, () => \"ABCDEFGHJKLMNPQRSTUVWXYZ23456789\"[Math.floor(Math.random() * 32)]).join(\"\");\n\n// Product by SKU, else by name words (all words of the query must appear).\nfunction findProduct(products, ref) {\n  const r = String(ref ?? \"\").trim();\n  if (!r) return null;\n  const bySku = products.find(p => p.sku.toLowerCase() === r.toLowerCase());\n  if (bySku) return bySku;\n  const words = clean(r).split(\" \").filter(w => w.length > 1);\n  const hits = products.filter(p => words.every(w => clean(p.name + \" \" + p.sku).includes(w)));\n  return hits.length === 1 ? hits[0] : null;\n}\n\n// Delivery zone whose name or alias appears in the customer's text.\nfunction matchZone(zones, text) {\n  const t = \" \" + clean(text) + \" \";\n  let best = null;\n  for (const z of zones) {\n    const names = [z.area, ...String(z.aliases ?? \"\").split(\",\")].map(clean).filter(Boolean);\n    for (const n of names) {\n      if (t.includes(\" \" + n + \" \") && (!best || n.length > best.len)) best = { zone: z, len: n.length };\n    }\n  }\n  return best ? best.zone : null;\n}\n\nfunction isOpenDay(d) {\n  return SHOP.OPEN_DAYS.includes(d.weekday) && !SHOP.CLOSED.includes(d.toISODate());\n}\n\n// Earliest (day, window) that respects the longest lead time in the cart.\nfunction earliestSlot(leadHours, fulfilment, now) {\n  const windows = SHOP.WINDOWS[fulfilment] || SHOP.WINDOWS.delivery;\n  const ready = now.plus({ hours: leadHours });\n  for (let d = now.startOf(\"day\"); d <= now.startOf(\"day\").plus({ days: SHOP.DAYS_AHEAD }); d = d.plus({ days: 1 })) {\n    if (!isOpenDay(d)) continue;\n    for (const [label, hour] of Object.entries(windows)) {\n      if (d.set({ hour }) >= ready) return { date: d, window: label };\n    }\n  }\n  return null;\n}\n\n// \"Thursday 30 October, 1pm-4pm\"\nconst sayDay = d => d.toFormat(\"cccc d LLLL\");\n// ---- end lib-shop.js ----\nconst now = DateTime.now().setZone(SHOP.TZ);\nconst today = now.toISODate();\nconst tomorrow = now.plus({ days: 1 }).toISODate();\nconst settings = Object.fromEntries($(\"Read Settings\").all().map(i => [i.json.key, i.json.value ?? \"\"]));\nconst orders = $(\"Read Orders\").all().map(i => i.json).filter(o => o.order_id);\nconst esc = s => String(s ?? \"\").replace(/&/g, \"&amp;\").replace(/</g, \"&lt;\").replace(/>/g, \"&gt;\");\nconst paidToday = orders.filter(o => o.paid_at && DateTime.fromISO(o.paid_at).setZone(SHOP.TZ).toISODate() === today);\nconst revenue = paidToday.reduce((s, o) => s + Number(o.total_ngn || 0), 0);\nconst counts = {};\nfor (const o of paidToday) for (const i of parseItems(o.items_json)) counts[i.name] = (counts[i.name] || 0) + i.qty;\nconst top = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 3);\nconst unpaid = orders.filter(o => o.status === \"awaiting_payment\");\nconst tmr = orders.filter(o => o.deliver_on === tomorrow && [\"paid\", \"baking\"].includes(o.status))\n  .sort((a, b) => String(a.window).localeCompare(String(b.window)));\nconst lines = [\n  \"🍰 <b>Honeycrumb today</b> (\" + now.toFormat(\"ccc d LLL\") + \")\",\n  \"\",\n  \"Paid orders: <b>\" + paidToday.length + \"</b> · revenue <b>\" + naira(revenue) + \"</b>\",\n  top.length ? \"Best sellers: \" + top.map(([n, q]) => esc(n) + \" ×\" + q).join(\", \") : \"Best sellers: none yet\",\n  \"Waiting for payment: \" + unpaid.length,\n  \"\",\n  \"<b>Tomorrow (\" + DateTime.fromISO(tomorrow).toFormat(\"ccc d LLL\") + \")</b>: \" + (tmr.length ? tmr.length + \" order\" + (tmr.length > 1 ? \"s\" : \"\") : \"nothing scheduled\"),\n  ...tmr.map(o => \"• \" + esc(o.window) + \" \" + esc(o.order_id) + \" \" + (o.fulfilment === \"delivery\" ? \"🚚 \" + esc(o.area) : \"🛍️ pickup\") + \": \" + parseItems(o.items_json).map(i => i.qty + \"× \" + esc(i.name)).join(\", \")),\n];\nreturn [{ json: { chat_id: settings.owner_chat_id, text: lines.join(\"\\n\") } }];\n"
+      }
+    },
+    {
+      "id": "dfadadc6-3ab2-4302-a1a4-3eb1ef5121bf",
+      "name": "Owner Chat Set?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1080,
+        400
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.chat_id }}",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "6b4088da-4a14-4517-a81a-8abf0e9b74db",
+      "name": "Send Summary",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1300,
+        340
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $json.chat_id }}",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML",
+          "disable_web_page_preview": true
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "V3kTN1drqw8YNjzk",
+          "name": "Telegram account"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000
+    },
+    {
+      "id": "563eaa76-fab5-4391-93e6-0a5c6b508476",
+      "name": "Send Now",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        200,
+        500
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "ed9225a1-f378-4e93-9a7c-efe858d181b1",
+      "name": "Sticky Note ed9225a1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        160,
+        120
+      ],
+      "parameters": {
+        "content": "## Honeycrumb 8: Daily Summary\n9 pm Lagos time (or **Send Now**): paid orders and revenue today, best sellers, orders still waiting for payment, and tomorrow's bake and delivery list, on the owner's Telegram.",
+        "color": 5,
+        "width": 760,
+        "height": 160
+      }
+    }
+  ],
+  "connections": {
+    "Every Night 9 pm": {
+      "main": [
+        [
+          {
+            "node": "Read Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Settings": {
+      "main": [
+        [
+          {
+            "node": "Read Orders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Orders": {
+      "main": [
+        [
+          {
+            "node": "Build Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Summary": {
+      "main": [
+        [
+          {
+            "node": "Owner Chat Set?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Owner Chat Set?": {
+      "main": [
+        [
+          {
+            "node": "Send Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Now": {
+      "main": [
+        [
+          {
+            "node": "Read Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {}
+}

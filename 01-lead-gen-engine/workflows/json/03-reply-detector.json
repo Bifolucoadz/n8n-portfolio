@@ -1,0 +1,860 @@
+[
+  {
+    "updatedAt": "2026-10-01T13:13:21.256Z",
+    "createdAt": "2026-10-01T11:59:55.751Z",
+    "id": "xJ6S9S4kUXG1Oc0H",
+    "name": "Lead Engine 3: Reply Detector",
+    "description": "Polls Gmail every 5 min, matches replies to leads by thread or sender, handles bounces and stop requests by rule, OpenAI classifies the rest, updates the sheet and alerts on interested replies.",
+    "active": false,
+    "isArchived": false,
+    "nodes": [
+      {
+        "parameters": {
+          "pollTimes": {
+            "item": [
+              {
+                "mode": "everyX",
+                "value": 5,
+                "unit": "minutes"
+              }
+            ]
+          },
+          "simple": false,
+          "maxResults": 25,
+          "filters": {
+            "includeSpamTrash": false,
+            "q": "in:inbox -from:me",
+            "readStatus": "both"
+          },
+          "options": {}
+        },
+        "id": "8bbf35fd-d42e-4bc5-bf7d-045367a3fe3e",
+        "name": "Check Inbox Every 5 Min",
+        "type": "n8n-nodes-base.gmailTrigger",
+        "typeVersion": 1.4,
+        "position": [
+          224,
+          304
+        ],
+        "credentials": {
+          "gmailOAuth2": {
+            "id": "9FKWoKxErtgj9Qg7",
+            "name": "Gmail account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "cfg-notify",
+                "name": "NOTIFY_EMAIL",
+                "value": "samuelgurru@gmail.com",
+                "type": "string"
+              },
+              {
+                "id": "cfg-account",
+                "name": "SENDER_ACCOUNT",
+                "value": "samuelgurru@gmail.com",
+                "type": "string"
+              },
+              {
+                "id": "cfg-sheet-url",
+                "name": "SHEET_URL",
+                "value": "https://docs.google.com/spreadsheets/d/1515YmG8Ak6Ozdy-Feho_VIYyxr49B4XhGSczavigJ1k/edit",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "de120dc0-810e-457b-866d-e0c0114f0516",
+        "name": "Config",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          448,
+          304
+        ],
+        "executeOnce": true
+      },
+      {
+        "parameters": {
+          "documentId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "1515YmG8Ak6Ozdy-Feho_VIYyxr49B4XhGSczavigJ1k"
+          },
+          "sheetName": {
+            "__rl": true,
+            "mode": "list",
+            "value": "gid=0",
+            "cachedResultName": "Leads"
+          },
+          "options": {}
+        },
+        "id": "471bd825-ebdf-42fe-a798-ffdf92bd55f8",
+        "name": "Read All Leads",
+        "type": "n8n-nodes-base.googleSheets",
+        "typeVersion": 4.7,
+        "position": [
+          672,
+          304
+        ],
+        "retryOnFail": true,
+        "maxTries": 3,
+        "waitBetweenTries": 5000,
+        "credentials": {
+          "googleSheetsOAuth2Api": {
+            "id": "D8rKxzgMrJwmFZoQ",
+            "name": "Google Sheets account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "// Match each new inbox message to a lead by Gmail thread, then by sender address. Anything else is ignored.\nconst leads = $input.all().map(i => i.json).filter(r => r.place_id);\nconst byThread = new Map(leads.filter(l => l.thread_id).map(l => [String(l.thread_id), l]));\nconst byEmail = new Map(leads.filter(l => l.email).map(l => [String(l.email).toLowerCase().trim(), l]));\nconst out = [];\n\nfor (const { json: m } of $(\"Check Inbox Every 5 Min\").all()) {\n  const from = String(m.from?.value?.[0]?.address ?? \"\").toLowerCase();\n  const subject = String(m.subject ?? \"\");\n  const text = String(m.text ?? \"\");\n  const isBounce = /mailer-daemon|postmaster/.test(from)\n    || /delivery status notification|undeliverable|delivery has failed|returned mail/i.test(subject);\n\n  let lead = byThread.get(String(m.threadId)) ?? byEmail.get(from);\n  if (!lead && isBounce) lead = leads.find(l => l.email && text.toLowerCase().includes(String(l.email).toLowerCase()));\n  if (!lead) continue;\n\n  // Keep only the new reply, not the quoted thread under it. Braces are removed because the AI prompt treats them as variables.\n  const reply = text\n    .split(/\\r?\\nOn [\\s\\S]{0,200}?wrote:|\\r?\\n-+ ?Original Message ?-+|\\r?\\nFrom: /)[0]\n    .replace(/^>.*$/gm, \"\")\n    .replace(/[{}]/g, \"\")\n    .trim()\n    .slice(0, 3000);\n  const isStop = /^\\W*(stop|unsubscribe|remove me|take me off)\\b/i.test(reply);\n\n  out.push({\n    json: {\n      place_id: lead.place_id,\n      business_name: String(lead.business_name ?? \"\").replace(/[{}]/g, \"\"),\n      lead_status: lead.status,\n      previous_replied_at: lead.replied_at ?? \"\",\n      thread_id: m.threadId,\n      from,\n      subject: subject.replace(/[{}]/g, \"\"),\n      reply_text: reply,\n      route: isBounce ? \"bounce\" : isStop ? \"stop\" : \"classify\",\n    },\n  });\n}\n\nreturn out;"
+        },
+        "id": "182d71d4-3e88-4f31-ad40-553e366dd698",
+        "name": "Match Replies to Leads",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          880,
+          304
+        ]
+      },
+      {
+        "parameters": {
+          "rules": {
+            "values": [
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": false,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 1
+                  },
+                  "conditions": [
+                    {
+                      "leftValue": "={{ $json.route }}",
+                      "rightValue": "bounce",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "Bounce"
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": false,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 1
+                  },
+                  "conditions": [
+                    {
+                      "leftValue": "={{ $json.route }}",
+                      "rightValue": "stop",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "Asked to stop"
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": false,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 1
+                  },
+                  "conditions": [
+                    {
+                      "leftValue": "={{ $json.route }}",
+                      "rightValue": "classify",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "Needs AI"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "79bfc3bf-5bdb-4f8b-8c34-fdc71a04cf16",
+        "name": "Route Message",
+        "type": "n8n-nodes-base.switch",
+        "typeVersion": 3.4,
+        "position": [
+          1200,
+          304
+        ]
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "b-status",
+                "name": "status",
+                "value": "bounced",
+                "type": "string"
+              },
+              {
+                "id": "b-type",
+                "name": "reply_type",
+                "value": "bounced",
+                "type": "string"
+              },
+              {
+                "id": "b-summary",
+                "name": "reply_summary",
+                "value": "={{ \"Delivery failed: \" + $json.subject }}",
+                "type": "string"
+              },
+              {
+                "id": "b-at",
+                "name": "replied_at",
+                "value": "={{ $json.previous_replied_at }}",
+                "type": "string"
+              }
+            ]
+          },
+          "includeOtherFields": true,
+          "include": "selected",
+          "includeFields": "place_id, business_name, thread_id, from, reply_text",
+          "options": {}
+        },
+        "id": "bc068f42-a10f-4b88-9424-c1150b768841",
+        "name": "Mark Bounced",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          1472,
+          112
+        ]
+      },
+      {
+        "parameters": {
+          "operation": "update",
+          "documentId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "1515YmG8Ak6Ozdy-Feho_VIYyxr49B4XhGSczavigJ1k"
+          },
+          "sheetName": {
+            "__rl": true,
+            "mode": "list",
+            "value": "gid=0",
+            "cachedResultName": "Leads"
+          },
+          "columns": {
+            "mappingMode": "defineBelow",
+            "matchingColumns": [
+              "place_id"
+            ],
+            "value": {
+              "place_id": "={{ $json.place_id }}",
+              "status": "={{ $json.status }}",
+              "reply_type": "={{ $json.reply_type }}",
+              "reply_summary": "={{ $json.reply_summary }}",
+              "replied_at": "={{ $json.replied_at }}"
+            },
+            "schema": [
+              {
+                "id": "place_id",
+                "displayName": "place_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "status",
+                "displayName": "status",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "reply_type",
+                "displayName": "reply_type",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "reply_summary",
+                "displayName": "reply_summary",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "replied_at",
+                "displayName": "replied_at",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              }
+            ]
+          },
+          "options": {
+            "cellFormat": "RAW"
+          }
+        },
+        "id": "32528cc7-de7d-48d5-b476-8abb494f2ce7",
+        "name": "Update Lead Status",
+        "type": "n8n-nodes-base.googleSheets",
+        "typeVersion": 4.7,
+        "position": [
+          2144,
+          304
+        ],
+        "retryOnFail": true,
+        "maxTries": 3,
+        "waitBetweenTries": 5000,
+        "credentials": {
+          "googleSheetsOAuth2Api": {
+            "id": "D8rKxzgMrJwmFZoQ",
+            "name": "Google Sheets account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "u-status",
+                "name": "status",
+                "value": "unsubscribed",
+                "type": "string"
+              },
+              {
+                "id": "u-type",
+                "name": "reply_type",
+                "value": "unsubscribe",
+                "type": "string"
+              },
+              {
+                "id": "u-summary",
+                "name": "reply_summary",
+                "value": "Asked not to be emailed again.",
+                "type": "string"
+              },
+              {
+                "id": "u-at",
+                "name": "replied_at",
+                "value": "={{ $now.toISO() }}",
+                "type": "string"
+              }
+            ]
+          },
+          "includeOtherFields": true,
+          "include": "selected",
+          "includeFields": "place_id, business_name, thread_id, from, reply_text",
+          "options": {}
+        },
+        "id": "461777a1-61e6-460b-818d-0949c8e4c0fa",
+        "name": "Mark Unsubscribed",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          1472,
+          304
+        ]
+      },
+      {
+        "parameters": {
+          "promptType": "define",
+          "text": "=Business: {{ $json.business_name }}\nSubject: {{ $json.subject }}\n\nTheir reply:\n\"\"\"\n{{ $json.reply_text }}\n\"\"\"",
+          "hasOutputParser": true,
+          "messages": {
+            "messageValues": [
+              {
+                "message": "You sort replies to cold emails sent by a freelancer who builds AI automations for small businesses. Choose exactly one reply_type:\n- interested: wants to talk, asks a question about the service, asks for prices or details, or suggests a time.\n- not_interested: declines, already has a solution, or says no thanks.\n- out_of_office: an automatic away, holiday or auto-reply message.\n- unsubscribe: asks to stop emailing or to be removed, or is annoyed at being contacted.\n- other: anything else, such as the wrong person, a forward to a colleague, or an unclear message.\n\nExamples:\n\"Sounds interesting, what does it cost?\" = interested\n\"We are happy with our current setup, thanks.\" = not_interested\n\"I am out of the office until Monday with limited access to email.\" = out_of_office\n\"Please remove me from your list.\" = unsubscribe\n\"I have passed this to our practice manager.\" = other\n\nsummary: one short sentence on what they said. reasoning: one short sentence on why you chose the reply_type."
+              }
+            ]
+          },
+          "batching": {}
+        },
+        "id": "8a47ddd8-376a-44ae-b034-dff557407a9f",
+        "name": "Classify Reply with AI",
+        "type": "@n8n/n8n-nodes-langchain.chainLlm",
+        "typeVersion": 1.9,
+        "position": [
+          1472,
+          528
+        ],
+        "retryOnFail": true,
+        "maxTries": 3,
+        "waitBetweenTries": 5000,
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "schemaType": "manual",
+          "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"reply_type\": { \"type\": \"string\", \"enum\": [\"interested\", \"not_interested\", \"out_of_office\", \"unsubscribe\", \"other\"] },\n    \"summary\": { \"type\": \"string\", \"description\": \"One short sentence on what they said\" },\n    \"reasoning\": { \"type\": \"string\", \"description\": \"One short sentence on why this reply_type was chosen\" }\n  },\n  \"required\": [\"reply_type\", \"summary\", \"reasoning\"]\n}"
+        },
+        "id": "e713ddac-3bb4-42a3-bfc1-172b22ba33c3",
+        "name": "Reply Format",
+        "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+        "typeVersion": 1.3,
+        "position": [
+          1648,
+          768
+        ]
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "a-place",
+                "name": "place_id",
+                "value": "={{ $(\"Match Replies to Leads\").item.json.place_id }}",
+                "type": "string"
+              },
+              {
+                "id": "a-name",
+                "name": "business_name",
+                "value": "={{ $(\"Match Replies to Leads\").item.json.business_name }}",
+                "type": "string"
+              },
+              {
+                "id": "a-thread",
+                "name": "thread_id",
+                "value": "={{ $(\"Match Replies to Leads\").item.json.thread_id }}",
+                "type": "string"
+              },
+              {
+                "id": "a-from",
+                "name": "from",
+                "value": "={{ $(\"Match Replies to Leads\").item.json.from }}",
+                "type": "string"
+              },
+              {
+                "id": "a-text",
+                "name": "reply_text",
+                "value": "={{ $(\"Match Replies to Leads\").item.json.reply_text }}",
+                "type": "string"
+              },
+              {
+                "id": "a-type",
+                "name": "reply_type",
+                "value": "={{ $json.output?.reply_type ?? \"other\" }}",
+                "type": "string"
+              },
+              {
+                "id": "a-summary",
+                "name": "reply_summary",
+                "value": "={{ $json.output?.summary ?? \"Could not classify automatically. Read the reply in Gmail.\" }}",
+                "type": "string"
+              },
+              {
+                "id": "a-status",
+                "name": "status",
+                "value": "={{ $json.output?.reply_type === \"out_of_office\" ? $(\"Match Replies to Leads\").item.json.lead_status : ($json.output?.reply_type === \"unsubscribe\" ? \"unsubscribed\" : \"replied\") }}",
+                "type": "string"
+              },
+              {
+                "id": "a-at",
+                "name": "replied_at",
+                "value": "={{ $json.output?.reply_type === \"out_of_office\" ? $(\"Match Replies to Leads\").item.json.previous_replied_at : $now.toISO() }}",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "540f727e-a34d-49b7-8ae1-89bba199d751",
+        "name": "Apply Classification",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          1808,
+          528
+        ]
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "leftValue": "={{ $json.reply_type }}",
+                "rightValue": "interested",
+                "operator": {
+                  "type": "string",
+                  "operation": "equals"
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "6941b65f-d836-426a-9338-d800eb8af29d",
+        "name": "Interested?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.3,
+        "position": [
+          2144,
+          528
+        ]
+      },
+      {
+        "parameters": {
+          "sendTo": "={{ $(\"Config\").first().json.NOTIFY_EMAIL }}",
+          "subject": "=Interested reply: {{ $json.business_name }}",
+          "emailType": "text",
+          "message": "={{ $json.business_name }} replied and sounds interested.\n\nSummary: {{ $json.reply_summary }}\nFrom: {{ $json.from }}\n\nTheir reply:\n{{ $json.reply_text }}\n\nOpen the thread: https://mail.google.com/mail/?authuser={{ $(\"Config\").first().json.SENDER_ACCOUNT }}#all/{{ $json.thread_id }}\nLead sheet: {{ $(\"Config\").first().json.SHEET_URL }}\n",
+          "options": {
+            "appendAttribution": false
+          }
+        },
+        "id": "f149abf3-73b6-4492-8b73-51dbd58e5cec",
+        "name": "Alert Me: Interested Lead",
+        "type": "n8n-nodes-base.gmail",
+        "typeVersion": 2.2,
+        "position": [
+          2368,
+          512
+        ],
+        "retryOnFail": true,
+        "maxTries": 3,
+        "waitBetweenTries": 5000,
+        "webhookId": "4dffb431-67d4-4796-96b4-fd2d8ccfe0b8",
+        "credentials": {
+          "gmailOAuth2": {
+            "id": "9FKWoKxErtgj9Qg7",
+            "name": "Gmail account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "content": "## 1. Watch the inbox\nChecks Gmail every 5 minutes for new inbox messages not sent by me (`in:inbox -from:me`).\n\nA message counts as a lead reply when it is in a thread the Outreach workflow started, or comes from a lead's address. Everything else is ignored and never reaches the AI. Bounces are found by sender (mailer-daemon) and matched by the address quoted in the bounce.",
+          "height": 560,
+          "width": 920,
+          "color": 4
+        },
+        "id": "68844f2c-dfac-4ddf-a18d-7a6f3619afe4",
+        "name": "Sticky Note 27799b5f",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          144,
+          -64
+        ]
+      },
+      {
+        "parameters": {
+          "content": "## 2. Sort the reply\nBounces and replies that start with \"stop\" or \"unsubscribe\" are handled by rules, without AI.\n\nEverything else goes to OpenAI GPT-5.4 mini, which picks `interested`, `not_interested`, `out_of_office`, `unsubscribe` or `other` and writes a one-line summary. If the AI fails, the reply is filed as `other` so the sequence still stops.",
+          "height": 980,
+          "width": 880,
+          "color": 6
+        },
+        "id": "9867f008-1d5d-4d2d-87b7-a4ca15ab2378",
+        "name": "Sticky Note ef5b3862",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          1104,
+          -64
+        ]
+      },
+      {
+        "parameters": {
+          "content": "## 3. Update and alert\nOut-of-office: the status stays as it was, so follow-ups carry on. Unsubscribe: `unsubscribed`. Bounce: `bounced`. Anything else: `replied`, which ends the sequence.\n\nInterested replies also trigger an email alert with the summary, the reply and a link to the Gmail thread.",
+          "height": 980,
+          "width": 520,
+          "color": 5
+        },
+        "id": "9672a11a-50af-4734-a878-4281c806507f",
+        "name": "Sticky Note 8bd8f93c",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          2032,
+          -64
+        ]
+      },
+      {
+        "parameters": {
+          "model": {
+            "__rl": true,
+            "mode": "list",
+            "value": "gpt-5.4-mini",
+            "cachedResultName": "gpt-5.4-mini"
+          },
+          "builtInTools": {},
+          "options": {
+            "reasoningEffort": "low"
+          }
+        },
+        "id": "85963ef6-5120-4364-82b7-10fd0a555538",
+        "name": "OpenAI GPT-5.4 mini",
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        "typeVersion": 1.3,
+        "position": [
+          1424,
+          768
+        ],
+        "credentials": {
+          "openAiApi": {
+            "id": "GQdth43VUJxkSsw9",
+            "name": "OpenAI account"
+          }
+        }
+      }
+    ],
+    "connections": {
+      "Check Inbox Every 5 Min": {
+        "main": [
+          [
+            {
+              "node": "Config",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Config": {
+        "main": [
+          [
+            {
+              "node": "Read All Leads",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Read All Leads": {
+        "main": [
+          [
+            {
+              "node": "Match Replies to Leads",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Match Replies to Leads": {
+        "main": [
+          [
+            {
+              "node": "Route Message",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Route Message": {
+        "main": [
+          [
+            {
+              "node": "Mark Bounced",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Mark Unsubscribed",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Classify Reply with AI",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Mark Bounced": {
+        "main": [
+          [
+            {
+              "node": "Update Lead Status",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Mark Unsubscribed": {
+        "main": [
+          [
+            {
+              "node": "Update Lead Status",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Reply Format": {
+        "ai_outputParser": [
+          [
+            {
+              "node": "Classify Reply with AI",
+              "type": "ai_outputParser",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Apply Classification": {
+        "main": [
+          [
+            {
+              "node": "Update Lead Status",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Interested?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Interested?": {
+        "main": [
+          [
+            {
+              "node": "Alert Me: Interested Lead",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Classify Reply with AI": {
+        "main": [
+          [
+            {
+              "node": "Apply Classification",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "OpenAI GPT-5.4 mini": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "Classify Reply with AI",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1",
+      "availableInMCP": true,
+      "errorWorkflow": "IMDuCtka4p13GBto",
+      "timezone": "Africa/Lagos",
+      "binaryMode": "separate"
+    },
+    "staticData": null,
+    "meta": {
+      "aiBuilderAssisted": true,
+      "builderVariant": "mcp",
+      "templateCredsSetupCompleted": true
+    },
+    "nodeGroups": [],
+    "pinData": {},
+    "versionId": "d991d5e1-d0f1-47e2-8755-0075f117a5e8",
+    "activeVersionId": null,
+    "versionCounter": 7,
+    "triggerCount": 0,
+    "sourceWorkflowId": null,
+    "tags": [
+      {
+        "updatedAt": "2026-10-01T12:00:05.096Z",
+        "createdAt": "2026-10-01T12:00:05.096Z",
+        "id": "Clu8sveTmN7O7jzV",
+        "name": "portfolio"
+      },
+      {
+        "updatedAt": "2026-10-01T12:00:05.094Z",
+        "createdAt": "2026-10-01T12:00:05.094Z",
+        "id": "qjpEykWc9tHuNa2O",
+        "name": "lead-engine"
+      }
+    ],
+    "shared": [
+      {
+        "updatedAt": "2026-10-01T11:59:55.754Z",
+        "createdAt": "2026-10-01T11:59:55.754Z",
+        "role": "workflow:owner",
+        "workflowId": "xJ6S9S4kUXG1Oc0H",
+        "projectId": "YsMTtqflyTWc3LOK",
+        "project": {
+          "updatedAt": "2026-07-14T23:35:46.885Z",
+          "createdAt": "2026-07-14T23:33:27.645Z",
+          "id": "YsMTtqflyTWc3LOK",
+          "name": "Samuel Oladele <samuel@carrotcredit.com>",
+          "type": "personal",
+          "icon": null,
+          "description": null,
+          "customTelemetryTags": [],
+          "creatorId": "69fa5aa9-e74e-4425-80ca-8a1dbc6bb1e6"
+        }
+      }
+    ],
+    "versionMetadata": {
+      "name": null,
+      "description": null
+    }
+  }
+]

@@ -1,0 +1,68 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "document_type", "supplier", "bill_to", "invoice_number", "po_number", "invoice_date", "due_date",
+    "payment_terms", "currency", "line_items", "subtotal", "discount", "shipping", "tax", "total",
+    "amount_paid", "amount_due", "payment_method", "bank_account_last4", "bank_details_changed",
+    "suggested_category", "confidence", "issues", "summary"
+  ],
+  "properties": {
+    "document_type": { "type": "string", "enum": ["invoice", "receipt", "credit_note", "statement", "quote", "other"] },
+    "supplier": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "address", "email", "phone", "tax_id", "website"],
+      "properties": {
+        "name": { "type": ["string", "null"] },
+        "address": { "type": ["string", "null"] },
+        "email": { "type": ["string", "null"] },
+        "phone": { "type": ["string", "null"] },
+        "tax_id": { "type": ["string", "null"] },
+        "website": { "type": ["string", "null"] }
+      }
+    },
+    "bill_to": { "type": ["string", "null"] },
+    "invoice_number": { "type": ["string", "null"] },
+    "po_number": { "type": ["string", "null"] },
+    "invoice_date": { "type": ["string", "null"], "description": "YYYY-MM-DD" },
+    "due_date": { "type": ["string", "null"], "description": "YYYY-MM-DD" },
+    "payment_terms": { "type": ["string", "null"] },
+    "currency": { "type": ["string", "null"], "description": "ISO 4217 code" },
+    "line_items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["description", "quantity", "unit_price", "amount"],
+        "properties": {
+          "description": { "type": "string" },
+          "quantity": { "type": ["number", "null"] },
+          "unit_price": { "type": ["number", "null"] },
+          "amount": { "type": ["number", "null"] }
+        }
+      }
+    },
+    "subtotal": { "type": ["number", "null"] },
+    "discount": { "type": ["number", "null"] },
+    "shipping": { "type": ["number", "null"] },
+    "tax": { "type": ["number", "null"] },
+    "total": { "type": ["number", "null"] },
+    "amount_paid": { "type": ["number", "null"] },
+    "amount_due": { "type": ["number", "null"] },
+    "payment_method": { "type": ["string", "null"] },
+    "bank_account_last4": { "type": ["string", "null"] },
+    "bank_details_changed": { "type": "boolean" },
+    "suggested_category": {
+      "type": "string",
+      "enum": [
+        "Food & beverage", "Cleaning & paper", "Linen & uniforms", "Utilities", "Rent & occupancy",
+        "Repairs & maintenance", "Equipment", "Software & subscriptions", "Professional services",
+        "Marketing", "Other"
+      ]
+    },
+    "confidence": { "type": "string", "enum": ["high", "medium", "low"] },
+    "issues": { "type": "array", "items": { "type": "string" } },
+    "summary": { "type": "string" }
+  }
+}

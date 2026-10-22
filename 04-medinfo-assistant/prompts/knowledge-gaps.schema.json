@@ -1,0 +1,22 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["themes"],
+  "properties": {
+    "themes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["title", "count", "examples", "document", "suggestion"],
+        "properties": {
+          "title": { "type": "string" },
+          "count": { "type": "integer" },
+          "examples": { "type": "array", "items": { "type": "string" } },
+          "document": { "type": "string" },
+          "suggestion": { "type": "string" }
+        }
+      }
+    }
+  }
+}

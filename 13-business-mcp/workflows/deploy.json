@@ -1,0 +1,12 @@
+{
+  "timezone": "Europe/London",
+  "errorWorkflow": "iTxd64lDk3gI0bKG",
+  "workflows": {
+    "01-team-server.ts": { "id": "bmsTeamServer001", "description": "Business MCP server (project 13): Brindle Studio's team tools for Claude or any MCP client: search, client and project health, tasks, capacity, log time." },
+    "02-finance-server.ts": { "id": "bmsFinServer0002", "description": "Business MCP server (project 13): finance-only MCP tools with their own token: client money view, invoices, profitability, draft invoice." },
+    "03-tools.ts": { "id": "bmsTools00000003", "description": "Business MCP server (project 13): runs every tool call: reads the Google Sheet, answers in code, checks and saves writes, logs to Audit." },
+    "04-audit-log.ts": { "id": "bmsAuditLog00004", "description": "Business MCP server (project 13): appends one Audit row per tool call (server, tool, arguments, result, time).", "errorWorkflow": false },
+    "05-reset-demo.ts": { "id": "bmsResetDemo0005", "description": "Business MCP server (project 13): resets the Google Sheet to the demo studio: team, clients, projects, tasks, invoices, 8 weeks of timesheets.", "errorWorkflow": false },
+    "06-create-sheet.ts": { "id": "bmsCreateSheet06", "description": "Business MCP server (project 13): run once to create the Google Sheet the MCP tools read and write.", "errorWorkflow": false }
+  }
+}

@@ -1,0 +1,11 @@
+product,generic_name,strength,dosage_form,package,ndc,storage,list_price,supply_status,notes
+Quenvara,davorixaban,2.5 mg,film-coated tablet,Bottle of 60 tablets,99107-201-60,20-25°C,548.00,Available,
+Quenvara,davorixaban,5 mg,film-coated tablet,Bottle of 60 tablets,99107-205-60,20-25°C,548.00,Available,
+Quenvara,davorixaban,5 mg,film-coated tablet,"Unit-dose blister pack, 10 x 10 tablets",99107-205-11,20-25°C,932.00,Available,Hospital pack
+Lumetra,pelvaglutide,0.5 mg per injection,prefilled pen,1 pen (4 doses) + 4 needles,99107-310-01,2-8°C before first use,1012.00,Available,
+Lumetra,pelvaglutide,1 mg per injection,prefilled pen,1 pen (4 doses) + 4 needles,99107-311-01,2-8°C before first use,1012.00,Limited supply,Allocation in place until 2026-11-30; order through the specialty distributor
+Lumetra,pelvaglutide,2 mg per injection,prefilled pen,1 pen (4 doses) + 4 needles,99107-312-01,2-8°C before first use,1012.00,Available,
+Aurivex,cefovatrin,125 mg/5 mL,powder for oral suspension,60 mL bottle,99107-420-60,20-25°C (dry powder),38.50,Available,
+Aurivex,cefovatrin,125 mg/5 mL,powder for oral suspension,100 mL bottle,99107-420-10,20-25°C (dry powder),52.75,Available,
+Aurivex,cefovatrin,250 mg/5 mL,powder for oral suspension,60 mL bottle,99107-425-60,20-25°C (dry powder),61.20,Available,
+Aurivex,cefovatrin,250 mg/5 mL,powder for oral suspension,100 mL bottle,99107-425-10,20-25°C (dry powder),89.90,Backordered,Expected back 2026-10-20. Lots AV26-0412 and later use 62 mL of water (see LRK-DHCP-AUR-2026-01)

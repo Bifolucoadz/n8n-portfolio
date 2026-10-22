@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Help · Kettle &amp; Fern</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root { --cream: #f7f3ea; --paper: #fffdf8; --ink: #2b2a26; --ink-2: #5b574d; --ink-3: #8a857a; --fern: #3f6b4a; --fern-2: #e7efe5; --line: #e7e0d2; --amber: #b0651c; }
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--cream); color: var(--ink); font: 15px/1.6 Inter, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
+a { color: var(--fern); }
+header { background: var(--paper); border-bottom: 1px solid var(--line); }
+.bar { max-width: 1180px; margin: 0 auto; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.logo { font-family: Fraunces, Georgia, serif; font-size: 24px; font-weight: 600; letter-spacing: -.3px; display: flex; align-items: center; gap: 10px; }
+.leaf { width: 30px; height: 30px; border-radius: 50% 0 50% 0; background: var(--fern); transform: rotate(-12deg); }
+nav { display: flex; gap: 22px; color: var(--ink-2); font-weight: 500; font-size: 14px; }
+nav b { color: var(--ink); }
+.cart { border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; font-size: 14px; color: var(--ink-2); }
+.hero { max-width: 1180px; margin: 0 auto; padding: 38px 24px 8px; }
+.hero h1 { font-family: Fraunces, Georgia, serif; font-weight: 500; font-size: 40px; letter-spacing: -.6px; margin: 0; }
+.hero p { color: var(--ink-2); margin: 6px 0 0; font-size: 16px; }
+.grid { max-width: 1180px; margin: 0 auto; padding: 24px; display: grid; grid-template-columns: 1fr 440px; gap: 26px; align-items: start; }
+.faq { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.tile { background: var(--paper); border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; }
+.tile h3 { font-family: Fraunces, Georgia, serif; font-weight: 600; font-size: 18px; margin: 0 0 6px; }
+.tile p { margin: 0; color: var(--ink-2); font-size: 14px; }
+.tile.wide { grid-column: span 2; display: flex; gap: 18px; align-items: center; }
+.tile.wide .img { width: 120px; height: 90px; border-radius: 12px; background: radial-gradient(circle at 30% 30%, #9cbf8c, #3f6b4a 70%); flex: none; }
+.chat { background: var(--paper); border: 1px solid var(--line); border-radius: 20px; box-shadow: 0 12px 40px rgba(43,42,38,.08); display: flex; flex-direction: column; height: 640px; overflow: hidden; }
+.chat-head { padding: 16px 18px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 12px; }
+.avatar { width: 38px; height: 38px; border-radius: 50%; background: var(--fern); color: #fff; display: grid; place-items: center; font-family: Fraunces, Georgia, serif; font-weight: 600; }
+.chat-head b { display: block; }
+.chat-head span { color: var(--ink-3); font-size: 13px; }
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #4caf50; margin-right: 5px; }
+.msgs { flex: 1; overflow-y: auto; padding: 18px; display: flex; flex-direction: column; gap: 10px; }
+.m { max-width: 86%; padding: 10px 14px; border-radius: 16px; white-space: pre-wrap; word-wrap: break-word; font-size: 14.5px; }
+.m.bot { background: var(--fern-2); color: var(--ink); border-bottom-left-radius: 4px; align-self: flex-start; }
+.m.me { background: var(--fern); color: #fff; border-bottom-right-radius: 4px; align-self: flex-end; }
+.m a { color: inherit; font-weight: 600; }
+.typing { align-self: flex-start; color: var(--ink-3); font-size: 13px; padding: 2px 4px; }
+.chips { display: flex; gap: 8px; flex-wrap: wrap; padding: 0 18px 12px; }
+.chip { border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 6px 12px; font-size: 13px; cursor: pointer; color: var(--ink-2); }
+.chip:hover { border-color: var(--fern); color: var(--fern); }
+form { display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--line); }
+input { flex: 1; border: 1px solid var(--line); border-radius: 999px; padding: 11px 16px; font: inherit; background: #fff; }
+input:focus { outline: 2px solid rgba(63,107,74,.25); border-color: var(--fern); }
+button.send { border: 0; background: var(--fern); color: #fff; border-radius: 999px; padding: 0 18px; font-weight: 600; cursor: pointer; }
+.note { color: var(--ink-3); font-size: 12px; text-align: center; padding: 0 0 10px; }
+@media (max-width: 980px) { .grid { grid-template-columns: 1fr; } nav { display: none; } .chat { height: 560px; } }
+@media (max-width: 560px) { .faq { grid-template-columns: 1fr; } .tile.wide { grid-column: span 1; } .hero h1 { font-size: 32px; } }
+</style>
+</head>
+<body>
+<header><div class="bar"><div class="logo"><div class="leaf"></div>Kettle &amp; Fern</div><nav><span>Teas</span><span>Teaware</span><span>Gifts</span><b>Help</b></nav><div class="cart">Cart (0)</div></div></header>
+<section class="hero"><h1>How can we help?</h1><p>Track an order, check delivery times or ask about returns. Our assistant answers straight away.</p></section>
+<div class="grid">
+  <div class="faq">
+    <div class="tile wide"><div class="img"></div><div><h3>Where's my order?</h3><p>Ask the assistant with your order number (on your confirmation email, like #1842) and the email you ordered with. You'll get the latest tracking right away.</p></div></div>
+    <div class="tile"><h3>Shipping</h3><p>Orders ship within 1 business day. US delivery usually takes 2 to 5 business days. Free over $50.</p></div>
+    <div class="tile"><h3>Returns</h3><p>Unopened items can be returned within 30 days for a full refund.</p></div>
+    <div class="tile"><h3>Brewing help</h3><p>Every tin has brewing notes. Not sure? Our tasting notes on each product page say how.</p></div>
+    <div class="tile"><h3>Talk to us</h3><p>help@kettleandfern.example. We reply within 1 business day.</p></div>
+  </div>
+  <div class="chat">
+    <div class="chat-head"><div class="avatar">K</div><div><b>Kettle &amp; Fern help</b><span><span class="dot"></span>Replies in a few seconds</span></div></div>
+    <div class="msgs" id="msgs"><div class="m bot">Hi! I can check on an order for you. What's your order number?</div></div>
+    <div class="chips" id="chips"><button class="chip">Where's my order?</button><button class="chip">How long does shipping take?</button><button class="chip">Can I return an opened tin?</button></div>
+    <form id="f"><input id="q" placeholder="Type your message" autocomplete="off"><button class="send">Send</button></form>
+    <div class="note">Demo shop. Orders and people are made up.</div>
+  </div>
+</div>
+<script>
+const msgs = document.getElementById('msgs');
+const session = 'web-' + Math.random().toString(36).slice(2, 10);
+const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const linkify = s => esc(s).replace(/(https?:\/\/[^\s)]+)/g, '<a href="$1" target="_blank" rel="noopener">tracking link</a>');
+function add(text, who) { const d = document.createElement('div'); d.className = 'm ' + who; d.innerHTML = who === 'bot' ? linkify(text) : esc(text); msgs.appendChild(d); msgs.scrollTop = msgs.scrollHeight; }
+async function send(text) {
+  if (!text.trim()) return;
+  document.getElementById('chips').style.display = 'none';
+  add(text, 'me');
+  const t = document.createElement('div'); t.className = 'typing'; t.textContent = 'Typing…'; msgs.appendChild(t); msgs.scrollTop = msgs.scrollHeight;
+  try {
+    const r = await fetch('help/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ session_id: session, message: text }) });
+    const j = await r.json();
+    t.remove(); add(j.reply || 'Sorry, something went wrong.', 'bot');
+  } catch (e) { t.remove(); add('Sorry, I couldn\'t connect. Please email help@kettleandfern.example.', 'bot'); }
+}
+document.getElementById('f').onsubmit = e => { e.preventDefault(); const q = document.getElementById('q'); send(q.value); q.value = ''; };
+document.querySelectorAll('.chip').forEach(c => c.onclick = () => send(c.textContent));
+</script>
+</body>
+</html>

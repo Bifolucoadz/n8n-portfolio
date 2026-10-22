@@ -1,0 +1,8 @@
+{
+  "CANDIDATES": [["candidate_id","string"],["job_id","string"],["job_title","string"],["name","string"],["email","string"],["phone","string"],["linkedin","string"],["right_to_work","string"],["notice_period","string"],["salary_expectation","number"],["cv_filename","string"],["profile_json","string"],["screening_json","string"],["score","number"],["band","string"],["flags_json","string"],["status","string"],["summary","string"],["token","string"],["slots_json","string"],["interview_at","string"],["applied_at","string"],["screened_at","string"],["updated_at","string"],["screen_ms","number"]],
+  "EVENTS": [["candidate_id","string"],["event","string"],["detail","string"],["actor","string"],["at","string"]],
+  "OUTBOX": [["to","string"],["subject","string"],["body","string"],["kind","string"],["candidate_id","string"],["at","string"]],
+  "FILES": [["candidate_id","string"],["filename","string"],["mime","string"],["base64","string"]],
+  "CALENDAR": [["start","string"],["end","string"],["title","string"],["kind","string"],["candidate_id","string"]],
+  "STATUS": [["status","string"],["slots_json","string"],["interview_at","string"],["updated_at","string"]]
+}

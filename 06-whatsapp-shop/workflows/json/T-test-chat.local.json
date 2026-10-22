@@ -1,0 +1,102 @@
+{
+  "id": "honeycrumb-test-chat",
+  "name": "Honeycrumb T: Test Chat",
+  "nodes": [
+    {
+      "id": "e08c2f23-df67-44ab-9d15-d109a6512a90",
+      "name": "Test Message",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        200,
+        300
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "honeycrumb/test-chat",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "webhookId": "df0c2f20-3676-4cdb-a6c8-3847581808f4"
+    },
+    {
+      "id": "96d055f5-d709-4cb9-a609-ed1e5dd4a662",
+      "name": "Make Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        420,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const b = $input.first().json.body ?? {};\nreturn [{ json: {\n  phone: String(b.phone ?? \"2348010000001\"),\n  name: String(b.name ?? \"Test Customer\"),\n  message_id: \"test-\" + Date.now() + \"-\" + Math.random().toString(36).slice(2, 6),\n  type: String(b.type ?? \"text\"),\n  text: String(b.text ?? \"\"),\n  media_id: \"\",\n  location: b.location ?? null,\n  test: true,\n} }];\n"
+      }
+    },
+    {
+      "id": "cb2177c5-435d-448c-b919-cb669f74a33b",
+      "name": "Handle Message",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        640,
+        300
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "hcbHandleMsg0002",
+          "cachedResultName": "Honeycrumb 2: Handle Message"
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    },
+    {
+      "id": "92625661-c703-4bc5-803f-5e780b489288",
+      "name": "Sticky Note 92625661",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        160,
+        80
+      ],
+      "parameters": {
+        "content": "## Honeycrumb T: Test Chat\nRuns one customer message through **Honeycrumb 2** with `test = true` (replies go to the Outbox table, nothing is sent). Used by the scripted conversation tests; run it manually from the MCP or the editor.",
+        "color": 7,
+        "width": 640,
+        "height": 160
+      }
+    }
+  ],
+  "connections": {
+    "Test Message": {
+      "main": [
+        [
+          {
+            "node": "Make Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Make Message": {
+      "main": [
+        [
+          {
+            "node": "Handle Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {}
+}

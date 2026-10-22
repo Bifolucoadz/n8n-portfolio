@@ -1,0 +1,401 @@
+{
+  "id": "ngtResetDemo0008",
+  "name": "Northgate 8: Reset Demo",
+  "description": "CV screening (project 10): clears candidates, emails, files and events and puts example busy times in the test calendar.",
+  "nodes": [
+    {
+      "id": "5cfac790-e07a-449f-9904-52fcc361a3b7",
+      "name": "Reset Demo",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        200,
+        300
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "f2f7a49d-a966-4d44-adc0-257d076ce641",
+      "name": "Clear Candidates",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        420,
+        300
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "deleteRows",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Gf6MbtbZDBcTRWhX",
+          "cachedResultName": "Northgate Candidates"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "gt",
+              "keyValue": "0"
+            }
+          ]
+        }
+      },
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "id": "0273db1a-fab3-4938-ab1d-56f56b819bd1",
+      "name": "Clear CV Files",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        640,
+        300
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "deleteRows",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "nKofBkG4S6UPt1xd",
+          "cachedResultName": "Northgate Files"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "gt",
+              "keyValue": "0"
+            }
+          ]
+        }
+      },
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "id": "7bce4de0-fa18-4e2a-bfdc-9f9c8a74f376",
+      "name": "Clear Outbox",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        860,
+        300
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "deleteRows",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "ygMH59WjeBt0Og19",
+          "cachedResultName": "Northgate Outbox"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "gt",
+              "keyValue": "0"
+            }
+          ]
+        }
+      },
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "id": "cc318d07-d80d-4294-bf0d-5629ac985be4",
+      "name": "Clear Events",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1080,
+        300
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "deleteRows",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "v5LAsWSJxw2Uj4Ig",
+          "cachedResultName": "Northgate Events"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "gt",
+              "keyValue": "0"
+            }
+          ]
+        }
+      },
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "id": "0cba6374-f674-47e8-b370-ca9757964c08",
+      "name": "Clear Calendar",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1300,
+        300
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "deleteRows",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "CF6YJExhwMKsGY9P",
+          "cachedResultName": "Northgate Calendar"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "gt",
+              "keyValue": "0"
+            }
+          ]
+        }
+      },
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "id": "f13d21ab-6904-4263-bdbe-bd6e23303df1",
+      "name": "Busy Times",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1520,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Example busy times for the interviewer over the next three weeks, so the slot finder has\n// something to work around in test mode (team meeting, client visits, a training morning).\n// ---- lib-ngt.js (included by build.py): shared helpers for the Northgate workflows ----\nconst TZ = 'Europe/London';\nconst esc = s => String(s === null || s === undefined ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');\nconst settingsOf = items => Object.fromEntries(items.map(i => i.json).filter(r => r && r.key).map(r => [r.key, r.value]));\nconst parseJson = (s, d) => { try { return typeof s === 'string' ? JSON.parse(s) : (s === null || s === undefined ? d : s); } catch (e) { return d; } };\nconst nowIso = () => DateTime.now().setZone(TZ).toISO();\nconst newToken = n => Array.from({ length: n || 24 }, () => 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 56)]).join('');\nconst pounds = n => '£' + Math.round(Number(n) || 0).toLocaleString('en-GB');\nconst whenText = iso => DateTime.fromISO(String(iso), { zone: TZ }).toFormat(\"cccc d LLLL 'at' h:mm a\").replace(':00 ', ' ');\nconst firstName = name => String(name || '').trim().split(/\\s+/)[0] || 'there';\n\n// OpenAI node (Responses API) output: the JSON object from the first output_text part, or null.\nfunction aiJson(res) {\n  if (!res || res.error) return null;\n  const msg = (res.output || []).find(o => o && o.type === 'message');\n  const part = msg && (msg.content || []).find(c => c && c.type === 'output_text');\n  let t = part ? part.text : null;\n  if (typeof t === 'string') { try { t = JSON.parse(t); } catch (e) { t = null; } }\n  return t && typeof t === 'object' ? t : null;\n}\n\n// Plain, left-aligned email body with the agency's name at the top.\nfunction emailHtml(company, paragraphs, extraHtml) {\n  const p = paragraphs.map(t => '<p style=\"margin:0 0 14px;text-align:left\">' + t + '</p>').join('');\n  return '<div style=\"font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.55;color:#1f2933;max-width:560px;text-align:left\">'\n    + '<div style=\"font-weight:700;font-size:13px;letter-spacing:1px;text-transform:uppercase;color:#0b6e4f;margin:0 0 18px\">' + esc(company) + '</div>'\n    + p + (extraHtml || '') + '</div>';\n}\n\nconst BAND_LABEL = { shortlist: 'Shortlist', review: 'Worth a look', unlikely: 'Unlikely fit', knockout: 'Knockout' };\n// ---- end lib-ngt.js ----\nconst pattern = {\n  1: [['09:30', '11:00', 'Team meeting']],\n  2: [['13:30', '16:30', 'Client visit: Calder Logistics']],\n  3: [['10:00', '11:00', 'Hiring manager call'], ['15:00', '16:00', 'Candidate interview (another role)']],\n  4: [['09:00', '13:00', 'Training: interviewing skills']],\n  5: [['14:00', '17:00', 'Client visit: Fernbrook Home']]\n};\nconst out = [];\nlet d = DateTime.now().setZone(TZ).startOf('day');\nfor (let i = 0; i < 21; i++) {\n  d = d.plus({ days: 1 });\n  for (const [a, b, title] of pattern[d.weekday] || []) {\n    const [ah, am] = a.split(':').map(Number), [bh, bm] = b.split(':').map(Number);\n    out.push({ start: d.set({ hour: ah, minute: am }).toISO(), end: d.set({ hour: bh, minute: bm }).toISO(), title, kind: 'busy', candidate_id: '' });\n  }\n}\nreturn out.map(json => ({ json }));\n"
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "f27e82ba-8560-4dc6-916d-12898a54c4bf",
+      "name": "Add Busy Times",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1740,
+        300
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "CF6YJExhwMKsGY9P",
+          "cachedResultName": "Northgate Calendar"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "start": "={{ $json.start }}",
+            "end": "={{ $json.end }}",
+            "title": "={{ $json.title }}",
+            "kind": "={{ $json.kind }}",
+            "candidate_id": "={{ $json.candidate_id }}"
+          },
+          "schema": [
+            {
+              "id": "start",
+              "displayName": "start",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "end",
+              "displayName": "end",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "title",
+              "displayName": "title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "kind",
+              "displayName": "kind",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "candidate_id",
+              "displayName": "candidate_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ff450776-685b-4c17-a1ea-4d2a7c2fcfc2",
+      "name": "Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1960,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// What was cleared and seeded.\nreturn [{ json: { cleared: ['Northgate Candidates', 'Northgate Files', 'Northgate Outbox', 'Northgate Events', 'Northgate Calendar'], busy_slots_added: $('Busy Times').all().length } }];\n"
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "7cfed1c6-1046-478a-b9ce-7b79996e6908",
+      "name": "Sticky Note 7cfed1c6",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        160,
+        80
+      ],
+      "parameters": {
+        "content": "## Northgate 8: Reset Demo (manual, destructive)\nEmpties the candidates, CV files, outbox, events and calendar tables, then adds example busy times for the interviewer over the next three weeks. Jobs and settings are kept.",
+        "color": 3,
+        "width": 900,
+        "height": 160
+      }
+    }
+  ],
+  "connections": {
+    "Reset Demo": {
+      "main": [
+        [
+          {
+            "node": "Clear Candidates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear Candidates": {
+      "main": [
+        [
+          {
+            "node": "Clear CV Files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear CV Files": {
+      "main": [
+        [
+          {
+            "node": "Clear Outbox",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear Outbox": {
+      "main": [
+        [
+          {
+            "node": "Clear Events",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear Events": {
+      "main": [
+        [
+          {
+            "node": "Clear Calendar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear Calendar": {
+      "main": [
+        [
+          {
+            "node": "Busy Times",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Busy Times": {
+      "main": [
+        [
+          {
+            "node": "Add Busy Times",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add Busy Times": {
+      "main": [
+        [
+          {
+            "node": "Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "timezone": "Europe/London",
+    "callerPolicy": "workflowsFromSameOwner"
+  }
+}

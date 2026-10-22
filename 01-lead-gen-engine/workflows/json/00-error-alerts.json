@@ -1,0 +1,174 @@
+[
+  {
+    "updatedAt": "2026-10-01T12:33:39.657Z",
+    "createdAt": "2026-10-01T11:46:11.270Z",
+    "id": "IMDuCtka4p13GBto",
+    "name": "Lead Engine 0: Error Alerts",
+    "description": "Shared error handler for the Lead Engine: emails the failed workflow, node, error message and execution link.",
+    "active": true,
+    "isArchived": false,
+    "nodes": [
+      {
+        "id": "6a81b106-3e8e-4a88-b127-5a1dad8633e9",
+        "name": "When a Lead Engine Workflow Fails",
+        "type": "n8n-nodes-base.errorTrigger",
+        "typeVersion": 1,
+        "position": [
+          240,
+          300
+        ],
+        "parameters": {}
+      },
+      {
+        "id": "227aa224-2a94-41c4-92e4-6316535879bb",
+        "name": "Config",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          460,
+          300
+        ],
+        "parameters": {
+          "mode": "manual",
+          "includeOtherFields": true,
+          "assignments": {
+            "assignments": [
+              {
+                "id": "alert-email",
+                "name": "ALERT_EMAIL",
+                "value": "samuelgurru@gmail.com",
+                "type": "string"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "dec10eb0-10a7-41fe-b770-3e4592fdf5ab",
+        "name": "Email Failure Alert",
+        "type": "n8n-nodes-base.gmail",
+        "typeVersion": 2.2,
+        "position": [
+          680,
+          300
+        ],
+        "parameters": {
+          "resource": "message",
+          "operation": "send",
+          "sendTo": "={{ $json.ALERT_EMAIL }}",
+          "subject": "=n8n failure: {{ $json.workflow.name }}",
+          "emailType": "text",
+          "message": "=A Lead Engine workflow failed.\n\nWorkflow: {{ $json.workflow.name }}\nFailed node: {{ $json.execution.lastNodeExecuted ?? \"unknown\" }}\nError: {{ $json.execution.error?.message ?? \"no message\" }}\nTime: {{ $now.toFormat(\"yyyy-MM-dd HH:mm\") }}\n\nOpen the execution: {{ $json.execution.url ?? \"n/a\" }}\n",
+          "options": {
+            "appendAttribution": false
+          }
+        },
+        "credentials": {
+          "gmailOAuth2": {
+            "id": "9FKWoKxErtgj9Qg7",
+            "name": "Gmail account"
+          }
+        },
+        "retryOnFail": true,
+        "maxTries": 3,
+        "waitBetweenTries": 5000,
+        "webhookId": "840b2a82-9ec8-44f6-a401-bd8f337b8e18"
+      },
+      {
+        "id": "33197e18-b1fa-45c8-9ed1-7f131bd1b371",
+        "name": "Sticky Note 9b6aecd9",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          140,
+          -60
+        ],
+        "parameters": {
+          "content": "## Error alerts\nShared error handler for the three Lead Engine workflows. Each one names this workflow in its settings, so any failed production run sends an email with the workflow, the failing node, the error and a link to the execution.\n\nChange `ALERT_EMAIL` in **Config** to send alerts somewhere else.",
+          "color": 3,
+          "width": 700,
+          "height": 560
+        }
+      }
+    ],
+    "connections": {
+      "When a Lead Engine Workflow Fails": {
+        "main": [
+          [
+            {
+              "node": "Config",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Config": {
+        "main": [
+          [
+            {
+              "node": "Email Failure Alert",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1",
+      "availableInMCP": true,
+      "timezone": "Africa/Lagos"
+    },
+    "staticData": null,
+    "meta": {
+      "aiBuilderAssisted": true,
+      "builderVariant": "mcp"
+    },
+    "nodeGroups": [],
+    "pinData": null,
+    "versionId": "abecdb21-8063-4e34-ac09-006476d816e6",
+    "activeVersionId": "abecdb21-8063-4e34-ac09-006476d816e6",
+    "versionCounter": 4,
+    "triggerCount": 0,
+    "sourceWorkflowId": null,
+    "tags": [
+      {
+        "updatedAt": "2026-10-01T12:00:05.096Z",
+        "createdAt": "2026-10-01T12:00:05.096Z",
+        "id": "Clu8sveTmN7O7jzV",
+        "name": "portfolio"
+      },
+      {
+        "updatedAt": "2026-10-01T12:00:05.094Z",
+        "createdAt": "2026-10-01T12:00:05.094Z",
+        "id": "qjpEykWc9tHuNa2O",
+        "name": "lead-engine"
+      }
+    ],
+    "shared": [
+      {
+        "updatedAt": "2026-10-01T11:46:11.274Z",
+        "createdAt": "2026-10-01T11:46:11.274Z",
+        "role": "workflow:owner",
+        "workflowId": "IMDuCtka4p13GBto",
+        "projectId": "YsMTtqflyTWc3LOK",
+        "project": {
+          "updatedAt": "2026-07-14T23:35:46.885Z",
+          "createdAt": "2026-07-14T23:33:27.645Z",
+          "id": "YsMTtqflyTWc3LOK",
+          "name": "Samuel Oladele <samuel@carrotcredit.com>",
+          "type": "personal",
+          "icon": null,
+          "description": null,
+          "customTelemetryTags": [],
+          "creatorId": "69fa5aa9-e74e-4425-80ca-8a1dbc6bb1e6"
+        }
+      }
+    ],
+    "versionMetadata": {
+      "name": null,
+      "description": null
+    }
+  }
+]

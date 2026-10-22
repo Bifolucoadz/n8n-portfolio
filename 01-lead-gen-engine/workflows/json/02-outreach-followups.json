@@ -1,0 +1,800 @@
+[
+  {
+    "updatedAt": "2026-10-01T13:16:05.447Z",
+    "createdAt": "2026-10-01T11:56:25.058Z",
+    "id": "nU83IY1X3fzykEHW",
+    "name": "Lead Engine 2: Outreach and Follow-ups",
+    "description": "Hourly weekday sender: picks due follow-ups and best new leads within a daily cap, OpenAI writes each step, Gmail sends (follow-ups in the same thread), sheet updated. TEST_MODE routes all mail to the test inbox.",
+    "active": false,
+    "isArchived": false,
+    "nodes": [
+      {
+        "parameters": {
+          "rule": {
+            "interval": [
+              {
+                "field": "cronExpression",
+                "expression": "0 0 9-17 * * 1-5"
+              }
+            ]
+          }
+        },
+        "id": "1ac7c57d-0096-4040-a104-82cb3a8a83a7",
+        "name": "Weekdays, Hourly 9:00-17:00",
+        "type": "n8n-nodes-base.scheduleTrigger",
+        "typeVersion": 1.3,
+        "position": [
+          224,
+          304
+        ]
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "cfg-test",
+                "name": "TEST_MODE",
+                "value": true,
+                "type": "boolean"
+              },
+              {
+                "id": "cfg-inbox",
+                "name": "TEST_INBOX",
+                "value": "oladelesamuel56@gmail.com",
+                "type": "string"
+              },
+              {
+                "id": "cfg-sender",
+                "name": "SENDER_NAME",
+                "value": "Samuel",
+                "type": "string"
+              },
+              {
+                "id": "cfg-offer",
+                "name": "OFFER",
+                "value": "I build AI automations for small businesses: instant replies to new enquiries, automatic follow-ups so leads don't go cold, appointment booking, and AI assistants that answer common customer questions around the clock. Built on n8n and usually live within two weeks.",
+                "type": "string"
+              },
+              {
+                "id": "cfg-min-score",
+                "name": "MIN_SCORE",
+                "value": 6,
+                "type": "number"
+              },
+              {
+                "id": "cfg-cap",
+                "name": "DAILY_SEND_CAP",
+                "value": 20,
+                "type": "number"
+              },
+              {
+                "id": "cfg-per-run",
+                "name": "MAX_PER_RUN",
+                "value": 3,
+                "type": "number"
+              },
+              {
+                "id": "cfg-days",
+                "name": "FOLLOWUP_DAYS",
+                "value": "={{ [3, 7] }}",
+                "type": "array"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "37d62116-6ae0-4c4c-b225-d1b728798556",
+        "name": "Config",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          448,
+          304
+        ]
+      },
+      {
+        "parameters": {
+          "documentId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "1515YmG8Ak6Ozdy-Feho_VIYyxr49B4XhGSczavigJ1k"
+          },
+          "sheetName": {
+            "__rl": true,
+            "mode": "list",
+            "value": "gid=0",
+            "cachedResultName": "Leads"
+          },
+          "options": {}
+        },
+        "id": "e27a1830-116c-4801-ba37-62b26fdae43c",
+        "name": "Read All Leads",
+        "type": "n8n-nodes-base.googleSheets",
+        "typeVersion": 4.7,
+        "position": [
+          752,
+          304
+        ],
+        "retryOnFail": true,
+        "maxTries": 3,
+        "waitBetweenTries": 5000,
+        "credentials": {
+          "googleSheetsOAuth2Api": {
+            "id": "D8rKxzgMrJwmFZoQ",
+            "name": "Google Sheets account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "// Who gets an email this run: due follow-ups first, then the best new leads, within the daily cap.\nconst cfg = $(\"Config\").first().json;\nconst days = cfg.FOLLOWUP_DAYS;\nconst maxEmails = days.length + 1;\nconst now = DateTime.now();\nconst isEmail = e => /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(String(e ?? \"\").trim());\nconst rows = $input.all().map(i => i.json).filter(r => r.place_id);\n\nconst sentToday = rows.filter(r => r.last_email_at && DateTime.fromISO(String(r.last_email_at)).hasSame(now, \"day\")).length;\nconst budget = Math.max(0, Math.min(cfg.MAX_PER_RUN, cfg.DAILY_SEND_CAP - sentToday));\nif (budget === 0) return [];\n\nconst followUps = rows\n  .filter(r => r.status === \"contacted\" && r.last_message_id && Number(r.emails_sent) < maxEmails\n    && r.next_followup_at && DateTime.fromISO(String(r.next_followup_at)) <= now)\n  .sort((a, b) => String(a.next_followup_at).localeCompare(String(b.next_followup_at)));\n\n// Never start a second sequence with an address that is already in one.\nconst usedEmails = new Set(rows.filter(r => ![\"new\", \"no_email\"].includes(r.status)).map(r => String(r.email).toLowerCase().trim()));\nconst firstEmails = [];\nconst candidates = rows\n  .filter(r => r.status === \"new\" && isEmail(r.email) && Number(r.lead_score) >= cfg.MIN_SCORE)\n  .sort((a, b) => Number(b.lead_score) - Number(a.lead_score));\nfor (const r of candidates) {\n  const email = String(r.email).toLowerCase().trim();\n  if (usedEmails.has(email)) continue;\n  usedEmails.add(email);\n  firstEmails.push(r);\n}\n\nreturn [...followUps, ...firstEmails].slice(0, budget).map(r => {\n  const step = Number(r.emails_sent || 0) + 1;\n  // FOLLOWUP_DAYS counts days after the first email, so [3, 7] sends on day 0, day 3 and day 7.\n  const gap = step <= days.length ? days[step - 1] - (step > 1 ? days[step - 2] : 0) : null;\n  return {\n    json: {\n      ...r,\n      step,\n      send_to: cfg.TEST_MODE ? cfg.TEST_INBOX : String(r.email).trim(),\n      is_test: cfg.TEST_MODE === true,\n      status_after_send: gap === null ? \"finished\" : \"contacted\",\n      next_followup_at_after_send: gap === null ? \"\" : now.plus({ days: gap }).toISO(),\n    },\n  };\n});"
+        },
+        "id": "5496ec69-7b2e-48f7-a2be-777667ab44e7",
+        "name": "Pick Leads Due Now",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          960,
+          304
+        ]
+      },
+      {
+        "parameters": {
+          "promptType": "define",
+          "text": "=Write email {{ $json.step }} of {{ $(\"Config\").first().json.FOLLOWUP_DAYS.length + 1 }} in the sequence.\n\nBusiness: {{ $json.business_name }}\nCategory: {{ $json.category || \"unknown\" }}\nArea: {{ $json.city || \"unknown\" }}\nGoogle rating: {{ $json.rating || \"none\" }} from {{ $json.reviews || 0 }} reviews\nWebsite: {{ $json.website || \"none\" }}\nOpening line idea: {{ $json.personal_line || \"none\" }}\n\nWhat I offer: {{ $(\"Config\").first().json.OFFER }}\nMy first name: {{ $(\"Config\").first().json.SENDER_NAME }}",
+          "hasOutputParser": true,
+          "messages": {
+            "messageValues": [
+              {
+                "type": "SystemMessagePromptTemplate",
+                "message": "You write short, plain-text cold emails for a freelancer who builds AI automations for small businesses. Each email must read as if a real person wrote it to this one business.\n\nRules for every email: under 120 words; plain text with no markdown, links or emojis; no exclamation marks; no buzzwords such as leverage, revolutionise, game-changer or cutting-edge; never invent facts about the business; never point out a weakness such as a low rating or few reviews; no sign-off, signature or unsubscribe line, because those are added automatically.\n\nEmail 1 (intro): greet the team, open with the opening line idea in your own words (skip it if it mentions a weakness), connect it to one specific problem the offer solves for this kind of business, and ask for a 15-minute call. The subject has at most 6 words and must not look like marketing.\nEmail 2 (bump): 2 or 3 sentences following up on the first email. Add one new, concrete example of an automation this business could use, and ask whether a short call is worth it.\nEmail 3 (break-up): 2 or 3 polite sentences saying this is the last email, leaving the door open if the timing changes.\n\nEmails 2 and 3 are sent as replies in the same thread, so their subject is not used, but still return one."
+              }
+            ]
+          },
+          "batching": {}
+        },
+        "id": "91e68265-dbf2-4fe3-96e8-0c3f25425b11",
+        "name": "Write Email with AI",
+        "type": "@n8n/n8n-nodes-langchain.chainLlm",
+        "typeVersion": 1.9,
+        "position": [
+          1488,
+          304
+        ],
+        "retryOnFail": true,
+        "maxTries": 3,
+        "waitBetweenTries": 5000
+      },
+      {
+        "parameters": {
+          "schemaType": "manual",
+          "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"subject\": { \"type\": \"string\", \"description\": \"Subject line, at most 6 words\" },\n    \"body\": { \"type\": \"string\", \"description\": \"Plain-text email body without sign-off or unsubscribe line\" }\n  },\n  \"required\": [\"subject\", \"body\"]\n}"
+        },
+        "id": "3370fd06-64bc-400e-9a7d-01c9a8c865b6",
+        "name": "Email Format",
+        "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+        "typeVersion": 1.3,
+        "position": [
+          1664,
+          560
+        ]
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "c-place",
+                "name": "place_id",
+                "value": "={{ $(\"Loop Over Leads\").item.json.place_id }}",
+                "type": "string"
+              },
+              {
+                "id": "c-step",
+                "name": "step",
+                "value": "={{ $(\"Loop Over Leads\").item.json.step }}",
+                "type": "number"
+              },
+              {
+                "id": "c-to",
+                "name": "send_to",
+                "value": "={{ $(\"Loop Over Leads\").item.json.send_to }}",
+                "type": "string"
+              },
+              {
+                "id": "c-last",
+                "name": "last_message_id",
+                "value": "={{ $(\"Loop Over Leads\").item.json.last_message_id }}",
+                "type": "string"
+              },
+              {
+                "id": "c-subject",
+                "name": "subject",
+                "value": "={{ ($(\"Loop Over Leads\").item.json.is_test ? \"[TEST to \" + $(\"Loop Over Leads\").item.json.email + \"] \" : \"\") + $json.output.subject.trim() }}",
+                "type": "string"
+              },
+              {
+                "id": "c-body",
+                "name": "body",
+                "value": "={{ $json.output.body.trim() }}\n\n{{ $(\"Config\").first().json.SENDER_NAME }}\n\nReply 'stop' and I won't email again.",
+                "type": "string"
+              },
+              {
+                "id": "c-status",
+                "name": "status_after_send",
+                "value": "={{ $(\"Loop Over Leads\").item.json.status_after_send }}",
+                "type": "string"
+              },
+              {
+                "id": "c-next",
+                "name": "next_followup_at_after_send",
+                "value": "={{ $(\"Loop Over Leads\").item.json.next_followup_at_after_send }}",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "5d975cd8-cf24-4126-8522-3581a5b96650",
+        "name": "Compose Email",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          1824,
+          304
+        ]
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "leftValue": "={{ $json.step }}",
+                "rightValue": 1,
+                "operator": {
+                  "type": "number",
+                  "operation": "equals"
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "9d008078-3d67-425d-8bba-7f7f84fe8dfd",
+        "name": "First Email?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.3,
+        "position": [
+          2048,
+          304
+        ]
+      },
+      {
+        "parameters": {
+          "sendTo": "={{ $json.send_to }}",
+          "subject": "={{ $json.subject }}",
+          "emailType": "text",
+          "message": "={{ $json.body }}",
+          "options": {
+            "appendAttribution": false,
+            "senderName": "={{ $(\"Config\").first().json.SENDER_NAME }}"
+          }
+        },
+        "id": "d61cc9be-ddfe-43f6-8a70-0b2169f426e3",
+        "name": "Send First Email",
+        "type": "n8n-nodes-base.gmail",
+        "typeVersion": 2.2,
+        "position": [
+          2272,
+          192
+        ],
+        "retryOnFail": true,
+        "maxTries": 3,
+        "waitBetweenTries": 5000,
+        "webhookId": "b9953cc5-67aa-4e30-b00f-93e67e341a4d",
+        "credentials": {
+          "gmailOAuth2": {
+            "id": "9FKWoKxErtgj9Qg7",
+            "name": "Gmail account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "operation": "update",
+          "documentId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "1515YmG8Ak6Ozdy-Feho_VIYyxr49B4XhGSczavigJ1k"
+          },
+          "sheetName": {
+            "__rl": true,
+            "mode": "list",
+            "value": "gid=0",
+            "cachedResultName": "Leads"
+          },
+          "columns": {
+            "mappingMode": "defineBelow",
+            "matchingColumns": [
+              "place_id"
+            ],
+            "value": {
+              "place_id": "={{ $(\"Compose Email\").item.json.place_id }}",
+              "status": "={{ $(\"Compose Email\").item.json.status_after_send }}",
+              "emails_sent": "={{ $(\"Compose Email\").item.json.step }}",
+              "last_email_at": "={{ $now.toISO() }}",
+              "next_followup_at": "={{ $(\"Compose Email\").item.json.next_followup_at_after_send }}",
+              "thread_id": "={{ $json.threadId }}",
+              "last_message_id": "={{ $json.id }}"
+            },
+            "schema": [
+              {
+                "id": "place_id",
+                "displayName": "place_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "status",
+                "displayName": "status",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "emails_sent",
+                "displayName": "emails_sent",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "number",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "last_email_at",
+                "displayName": "last_email_at",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "next_followup_at",
+                "displayName": "next_followup_at",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "thread_id",
+                "displayName": "thread_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "last_message_id",
+                "displayName": "last_message_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              }
+            ]
+          },
+          "options": {
+            "cellFormat": "RAW"
+          }
+        },
+        "id": "6585319b-21a9-4b99-9216-93353d0b9e1e",
+        "name": "Update Lead After Send",
+        "type": "n8n-nodes-base.googleSheets",
+        "typeVersion": 4.7,
+        "position": [
+          2672,
+          304
+        ],
+        "retryOnFail": true,
+        "maxTries": 3,
+        "waitBetweenTries": 5000,
+        "credentials": {
+          "googleSheetsOAuth2Api": {
+            "id": "D8rKxzgMrJwmFZoQ",
+            "name": "Google Sheets account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "amount": "={{ Math.floor(Math.random() * 61) + 30 }}"
+        },
+        "id": "54670d39-b54f-43b7-a2c0-86818f936d9d",
+        "name": "Pause 30-90s Between Sends",
+        "type": "n8n-nodes-base.wait",
+        "typeVersion": 1.1,
+        "position": [
+          2880,
+          304
+        ],
+        "webhookId": "d24da0e6-a59a-47f6-9433-487473c47218"
+      },
+      {
+        "parameters": {
+          "options": {}
+        },
+        "id": "aff89b42-99c6-462c-966f-1c2d0314a589",
+        "name": "Loop Over Leads",
+        "type": "n8n-nodes-base.splitInBatches",
+        "typeVersion": 3,
+        "position": [
+          1264,
+          304
+        ]
+      },
+      {
+        "parameters": {
+          "operation": "reply",
+          "messageId": "={{ $json.last_message_id }}",
+          "emailType": "text",
+          "message": "={{ $json.body }}",
+          "options": {
+            "appendAttribution": false,
+            "senderName": "={{ $(\"Config\").first().json.SENDER_NAME }}"
+          }
+        },
+        "id": "3e4c38bc-a8f6-4d11-97f2-cbe209a84f5b",
+        "name": "Send Follow-up in Same Thread",
+        "type": "n8n-nodes-base.gmail",
+        "typeVersion": 2.2,
+        "position": [
+          2272,
+          432
+        ],
+        "retryOnFail": true,
+        "maxTries": 3,
+        "waitBetweenTries": 5000,
+        "webhookId": "36dc71e4-b336-4f5e-b44a-55b4295584c5",
+        "credentials": {
+          "gmailOAuth2": {
+            "id": "9FKWoKxErtgj9Qg7",
+            "name": "Gmail account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "content": "## Outreach and follow-ups\nRuns every hour from 9:00 to 17:00, Monday to Friday (workflow timezone: Africa/Lagos; change it in workflow settings to match where your leads are).\n\n**TEST_MODE is on.** Every email goes to `TEST_INBOX` with `[TEST to real@address]` in the subject, and the sheet is updated as if it were real. Before going live, set `TEST_MODE` to false and reset the test rows (status back to `new`, clear the outreach columns).\n\nOther settings in **Config**: `OFFER`, `SENDER_NAME`, `MIN_SCORE`, `DAILY_SEND_CAP`, `MAX_PER_RUN`, `FOLLOWUP_DAYS`.",
+          "height": 560,
+          "width": 480,
+          "color": 7
+        },
+        "id": "46f2ffc4-abab-45f8-aacd-c319ff58cd0c",
+        "name": "Sticky Note 6a02c5d6",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          144,
+          -64
+        ]
+      },
+      {
+        "parameters": {
+          "content": "## 1. Pick who to email\nFollow-ups that are due go first, then new leads with an email and `lead_score >= MIN_SCORE`, best score first.\n\nA run sends at most `MAX_PER_RUN` emails and stops for the day at `DAILY_SEND_CAP`, so sending is spread across the day. An address already in a sequence is never started again.",
+          "height": 560,
+          "width": 480,
+          "color": 4
+        },
+        "id": "0a3bf8e7-bec1-465e-940d-038f1886f828",
+        "name": "Sticky Note 83677ac3",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          672,
+          -64
+        ]
+      },
+      {
+        "parameters": {
+          "content": "## 2. Write and send\nOpenAI GPT-5.4 writes each email for its step: 1 = intro using the personal opener, 2 = short bump with a new idea, 3 = polite break-up. The sign-off and the opt-out line are added by the workflow, not the AI, so they are always there.\n\nEmail 1 starts a new Gmail thread. Emails 2 and 3 are sent as replies to the last message, so the whole sequence stays in one thread.",
+          "height": 780,
+          "width": 1340,
+          "color": 6
+        },
+        "id": "c5614b91-a500-4b31-bbb1-6f496e0c945c",
+        "name": "Sticky Note 03725bb7",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          1184,
+          -64
+        ]
+      },
+      {
+        "parameters": {
+          "content": "## 3. Record and pace\nSaves the Gmail thread and message IDs, counts the email, and sets the next follow-up date (`FOLLOWUP_DAYS` [3, 7] means day 3 and day 7 after the first email). After the last email the lead is marked `finished`.\n\nA random 30-90 second pause between sends keeps the pattern human.",
+          "height": 560,
+          "width": 480,
+          "color": 5
+        },
+        "id": "e35544f1-1e76-43c1-bf76-20cc059e73c7",
+        "name": "Sticky Note f57fb836",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          2592,
+          -64
+        ]
+      },
+      {
+        "parameters": {
+          "model": {
+            "__rl": true,
+            "mode": "list",
+            "value": "gpt-5.4",
+            "cachedResultName": "gpt-5.4"
+          },
+          "builtInTools": {},
+          "options": {
+            "reasoningEffort": "low"
+          }
+        },
+        "id": "0d65c515-311a-4795-9b05-8cb57907724b",
+        "name": "OpenAI GPT-5.4",
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        "typeVersion": 1.3,
+        "position": [
+          1440,
+          560
+        ],
+        "credentials": {
+          "openAiApi": {
+            "id": "GQdth43VUJxkSsw9",
+            "name": "OpenAI account"
+          }
+        }
+      }
+    ],
+    "connections": {
+      "Weekdays, Hourly 9:00-17:00": {
+        "main": [
+          [
+            {
+              "node": "Config",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Config": {
+        "main": [
+          [
+            {
+              "node": "Read All Leads",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Read All Leads": {
+        "main": [
+          [
+            {
+              "node": "Pick Leads Due Now",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Pick Leads Due Now": {
+        "main": [
+          [
+            {
+              "node": "Loop Over Leads",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Email Format": {
+        "ai_outputParser": [
+          [
+            {
+              "node": "Write Email with AI",
+              "type": "ai_outputParser",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Compose Email": {
+        "main": [
+          [
+            {
+              "node": "First Email?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "First Email?": {
+        "main": [
+          [
+            {
+              "node": "Send First Email",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Send Follow-up in Same Thread",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Send First Email": {
+        "main": [
+          [
+            {
+              "node": "Update Lead After Send",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Update Lead After Send": {
+        "main": [
+          [
+            {
+              "node": "Pause 30-90s Between Sends",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Pause 30-90s Between Sends": {
+        "main": [
+          [
+            {
+              "node": "Loop Over Leads",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Loop Over Leads": {
+        "main": [
+          [],
+          [
+            {
+              "node": "Write Email with AI",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Send Follow-up in Same Thread": {
+        "main": [
+          [
+            {
+              "node": "Update Lead After Send",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Write Email with AI": {
+        "main": [
+          [
+            {
+              "node": "Compose Email",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "OpenAI GPT-5.4": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "Write Email with AI",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1",
+      "availableInMCP": true,
+      "errorWorkflow": "IMDuCtka4p13GBto",
+      "timezone": "Africa/Lagos",
+      "executionTimeout": 1800,
+      "binaryMode": "separate"
+    },
+    "staticData": null,
+    "meta": {
+      "aiBuilderAssisted": true,
+      "builderVariant": "mcp",
+      "templateCredsSetupCompleted": true
+    },
+    "nodeGroups": [],
+    "pinData": {},
+    "versionId": "c898d6e3-7128-435f-a984-52e4b0a09414",
+    "activeVersionId": null,
+    "versionCounter": 8,
+    "triggerCount": 0,
+    "sourceWorkflowId": null,
+    "tags": [
+      {
+        "updatedAt": "2026-10-01T12:00:05.096Z",
+        "createdAt": "2026-10-01T12:00:05.096Z",
+        "id": "Clu8sveTmN7O7jzV",
+        "name": "portfolio"
+      },
+      {
+        "updatedAt": "2026-10-01T12:00:05.094Z",
+        "createdAt": "2026-10-01T12:00:05.094Z",
+        "id": "qjpEykWc9tHuNa2O",
+        "name": "lead-engine"
+      }
+    ],
+    "shared": [
+      {
+        "updatedAt": "2026-10-01T11:56:25.061Z",
+        "createdAt": "2026-10-01T11:56:25.061Z",
+        "role": "workflow:owner",
+        "workflowId": "nU83IY1X3fzykEHW",
+        "projectId": "YsMTtqflyTWc3LOK",
+        "project": {
+          "updatedAt": "2026-07-14T23:35:46.885Z",
+          "createdAt": "2026-07-14T23:33:27.645Z",
+          "id": "YsMTtqflyTWc3LOK",
+          "name": "Samuel Oladele <samuel@carrotcredit.com>",
+          "type": "personal",
+          "icon": null,
+          "description": null,
+          "customTelemetryTags": [],
+          "creatorId": "69fa5aa9-e74e-4425-80ca-8a1dbc6bb1e6"
+        }
+      }
+    ],
+    "versionMetadata": {
+      "name": null,
+      "description": null
+    }
+  }
+]

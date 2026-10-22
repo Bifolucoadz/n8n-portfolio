@@ -1,0 +1,463 @@
+{
+  "id": "honeycrumb-reminders",
+  "name": "Honeycrumb 7: Reminders",
+  "nodes": [
+    {
+      "id": "1b5465d6-1594-4c4e-8a0a-3da7ad46eaed",
+      "name": "Every 15 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        200,
+        300
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "1b85f006-c63a-4ee5-b237-2eb9323ae0ac",
+      "name": "Read Unpaid",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        420,
+        300
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "K3QpMm9jFMF8Daui",
+          "cachedResultName": "Honeycrumb Orders"
+        },
+        "returnAll": true,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "status",
+              "condition": "eq",
+              "keyValue": "awaiting_payment"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "7585fbc5-f426-4e9a-a03c-9ec4d2712495",
+      "name": "Read Customers",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        640,
+        300
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "QGkic5oor2SFHsoJ",
+          "cachedResultName": "Honeycrumb Customers"
+        },
+        "returnAll": true
+      },
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "id": "76b569ad-4558-4a7f-a2db-5633b01917db",
+      "name": "Due",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// ---- lib-shop.js (included by build.py): prices, carts, zones and delivery rules ----\nconst SHOP = {\n  TZ: \"Africa/Lagos\",\n  OPEN_DAYS: [1, 2, 3, 4, 5, 6], // Monday-Saturday\n  CLOSED: [\"2026-12-25\", \"2026-12-26\", \"2027-01-01\"],\n  // window label -> start hour\n  WINDOWS: {\n    delivery: { \"10am-1pm\": 10, \"1pm-4pm\": 13, \"4pm-6pm\": 16 },\n    pickup: { \"9am-12pm\": 9, \"12pm-3pm\": 12, \"3pm-7pm\": 15 },\n  },\n  DAYS_AHEAD: 21,\n  MAX_QTY: 50,\n  CAKE_MESSAGE_MAX: 30,\n  PICKUP: \"14 Admiralty Way, Lekki Phase 1, Lagos\",\n};\n\nconst naira = n => \"₦\" + String(Math.round(Number(n) || 0)).replace(/\\B(?=(\\d{3})+(?!\\d))/g, \",\");\nconst clean = s => String(s ?? \"\").toLowerCase().replace(/[^a-z0-9 ]+/g, \" \").replace(/\\s+/g, \" \").trim();\nconst parseItems = json => {\n  try { const a = JSON.parse(json || \"[]\"); return Array.isArray(a) ? a : []; } catch (e) { return []; }\n};\nconst subtotalOf = items => items.reduce((s, i) => s + i.qty * i.unit_ngn, 0);\nconst itemLine = i => i.qty + \" × \" + i.name + (i.cake_message ? ' (message: \"' + i.cake_message + '\")' : \"\") + \" = \" + naira(i.qty * i.unit_ngn);\nconst newId = prefix => prefix + Array.from({ length: 4 }, () => \"ABCDEFGHJKLMNPQRSTUVWXYZ23456789\"[Math.floor(Math.random() * 32)]).join(\"\");\n\n// Product by SKU, else by name words (all words of the query must appear).\nfunction findProduct(products, ref) {\n  const r = String(ref ?? \"\").trim();\n  if (!r) return null;\n  const bySku = products.find(p => p.sku.toLowerCase() === r.toLowerCase());\n  if (bySku) return bySku;\n  const words = clean(r).split(\" \").filter(w => w.length > 1);\n  const hits = products.filter(p => words.every(w => clean(p.name + \" \" + p.sku).includes(w)));\n  return hits.length === 1 ? hits[0] : null;\n}\n\n// Delivery zone whose name or alias appears in the customer's text.\nfunction matchZone(zones, text) {\n  const t = \" \" + clean(text) + \" \";\n  let best = null;\n  for (const z of zones) {\n    const names = [z.area, ...String(z.aliases ?? \"\").split(\",\")].map(clean).filter(Boolean);\n    for (const n of names) {\n      if (t.includes(\" \" + n + \" \") && (!best || n.length > best.len)) best = { zone: z, len: n.length };\n    }\n  }\n  return best ? best.zone : null;\n}\n\nfunction isOpenDay(d) {\n  return SHOP.OPEN_DAYS.includes(d.weekday) && !SHOP.CLOSED.includes(d.toISODate());\n}\n\n// Earliest (day, window) that respects the longest lead time in the cart.\nfunction earliestSlot(leadHours, fulfilment, now) {\n  const windows = SHOP.WINDOWS[fulfilment] || SHOP.WINDOWS.delivery;\n  const ready = now.plus({ hours: leadHours });\n  for (let d = now.startOf(\"day\"); d <= now.startOf(\"day\").plus({ days: SHOP.DAYS_AHEAD }); d = d.plus({ days: 1 })) {\n    if (!isOpenDay(d)) continue;\n    for (const [label, hour] of Object.entries(windows)) {\n      if (d.set({ hour }) >= ready) return { date: d, window: label };\n    }\n  }\n  return null;\n}\n\n// \"Thursday 30 October, 1pm-4pm\"\nconst sayDay = d => d.toFormat(\"cccc d LLLL\");\n// ---- end lib-shop.js ----\n// Unpaid orders: one reminder after 60 minutes (inside the 24-hour window), expire after 24 hours.\nconst now = DateTime.now().setZone(SHOP.TZ);\nconst customers = Object.fromEntries($(\"Read Customers\").all().map(i => i.json).filter(c => c.phone).map(c => [c.phone, c]));\nconst out = [];\nfor (const o of $(\"Read Unpaid\").all().map(i => i.json).filter(o => o.order_id && o.status === \"awaiting_payment\")) {\n  const age = now.diff(DateTime.fromISO(o.updated_at || o.created_at), \"minutes\").minutes;\n  if (age >= 24 * 60) { out.push({ json: { action: \"expire\", order_id: o.order_id, phone: o.phone } }); continue; }\n  const last = customers[o.phone]?.last_inbound_at ? DateTime.fromISO(customers[o.phone].last_inbound_at) : null;\n  const inWindow = Boolean(last && last.isValid && now.diff(last, \"hours\").hours < 23.5);\n  if (age >= 60 && !o.reminder_sent && inWindow) {\n    out.push({ json: { action: \"remind\", order_id: o.order_id, phone: o.phone, url: o.pay_url, button_text: \"Pay \" + naira(o.total_ngn),\n      body: \"Hi \" + (String(o.customer_name).split(\" \")[0] || \"there\") + \", your order *\" + o.order_id + \"* is still waiting for payment. Tap below to pay and we'll start baking. If you'd like to change anything, just reply here.\" } });\n  }\n}\nreturn out;\n"
+      }
+    },
+    {
+      "id": "d9990e38-adf7-4353-882f-a8658a2c5c1c",
+      "name": "Remind Or Expire?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        1080,
+        300
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "outputKey": "remind",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "remind"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "outputKey": "expire",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "expire"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "b99f14a5-aae9-467f-aa7d-111d354dde12",
+      "name": "Mark Reminded",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1300,
+        220
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "K3QpMm9jFMF8Daui",
+          "cachedResultName": "Honeycrumb Orders"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "order_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.order_id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "order_id": "={{ $json.order_id }}",
+            "reminder_sent": true
+          },
+          "schema": [
+            {
+              "id": "order_id",
+              "displayName": "order_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "reminder_sent",
+              "displayName": "reminder_sent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "8c3222bd-ed60-4841-b2cb-ce27e59b26e3",
+      "name": "Reminder Message",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1520,
+        220
+      ],
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "t",
+              "name": "to",
+              "value": "={{ $('Due').item.json.phone }}",
+              "type": "string"
+            },
+            {
+              "id": "k",
+              "name": "kind",
+              "value": "cta",
+              "type": "string"
+            },
+            {
+              "id": "b",
+              "name": "body",
+              "value": "={{ $('Due').item.json.body }}",
+              "type": "string"
+            },
+            {
+              "id": "u",
+              "name": "url",
+              "value": "={{ $('Due').item.json.url }}",
+              "type": "string"
+            },
+            {
+              "id": "n",
+              "name": "button_text",
+              "value": "={{ $('Due').item.json.button_text }}",
+              "type": "string"
+            },
+            {
+              "id": "x",
+              "name": "test",
+              "value": false,
+              "type": "boolean"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "3afa12da-f236-404e-b5ab-77a0a71570be",
+      "name": "Send Reminder",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        1740,
+        220
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "hcbSendWA0000004",
+          "cachedResultName": "Honeycrumb 4: Send WhatsApp"
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "8054f548-83c7-4d5c-a3e5-dfa663490793",
+      "name": "Mark Expired",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1300,
+        400
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "K3QpMm9jFMF8Daui",
+          "cachedResultName": "Honeycrumb Orders"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "order_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.order_id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "order_id": "={{ $json.order_id }}",
+            "status": "expired",
+            "updated_at": "={{ $now.toISO() }}"
+          },
+          "schema": [
+            {
+              "id": "order_id",
+              "displayName": "order_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "updated_at",
+              "displayName": "updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "359f90b4-0cc5-471f-a824-ca19a176198c",
+      "name": "Sticky Note 359f90b4",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        160,
+        80
+      ],
+      "parameters": {
+        "content": "## Honeycrumb 7: Reminders\nEvery 15 minutes, for orders still waiting for payment: one friendly reminder with the **Pay** button after an hour (only inside WhatsApp's 24-hour window), and expiry after 24 hours so stale carts don't pile up.",
+        "color": 5,
+        "width": 900,
+        "height": 160
+      }
+    }
+  ],
+  "connections": {
+    "Every 15 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Read Unpaid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Unpaid": {
+      "main": [
+        [
+          {
+            "node": "Read Customers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Customers": {
+      "main": [
+        [
+          {
+            "node": "Due",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Due": {
+      "main": [
+        [
+          {
+            "node": "Remind Or Expire?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remind Or Expire?": {
+      "main": [
+        [
+          {
+            "node": "Mark Reminded",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Expired",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Reminded": {
+      "main": [
+        [
+          {
+            "node": "Reminder Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reminder Message": {
+      "main": [
+        [
+          {
+            "node": "Send Reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {}
+}

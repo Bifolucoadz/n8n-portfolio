@@ -1,0 +1,10 @@
+{
+  "Settings": ["key", "value", "note"],
+  "Team": ["person_id", "name", "role", "team", "email", "is_manager", "weekly_hours", "cost_rate", "bill_rate", "active"],
+  "Clients": ["client_id", "name", "sector", "contact", "contact_email", "account_lead", "retainer_hours", "retainer_fee", "status", "since"],
+  "Projects": ["project_id", "client_id", "name", "type", "billing", "status", "lead", "start", "due", "budget_hours", "fee"],
+  "Tasks": ["task_id", "project_id", "title", "assignee", "status", "priority", "due", "created_at", "updated_at"],
+  "Time": ["entry_id", "date", "person", "project_id", "task_id", "hours", "billable", "note", "logged_at", "source", "invoice_id"],
+  "Invoices": ["invoice_id", "client_id", "project_id", "period", "issue_date", "due_date", "amount", "vat", "status", "paid_date", "lines_json"],
+  "Audit": ["at", "server", "tool", "args_json", "ok", "summary", "ms"]
+}

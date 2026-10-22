@@ -1,0 +1,477 @@
+{
+  "id": "ktlLowStock00004",
+  "name": "Kettle 4: Low Stock",
+  "description": "Shopify ops (project 9): daily low-stock alert from sales velocity, supplier lead times and a safety buffer, with reorder quantities. No AI.",
+  "nodes": [
+    {
+      "id": "1a1de293-e7cf-4f46-907d-bd5493ae8f89",
+      "name": "Every Morning 7:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        200,
+        300
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "daysInterval": 1,
+              "triggerAtHour": 7,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "602d3e0f-2b15-4cc3-b060-677fd3344b73",
+      "name": "Read Settings",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        440,
+        400
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "QbQi6BAEGxZmzGyT",
+          "cachedResultName": "Kettle Settings"
+        },
+        "returnAll": true
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "ac9c8769-0f58-43bd-a9d6-9f2cc8bb8005",
+      "name": "Inventory Request",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        660,
+        400
+      ],
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a",
+              "name": "action",
+              "value": "inventory",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "b2be2ac1-6b6c-4540-8580-d793eba396ad",
+      "name": "Get Inventory",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        880,
+        400
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "ktlStoreApi00001",
+          "cachedResultName": "Kettle 1: Store API"
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    },
+    {
+      "id": "2315b396-f23f-499a-a3d4-30614296d72f",
+      "name": "Orders Request",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1100,
+        400
+      ],
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a",
+              "name": "action",
+              "value": "orders_since",
+              "type": "string"
+            },
+            {
+              "id": "d",
+              "name": "days",
+              "value": 28,
+              "type": "number"
+            }
+          ]
+        }
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "2206078a-8e4c-4e4a-b316-094e0e19f5e4",
+      "name": "Get Orders",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        1320,
+        400
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "ktlStoreApi00001",
+          "cachedResultName": "Kettle 1: Store API"
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    },
+    {
+      "id": "2fac59fa-57c9-4494-94d5-600a80403812",
+      "name": "Stock Check",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Stock check in code (no AI). For each product: units sold per day over the last 28 days, days of\n// stock left, the date it runs out, and whether that is inside the supplier lead time plus a safety\n// buffer. Reorder quantity covers the lead time plus N more days of sales, at least the supplier minimum.\n// ---- lib-kettle.js (included by build.py): shared helpers for the Kettle & Fern workflows ----\nconst TZ = 'America/Los_Angeles';\nconst esc = s => String(s === null || s === undefined ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');\nconst settingsOf = items => Object.fromEntries(items.map(i => i.json).filter(r => r && r.key).map(r => [r.key, r.value]));\nconst parseJson = (s, d) => { try { return typeof s === 'string' ? JSON.parse(s) : (s === null || s === undefined ? d : s); } catch (e) { return d; } };\nconst nowIso = () => DateTime.now().setZone(TZ).toISO();\nconst newId = (prefix, n) => prefix + Array.from({ length: n || 5 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 32)]).join('');\nconst usd = n => '$' + (Math.round(Number(n || 0) * 100) / 100).toFixed(2).replace(/\\.00$/, '');\nconst clip = (t, n) => { t = String(t || '').trim().replace(/\\.$/, ''); return t.length <= n ? t : t.slice(0, n).replace(/\\s+\\S*$/, '') + '…'; };\nconst day = iso => iso ? DateTime.fromISO(String(iso), { zone: TZ }).toFormat('ccc d LLL') : '';\n\n// OpenAI node (Responses API) output: the JSON object from the first output_text part, or null.\nfunction aiJson(res) {\n  if (!res || res.error) return null;\n  const msg = (res.output || []).find(o => o && o.type === 'message');\n  const part = msg && (msg.content || []).find(c => c && c.type === 'output_text');\n  let t = part ? part.text : null;\n  if (typeof t === 'string') { try { t = JSON.parse(t); } catch (e) { t = null; } }\n  return t && typeof t === 'object' ? t : null;\n}\n\n// Store-branded email: a header with the shop name, paragraphs, optional extra HTML (buttons, tables).\nfunction emailHtml(store, paragraphs, extraHtml) {\n  const p = paragraphs.filter(Boolean).map(t => '<p style=\"margin:0 0 14px;text-align:left\">' + t + '</p>').join('');\n  return '<div style=\"font-family:Georgia,\\'Times New Roman\\',serif;font-size:16px;line-height:1.6;color:#2b2a26;max-width:560px;text-align:left\">'\n    + '<div style=\"font-family:Helvetica,Arial,sans-serif;font-weight:700;font-size:13px;letter-spacing:2px;text-transform:uppercase;color:#3f6b4a;margin:0 0 20px\">' + esc(store) + '</div>'\n    + p + (extraHtml || '') + '</div>';\n}\n// Plain text (blank lines between paragraphs) as escaped paragraphs for emailHtml.\nconst paragraphsOf = t => String(t || '').split(/\\n{2,}/).map(p => esc(p).replace(/\\n/g, '<br>'));\nconst button = (href, label) => '<p style=\"margin:6px 0 18px;text-align:left\"><a href=\"' + esc(href) + '\" style=\"display:inline-block;background:#3f6b4a;color:#fff;font-family:Helvetica,Arial,sans-serif;font-weight:600;padding:12px 22px;border-radius:999px;text-decoration:none\">' + esc(label) + '</a></p>';\n// ---- end lib-kettle.js ----\nconst s = settingsOf($('Read Settings').all());\nconst products = $('Get Inventory').first().json.products || [];\nconst orders = $('Get Orders').first().json.orders || [];\nconst safety = Number(s.safety_days || 7), after = Number(s.cover_days_after_restock || 30);\nconst sold = {};\nfor (const o of orders) for (const l of parseJson(o.items_json, [])) sold[l.sku] = (sold[l.sku] || 0) + Number(l.qty || 0);\nconst today = DateTime.now().setZone(TZ).startOf('day');\nconst rows = products.map(p => {\n  const perDay = (sold[p.sku] || 0) / 28;\n  const cover = perDay > 0 ? p.inventory / perDay : Infinity;\n  const need = p.lead_time_days + safety;\n  const low = cover < need;\n  const qty = low ? Math.max(p.min_order_qty || 1, Math.ceil(perDay * (p.lead_time_days + after) - p.inventory)) : 0;\n  const runsOut = isFinite(cover) ? today.plus({ days: Math.floor(cover) }) : null;\n  const orderBy = runsOut ? runsOut.minus({ days: p.lead_time_days }) : null;\n  return { sku: p.sku, title: p.title, inventory: p.inventory, sold_28d: sold[p.sku] || 0, per_day: Math.round(perDay * 10) / 10,\n    days_left: isFinite(cover) ? Math.round(cover) : null, lead_time_days: p.lead_time_days, low, reorder_qty: qty, supplier: p.supplier,\n    runs_out: runsOut ? runsOut.toISODate() : '', order_by: orderBy ? (orderBy < today ? 'today (already late)' : orderBy.toISODate()) : '' };\n}).sort((a, b) => (a.days_left ?? 1e9) - (b.days_left ?? 1e9));\nconst low = rows.filter(r => r.low);\nconst cell = 'padding:6px 8px;border-bottom:1px solid #ebe6dc;text-align:left;font-family:Helvetica,Arial,sans-serif;font-size:13px';\nconst table = '<table style=\"border-collapse:collapse;margin:0 0 16px\"><tr>' + ['Product', 'In stock', 'Sells/day', 'Days left', 'Lead time', 'Order by', 'Reorder'].map(h => '<th style=\"' + cell + ';color:#8a857a;font-size:12px\">' + h + '</th>').join('') + '</tr>'\n  + low.map(r => '<tr><td style=\"' + cell + '\"><b>' + esc(r.title) + '</b><br><span style=\"color:#8a857a\">' + esc(r.supplier) + '</span></td><td style=\"' + cell + '\">' + r.inventory + '</td><td style=\"' + cell + '\">' + r.per_day + '</td><td style=\"' + cell + ';color:#b42318\"><b>' + r.days_left + '</b></td><td style=\"' + cell + '\">' + r.lead_time_days + ' d</td><td style=\"' + cell + '\">' + esc(/^\\d{4}-/.test(r.order_by) ? day(r.order_by) : r.order_by) + '</td><td style=\"' + cell + '\"><b>' + r.reorder_qty + '</b></td></tr>').join('') + '</table>';\nconst period = today.toISODate();\nconst html = emailHtml(s.store_name || 'Kettle & Fern', [\n  low.length + ' product' + (low.length === 1 ? ' is' : 's are') + ' running low. Each will sell out before a new delivery could arrive unless you reorder now (supplier lead time plus ' + safety + ' days\\' safety).'\n], table + '<p style=\"font-family:Helvetica,Arial,sans-serif;font-size:12px;color:#8a857a;text-align:left\">Based on ' + orders.length + ' orders in the last 28 days. Reorder quantities cover the lead time plus ' + after + ' days of sales, never below the supplier\\'s minimum.</p>');\nreturn [{ json: {\n  any: low.length > 0,\n  email: { to: s.owner_email, subject: 'Low stock: ' + low.map(r => r.title.replace(/ \\d+(g|ml|L)$/, '')).join(', '), html, kind: 'low_stock', ref: period },\n  report: { kind: 'low_stock', period, summary: low.length + ' low: ' + low.map(r => r.sku + ' (' + r.days_left + ' days left)').join(', '), data_json: JSON.stringify(rows), created_at: nowIso() }\n} }];\n"
+      }
+    },
+    {
+      "id": "04e270a2-37dd-43be-adb5-edadf9d18d65",
+      "name": "Save Report",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1760,
+        400
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "AyZ17CcwolU182Td",
+          "cachedResultName": "Kettle Reports"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "kind": "={{ $json.report.kind }}",
+            "period": "={{ $json.report.period }}",
+            "summary": "={{ $json.report.summary }}",
+            "data_json": "={{ $json.report.data_json }}",
+            "created_at": "={{ $json.report.created_at }}"
+          },
+          "schema": [
+            {
+              "id": "kind",
+              "displayName": "kind",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "period",
+              "displayName": "period",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "summary",
+              "displayName": "summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "data_json",
+              "displayName": "data_json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "4a6e50ea-5a53-43dd-927d-27268170018f",
+      "name": "Anything Low?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1980,
+        400
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $('Stock Check').first().json.any }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "4e427441-9d3c-4d70-8477-93426a4a2ec6",
+      "name": "Email Item",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2200,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// The alert email for Send Email.\nreturn [{ json: $('Stock Check').first().json.email }];\n"
+      }
+    },
+    {
+      "id": "22292f01-a07d-48a3-8707-e5bea236257a",
+      "name": "Email the Owner",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        2420,
+        300
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "ktlSendEmail0006",
+          "cachedResultName": "Kettle 6: Send Email"
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    },
+    {
+      "id": "10ab3add-7250-4b73-a6dc-db49a1991d74",
+      "name": "Run Now",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        200,
+        500
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "61afa268-2f0b-4f5e-9207-76affae3e0bf",
+      "name": "Sticky Note 61afa268",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        160,
+        40
+      ],
+      "parameters": {
+        "content": "## Kettle 4: Low Stock\nEvery morning at 7:00, in code (no AI). For every product: units sold per day over 28 days, days of stock left, the day it runs out and the last day to order. It flags anything that will run out before a delivery could arrive (supplier lead time plus a safety buffer) and suggests a reorder quantity: enough for the lead time plus 30 days, never below the supplier's minimum. The check is saved in **Kettle Reports**; the owner gets an email only when something is low.",
+        "color": 5,
+        "width": 1300,
+        "height": 200
+      }
+    }
+  ],
+  "connections": {
+    "Every Morning 7:00": {
+      "main": [
+        [
+          {
+            "node": "Read Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Settings": {
+      "main": [
+        [
+          {
+            "node": "Inventory Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Inventory Request": {
+      "main": [
+        [
+          {
+            "node": "Get Inventory",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Inventory": {
+      "main": [
+        [
+          {
+            "node": "Orders Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Orders Request": {
+      "main": [
+        [
+          {
+            "node": "Get Orders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Orders": {
+      "main": [
+        [
+          {
+            "node": "Stock Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stock Check": {
+      "main": [
+        [
+          {
+            "node": "Save Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Report": {
+      "main": [
+        [
+          {
+            "node": "Anything Low?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anything Low?": {
+      "main": [
+        [
+          {
+            "node": "Email Item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Item": {
+      "main": [
+        [
+          {
+            "node": "Email the Owner",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Now": {
+      "main": [
+        [
+          {
+            "node": "Read Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "timezone": "America/Los_Angeles",
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "iTxd64lDk3gI0bKG"
+  }
+}

@@ -1,0 +1,673 @@
+{
+  "id": "honeycrumb-setup",
+  "name": "Honeycrumb 0: Setup",
+  "nodes": [
+    {
+      "id": "c1fd1cd7-62b2-4f58-bc09-0811094af60d",
+      "name": "Run Setup",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        200,
+        300
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "e175ac9c-2bff-48fc-bc70-fd05fddbe287",
+      "name": "Read Settings",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        420,
+        300
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "PJ1UINshV66iby3v",
+          "cachedResultName": "Honeycrumb Settings"
+        },
+        "returnAll": true
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "3ebba3e9-e77c-4545-a4e2-07bf45d28c15",
+      "name": "Read Autopilot State",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        640,
+        300
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "PDrCjnORTqy1EDhP",
+          "cachedResultName": "Social Autopilot State"
+        },
+        "returnAll": true
+      },
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "id": "4b0196a9-7825-4698-a14a-92e0039110bb",
+      "name": "Plan",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// One-off: refuses to run twice so it can't create a second kitchen board.\nconst s = Object.fromEntries($(\"Read Settings\").all().map(i => [i.json.key, i.json.value ?? \"\"]));\nif (s.kitchen_sheet_id) throw new Error(\"Setup already ran (kitchen_sheet_id is set in Honeycrumb Settings). Clear it first to start over.\");\nconst autopilot = Object.fromEntries($(\"Read Autopilot State\").all().map(i => [i.json.key, i.json.value ?? \"\"]));\nreturn [{ json: { owner_chat_id: s.owner_chat_id || autopilot.approver_chat_id || \"\" } }];\n"
+      }
+    },
+    {
+      "id": "619a2392-ca30-4241-b9de-32ad42480d39",
+      "name": "Create Kitchen Board",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1080,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://sheets.googleapis.com/v4/spreadsheets?fields=spreadsheetId,spreadsheetUrl",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": {
+          "properties": {
+            "title": "Honeycrumb Kitchen Board",
+            "timeZone": "Africa/Lagos"
+          },
+          "sheets": [
+            {
+              "properties": {
+                "sheetId": 0,
+                "title": "Orders",
+                "gridProperties": {
+                  "frozenRowCount": 1
+                }
+              },
+              "data": [
+                {
+                  "startRow": 0,
+                  "startColumn": 0,
+                  "rowData": [
+                    {
+                      "values": [
+                        {
+                          "userEnteredValue": {
+                            "stringValue": "order_id"
+                          }
+                        },
+                        {
+                          "userEnteredValue": {
+                            "stringValue": "status"
+                          }
+                        },
+                        {
+                          "userEnteredValue": {
+                            "stringValue": "deliver_on"
+                          }
+                        },
+                        {
+                          "userEnteredValue": {
+                            "stringValue": "window"
+                          }
+                        },
+                        {
+                          "userEnteredValue": {
+                            "stringValue": "fulfilment"
+                          }
+                        },
+                        {
+                          "userEnteredValue": {
+                            "stringValue": "area"
+                          }
+                        },
+                        {
+                          "userEnteredValue": {
+                            "stringValue": "address"
+                          }
+                        },
+                        {
+                          "userEnteredValue": {
+                            "stringValue": "customer"
+                          }
+                        },
+                        {
+                          "userEnteredValue": {
+                            "stringValue": "phone"
+                          }
+                        },
+                        {
+                          "userEnteredValue": {
+                            "stringValue": "items"
+                          }
+                        },
+                        {
+                          "userEnteredValue": {
+                            "stringValue": "total_ngn"
+                          }
+                        },
+                        {
+                          "userEnteredValue": {
+                            "stringValue": "note"
+                          }
+                        },
+                        {
+                          "userEnteredValue": {
+                            "stringValue": "paid_at"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "D8rKxzgMrJwmFZoQ",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "id": "30018b61-6de2-4d2c-b888-fb0af96681db",
+      "name": "Format Board",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1300,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://sheets.googleapis.com/v4/spreadsheets/{{ $json.spreadsheetId }}:batchUpdate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": {
+          "requests": [
+            {
+              "repeatCell": {
+                "range": {
+                  "sheetId": 0,
+                  "startRowIndex": 0,
+                  "endRowIndex": 1
+                },
+                "cell": {
+                  "userEnteredFormat": {
+                    "textFormat": {
+                      "bold": true,
+                      "foregroundColor": {
+                        "red": 1,
+                        "green": 1,
+                        "blue": 1
+                      }
+                    },
+                    "backgroundColor": {
+                      "red": 0.55,
+                      "green": 0.33,
+                      "blue": 0.16
+                    }
+                  }
+                },
+                "fields": "userEnteredFormat(textFormat,backgroundColor)"
+              }
+            },
+            {
+              "setDataValidation": {
+                "range": {
+                  "sheetId": 0,
+                  "startRowIndex": 1,
+                  "startColumnIndex": 1,
+                  "endColumnIndex": 2
+                },
+                "rule": {
+                  "condition": {
+                    "type": "ONE_OF_LIST",
+                    "values": [
+                      {
+                        "userEnteredValue": "paid"
+                      },
+                      {
+                        "userEnteredValue": "baking"
+                      },
+                      {
+                        "userEnteredValue": "out_for_delivery"
+                      },
+                      {
+                        "userEnteredValue": "ready_for_pickup"
+                      },
+                      {
+                        "userEnteredValue": "delivered"
+                      },
+                      {
+                        "userEnteredValue": "cancelled"
+                      }
+                    ]
+                  },
+                  "showCustomUi": true,
+                  "strict": true
+                }
+              }
+            },
+            {
+              "addConditionalFormatRule": {
+                "index": 0,
+                "rule": {
+                  "ranges": [
+                    {
+                      "sheetId": 0,
+                      "startRowIndex": 1,
+                      "startColumnIndex": 1,
+                      "endColumnIndex": 2
+                    }
+                  ],
+                  "booleanRule": {
+                    "condition": {
+                      "type": "TEXT_EQ",
+                      "values": [
+                        {
+                          "userEnteredValue": "paid"
+                        }
+                      ]
+                    },
+                    "format": {
+                      "backgroundColor": {
+                        "red": 1,
+                        "green": 0.95,
+                        "blue": 0.8
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "addConditionalFormatRule": {
+                "index": 1,
+                "rule": {
+                  "ranges": [
+                    {
+                      "sheetId": 0,
+                      "startRowIndex": 1,
+                      "startColumnIndex": 1,
+                      "endColumnIndex": 2
+                    }
+                  ],
+                  "booleanRule": {
+                    "condition": {
+                      "type": "TEXT_EQ",
+                      "values": [
+                        {
+                          "userEnteredValue": "baking"
+                        }
+                      ]
+                    },
+                    "format": {
+                      "backgroundColor": {
+                        "red": 1,
+                        "green": 0.88,
+                        "blue": 0.75
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "addConditionalFormatRule": {
+                "index": 2,
+                "rule": {
+                  "ranges": [
+                    {
+                      "sheetId": 0,
+                      "startRowIndex": 1,
+                      "startColumnIndex": 1,
+                      "endColumnIndex": 2
+                    }
+                  ],
+                  "booleanRule": {
+                    "condition": {
+                      "type": "TEXT_EQ",
+                      "values": [
+                        {
+                          "userEnteredValue": "out_for_delivery"
+                        }
+                      ]
+                    },
+                    "format": {
+                      "backgroundColor": {
+                        "red": 0.82,
+                        "green": 0.9,
+                        "blue": 1
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "addConditionalFormatRule": {
+                "index": 3,
+                "rule": {
+                  "ranges": [
+                    {
+                      "sheetId": 0,
+                      "startRowIndex": 1,
+                      "startColumnIndex": 1,
+                      "endColumnIndex": 2
+                    }
+                  ],
+                  "booleanRule": {
+                    "condition": {
+                      "type": "TEXT_EQ",
+                      "values": [
+                        {
+                          "userEnteredValue": "delivered"
+                        }
+                      ]
+                    },
+                    "format": {
+                      "backgroundColor": {
+                        "red": 0.82,
+                        "green": 0.94,
+                        "blue": 0.84
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "updateDimensionProperties": {
+                "range": {
+                  "sheetId": 0,
+                  "dimension": "COLUMNS",
+                  "startIndex": 6,
+                  "endIndex": 7
+                },
+                "properties": {
+                  "pixelSize": 260
+                },
+                "fields": "pixelSize"
+              }
+            },
+            {
+              "updateDimensionProperties": {
+                "range": {
+                  "sheetId": 0,
+                  "dimension": "COLUMNS",
+                  "startIndex": 9,
+                  "endIndex": 10
+                },
+                "properties": {
+                  "pixelSize": 360
+                },
+                "fields": "pixelSize"
+              }
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "D8rKxzgMrJwmFZoQ",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "id": "a796e475-05c7-4db3-b943-6c4e9b23e98d",
+      "name": "Settings Rows",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1520,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "return [\n  { json: { key: \"kitchen_sheet_id\", value: $(\"Create Kitchen Board\").first().json.spreadsheetId } },\n  { json: { key: \"owner_chat_id\", value: $(\"Plan\").first().json.owner_chat_id } },\n];\n"
+      }
+    },
+    {
+      "id": "8b66b0cc-36fd-420b-9921-fcd4417ec989",
+      "name": "Save Settings",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1740,
+        300
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "PJ1UINshV66iby3v",
+          "cachedResultName": "Honeycrumb Settings"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "key",
+              "condition": "eq",
+              "keyValue": "={{ $json.key }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "key": "={{ $json.key }}",
+            "value": "={{ $json.value }}"
+          },
+          "schema": [
+            {
+              "id": "key",
+              "displayName": "key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "value",
+              "displayName": "value",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "710872d8-b8ca-4635-8d32-5b43001d85ee",
+      "name": "Read Settings Again",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1960,
+        300
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "PJ1UINshV66iby3v",
+          "cachedResultName": "Honeycrumb Settings"
+        },
+        "returnAll": true
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "17d6b2e5-8d4a-43a2-9601-f819fa98e73f",
+      "name": "Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2180,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const s = Object.fromEntries($(\"Read Settings Again\").all().map(i => [i.json.key, i.json.value ?? \"\"]));\nreturn [{ json: {\n  kitchen_board: s.kitchen_sheet_id ? \"https://docs.google.com/spreadsheets/d/\" + s.kitchen_sheet_id + \"/edit\" : \"(missing)\",\n  owner_chat_id: s.owner_chat_id || \"(empty: owner alerts are skipped until it is set)\",\n  payments: s.payments,\n  next: \"Create the WhatsApp and Paystack credentials, set whatsapp_phone_number_id, then publish Honeycrumb 1 and 5.\",\n} }];\n"
+      }
+    },
+    {
+      "id": "ec605e79-047d-4858-97a3-a31845a424f2",
+      "name": "Sticky Note ec605e79",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        160,
+        40
+      ],
+      "parameters": {
+        "content": "## Honeycrumb 0: Setup (run once)\nCreates the **Honeycrumb Kitchen Board** Google Sheet (status dropdown and colours for paid, baking, out for delivery, delivered) and saves its ID in **Honeycrumb Settings**. The owner's Telegram chat defaults to Social Autopilot's approver chat.\n\nThe menu, delivery zones and settings rows were loaded straight into the data tables when the project was built.",
+        "color": 5,
+        "width": 900,
+        "height": 200
+      }
+    }
+  ],
+  "connections": {
+    "Run Setup": {
+      "main": [
+        [
+          {
+            "node": "Read Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Settings": {
+      "main": [
+        [
+          {
+            "node": "Read Autopilot State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Autopilot State": {
+      "main": [
+        [
+          {
+            "node": "Plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Plan": {
+      "main": [
+        [
+          {
+            "node": "Create Kitchen Board",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Kitchen Board": {
+      "main": [
+        [
+          {
+            "node": "Format Board",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Board": {
+      "main": [
+        [
+          {
+            "node": "Settings Rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings Rows": {
+      "main": [
+        [
+          {
+            "node": "Save Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Settings": {
+      "main": [
+        [
+          {
+            "node": "Read Settings Again",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Settings Again": {
+      "main": [
+        [
+          {
+            "node": "Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {}
+}

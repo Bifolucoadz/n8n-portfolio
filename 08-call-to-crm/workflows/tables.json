@@ -1,0 +1,9 @@
+{
+  "DEALS": [["deal_id","string"],["name","string"],["company_id","string"],["stage","string"],["amount","number"],["close_date","string"],["owner","string"],["next_step","string"],["updated_at","string"]],
+  "COMPANIES": [["company_id","string"],["name","string"],["domain","string"],["industry","string"],["size","string"]],
+  "CONTACTS": [["contact_id","string"],["company_id","string"],["name","string"],["email","string"],["title","string"]],
+  "ACTIVITY": [["activity_id","string"],["deal_id","string"],["kind","string"],["title","string"],["body","string"],["owner","string"],["due","string"],["status","string"],["source","string"],["created_at","string"]],
+  "CALLS": [["call_id","string"],["deal_id","string"],["rep","string"],["filename","string"],["duration_s","number"],["transcript_json","string"],["analysis_json","string"],["applied_json","string"],["pending_json","string"],["email_to","string"],["email_subject","string"],["email_body","string"],["status","string"],["token","string"],["created_at","string"],["reviewed_at","string"],["process_ms","number"]],
+  "OUTBOX": [["to","string"],["subject","string"],["body","string"],["kind","string"],["call_id","string"],["at","string"]],
+  "CALLREVIEW": [["applied_json","string"],["pending_json","string"],["email_subject","string"],["email_body","string"],["status","string"],["reviewed_at","string"]]
+}

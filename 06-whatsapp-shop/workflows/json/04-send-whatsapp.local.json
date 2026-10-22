@@ -1,0 +1,266 @@
+{
+  "id": "honeycrumb-send-whatsapp",
+  "name": "Honeycrumb 4: Send WhatsApp",
+  "nodes": [
+    {
+      "id": "a5b9a4bc-59c5-43b8-9fd5-ded8153b6f69",
+      "name": "When Called",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        200,
+        300
+      ],
+      "parameters": {
+        "inputSource": "passthrough"
+      }
+    },
+    {
+      "id": "17158766-10d0-4ce1-ac07-3074696870da",
+      "name": "Read Settings",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        420,
+        300
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "PJ1UINshV66iby3v",
+          "cachedResultName": "Honeycrumb Settings"
+        },
+        "returnAll": true
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "c83b184a-7387-4e1b-9fc0-a299f85fa7d8",
+      "name": "Build Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        640,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// One outgoing WhatsApp message -> Cloud API payload (or an Outbox row in test mode).\n// kinds: text, cta (button that opens a link), image, read (blue ticks + typing indicator).\nconst m = $(\"When Called\").first().json;\nconst settings = Object.fromEntries($(\"Read Settings\").all().map(i => [i.json.key, i.json.value ?? \"\"]));\nconst test = m.test === true || String(m.test) === \"true\";\nconst to = String(m.to ?? \"\").replace(/\\D/g, \"\");\nconst body = String(m.body ?? \"\").trim();\nif (m.kind === \"read\" && (test || !m.message_id)) return [];\nconst url = `https://graph.facebook.com/${settings.graph_version || \"v23.0\"}/${settings.whatsapp_phone_number_id}/messages`;\nlet payload;\nif (m.kind === \"read\") {\n  payload = { messaging_product: \"whatsapp\", status: \"read\", message_id: m.message_id, typing_indicator: { type: \"text\" } };\n} else if (m.kind === \"cta\" && m.url) {\n  payload = {\n    messaging_product: \"whatsapp\", recipient_type: \"individual\", to, type: \"interactive\",\n    interactive: { type: \"cta_url\", body: { text: body.slice(0, 1024) }, action: { name: \"cta_url\", parameters: { display_text: String(m.button_text || \"Open\").slice(0, 20), url: m.url } } },\n  };\n} else if (m.kind === \"image\" && m.url) {\n  payload = { messaging_product: \"whatsapp\", recipient_type: \"individual\", to, type: \"image\", image: { link: m.url, caption: body.slice(0, 1024) } };\n} else {\n  payload = { messaging_product: \"whatsapp\", recipient_type: \"individual\", to, type: \"text\", text: { preview_url: false, body: body.slice(0, 4096) } };\n}\nreturn [{\n  json: {\n    test,\n    url,\n    payload,\n    outbox: { phone: to, kind: m.kind || \"text\", body, url: m.url || \"\", at: DateTime.now().setZone(\"Africa/Lagos\").toISO() },\n  },\n}];\n"
+      }
+    },
+    {
+      "id": "7cabe4b8-5c71-47e9-a35e-bf2774d359fc",
+      "name": "Test Mode?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        860,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.test }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "8ea26120-7679-4368-ab4a-fa76590e642b",
+      "name": "Save To Outbox",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1080,
+        220
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "r2de7veluVepOlgg",
+          "cachedResultName": "Honeycrumb Outbox"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "phone": "={{ $json.outbox.phone }}",
+            "kind": "={{ $json.outbox.kind }}",
+            "body": "={{ $json.outbox.body }}",
+            "url": "={{ $json.outbox.url }}",
+            "at": "={{ $json.outbox.at }}"
+          },
+          "schema": [
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "kind",
+              "displayName": "kind",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "body",
+              "displayName": "body",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "url",
+              "displayName": "url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "at",
+              "displayName": "at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "78e8b1df-c9ba-4c8d-83c5-7a57b310a9e7",
+      "name": "Send Message",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1080,
+        400
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "whatsAppApi",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.payload) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "credentials": {},
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "649a7455-ad61-48fa-ad83-eac117aa7ca2",
+      "name": "Sticky Note 649a7455",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        160,
+        40
+      ],
+      "parameters": {
+        "content": "## Honeycrumb 4: Send WhatsApp\nEvery outgoing message goes through here: `text`, `cta` (a **Pay ₦X** button that opens the Paystack link), `image`, and `read` (blue ticks plus the typing indicator while the agent thinks).\n\nWith `test = true` nothing is sent: the message lands in the **Honeycrumb Outbox** data table, so the whole shop can be tested without Meta.",
+        "color": 5,
+        "width": 900,
+        "height": 200
+      }
+    }
+  ],
+  "connections": {
+    "When Called": {
+      "main": [
+        [
+          {
+            "node": "Read Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Settings": {
+      "main": [
+        [
+          {
+            "node": "Build Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Payload": {
+      "main": [
+        [
+          {
+            "node": "Test Mode?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Test Mode?": {
+      "main": [
+        [
+          {
+            "node": "Save To Outbox",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {}
+}

@@ -1,0 +1,7 @@
+[
+  {"key": "olivia", "client_name": "Olivia Grant", "client_email": "olivia.grant@example.com", "client_phone": "07700 900110", "site_address": "23 Fernbank Road, Redland, Bristol", "postcode": "BS6 6PZ", "estimator": "Priya Nair", "notes": "", "voice": "voice-memo.m4a"},
+  {"key": "callum", "client_name": "Callum Reid", "client_email": "callum.reid@example.com", "client_phone": "07700 900111", "site_address": "8 Elton Road, Bishopston, Bristol", "postcode": "BS7 8DA", "estimator": "Tom Hale",
+   "notes": "Front garden. Replace the cracked concrete drive with block paving, 5.5m x 7m. Old 9m panel fence along the left boundary is rotten, replace with closeboard. Small side lawn about 3 x 4, wants new turf. Maybe 2 lights by the gate if the price is OK. Parking on the street is fine for the skip.", "voice": ""},
+  {"key": "nina", "client_name": "Nina Kowalski", "client_email": "nina.kowalski@example.com", "client_phone": "", "site_address": "41 Wolseley Road, Bishopston, Bristol", "postcode": "BS7 8EN", "estimator": "Priya Nair",
+   "notes": "Back garden. Composite deck the width of the house (roughly 7m) and 3.5m deep, on the patchy lawn. Gravel path from the deck to the shed, about 12m long and 1m wide. She also wants a base for a hot tub but doesn't know the size yet. Side gate needs replacing.", "voice": ""}
+]

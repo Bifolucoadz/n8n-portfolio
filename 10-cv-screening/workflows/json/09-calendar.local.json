@@ -1,0 +1,515 @@
+{
+  "id": "ngtCalendar00009",
+  "name": "Northgate 9: Calendar",
+  "description": "CV screening (project 10): calendar adapter. Lists busy times and books interviews in Google Calendar (live) or the Northgate Calendar table (test).",
+  "nodes": [
+    {
+      "id": "2a1d8f7e-7e95-42f9-a21e-0556336f9d01",
+      "name": "When Called",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        200,
+        400
+      ],
+      "parameters": {
+        "inputSource": "passthrough"
+      }
+    },
+    {
+      "id": "189831d0-2e70-4e80-8707-b40c0966ef76",
+      "name": "Read Settings",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        420,
+        400
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "LXDSXYJhXdqQV8KO",
+          "cachedResultName": "Northgate Settings"
+        },
+        "returnAll": true
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "bbd56c45-53bc-462f-a84e-9f9298ae7058",
+      "name": "Route",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        640,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Which calendar to use: Google Calendar in live mode, the Northgate Calendar table in test mode.\n// ---- lib-ngt.js (included by build.py): shared helpers for the Northgate workflows ----\nconst TZ = 'Europe/London';\nconst esc = s => String(s === null || s === undefined ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');\nconst settingsOf = items => Object.fromEntries(items.map(i => i.json).filter(r => r && r.key).map(r => [r.key, r.value]));\nconst parseJson = (s, d) => { try { return typeof s === 'string' ? JSON.parse(s) : (s === null || s === undefined ? d : s); } catch (e) { return d; } };\nconst nowIso = () => DateTime.now().setZone(TZ).toISO();\nconst newToken = n => Array.from({ length: n || 24 }, () => 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 56)]).join('');\nconst pounds = n => '£' + Math.round(Number(n) || 0).toLocaleString('en-GB');\nconst whenText = iso => DateTime.fromISO(String(iso), { zone: TZ }).toFormat(\"cccc d LLLL 'at' h:mm a\").replace(':00 ', ' ');\nconst firstName = name => String(name || '').trim().split(/\\s+/)[0] || 'there';\n\n// OpenAI node (Responses API) output: the JSON object from the first output_text part, or null.\nfunction aiJson(res) {\n  if (!res || res.error) return null;\n  const msg = (res.output || []).find(o => o && o.type === 'message');\n  const part = msg && (msg.content || []).find(c => c && c.type === 'output_text');\n  let t = part ? part.text : null;\n  if (typeof t === 'string') { try { t = JSON.parse(t); } catch (e) { t = null; } }\n  return t && typeof t === 'object' ? t : null;\n}\n\n// Plain, left-aligned email body with the agency's name at the top.\nfunction emailHtml(company, paragraphs, extraHtml) {\n  const p = paragraphs.map(t => '<p style=\"margin:0 0 14px;text-align:left\">' + t + '</p>').join('');\n  return '<div style=\"font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.55;color:#1f2933;max-width:560px;text-align:left\">'\n    + '<div style=\"font-weight:700;font-size:13px;letter-spacing:1px;text-transform:uppercase;color:#0b6e4f;margin:0 0 18px\">' + esc(company) + '</div>'\n    + p + (extraHtml || '') + '</div>';\n}\n\nconst BAND_LABEL = { shortlist: 'Shortlist', review: 'Worth a look', unlikely: 'Unlikely fit', knockout: 'Knockout' };\n// ---- end lib-ngt.js ----\nconst s = settingsOf($('Read Settings').all());\nconst i = $('When Called').first().json;\nreturn [{ json: { ...i, route: (s.mode === 'live' ? 'live_' : 'test_') + (i.action === 'book' ? 'book' : 'busy'), calendar_id: s.calendar_id || 'primary' } }];\n"
+      }
+    },
+    {
+      "id": "d0eb20f8-38fc-4db4-8889-d7301ac99d01",
+      "name": "Which Calendar?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        860,
+        400
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "outputKey": "test busy",
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "test_busy"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "outputKey": "test book",
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "test_book"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "outputKey": "live busy",
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "live_busy"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "outputKey": "live book",
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "live_book"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "f5d4408c-89a2-4159-b817-93d612e23d64",
+      "name": "Read Test Calendar",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1100,
+        160
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "CF6YJExhwMKsGY9P",
+          "cachedResultName": "Northgate Calendar"
+        },
+        "returnAll": true
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "id": "fdee9443-9105-4451-a2fc-f080117fd0f9",
+      "name": "Busy (Test)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        160
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Busy periods from the test calendar table that overlap the window asked for.\nconst r = $('Route').first().json;\nconst from = Date.parse(r.from), to = Date.parse(r.to);\nconst busy = $input.all().map(i => i.json).filter(e => e.start && e.end && Date.parse(e.end) > from && Date.parse(e.start) < to)\n  .map(e => ({ start: e.start, end: e.end, title: e.title }));\nreturn [{ json: { busy } }];\n"
+      }
+    },
+    {
+      "id": "cf82d75d-1a09-4590-8444-ba3ce6ed7a47",
+      "name": "Book in Test Calendar",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1100,
+        340
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "CF6YJExhwMKsGY9P",
+          "cachedResultName": "Northgate Calendar"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "start": "={{ $json.start }}",
+            "end": "={{ $json.end }}",
+            "title": "={{ $json.title }}",
+            "kind": "interview",
+            "candidate_id": "={{ $json.candidate_id }}"
+          },
+          "schema": [
+            {
+              "id": "start",
+              "displayName": "start",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "end",
+              "displayName": "end",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "title",
+              "displayName": "title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "kind",
+              "displayName": "kind",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "candidate_id",
+              "displayName": "candidate_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "2873351c-40e0-4c8a-8836-dafe0bd7a0b3",
+      "name": "Booked",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        520
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// The booked event, the same shape in both modes.\nconst r = $('Route').first().json;\nconst e = $input.first().json || {};\nreturn [{ json: { booked: true, event_id: String(e.id || ''), link: e.htmlLink || '', start: r.start, end: r.end } }];\n"
+      }
+    },
+    {
+      "id": "753931cb-6f0e-4644-9542-101a413df748",
+      "name": "Google Calendar Events",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        1100,
+        520
+      ],
+      "parameters": {
+        "resource": "event",
+        "operation": "getAll",
+        "calendar": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $json.calendar_id }}"
+        },
+        "returnAll": true,
+        "timeMin": "={{ $json.from }}",
+        "timeMax": "={{ $json.to }}",
+        "options": {
+          "singleEvents": true
+        }
+      },
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "5G8pvfh0Kjd75Asw",
+          "name": "Google Calendar account"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "alwaysOutputData": true
+    },
+    {
+      "id": "a57d46eb-3312-4a8c-bf18-eafec092e4e8",
+      "name": "Busy (Live)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        520
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Busy periods from Google Calendar (all-day events block the whole day; \"free\" events are ignored).\nconst busy = $input.all().map(i => i.json).filter(e => e && e.start && e.transparency !== 'transparent' && e.status !== 'cancelled').map(e => ({\n  start: e.start.dateTime || (e.start.date + 'T00:00:00'),\n  end: e.end.dateTime || (e.end.date + 'T00:00:00'),\n  title: e.summary || 'Busy'\n}));\nreturn [{ json: { busy } }];\n"
+      }
+    },
+    {
+      "id": "28f37be6-0a40-45e0-be37-be247f2d927c",
+      "name": "Create Google Event",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        1100,
+        700
+      ],
+      "parameters": {
+        "resource": "event",
+        "operation": "create",
+        "calendar": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $json.calendar_id }}"
+        },
+        "start": "={{ $json.start }}",
+        "end": "={{ $json.end }}",
+        "additionalFields": {
+          "summary": "={{ $json.title }}",
+          "description": "={{ $json.description }}",
+          "attendees": [
+            "={{ $json.attendees }}"
+          ],
+          "sendUpdates": "all"
+        }
+      },
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "5G8pvfh0Kjd75Asw",
+          "name": "Google Calendar account"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000
+    },
+    {
+      "id": "54d24c8c-318c-455f-a07e-789028084ddf",
+      "name": "Sticky Note 54d24c8c",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        160,
+        -80
+      ],
+      "parameters": {
+        "content": "## Northgate 9: Calendar\nOne place for calendar work, so the invite and booking workflows don't care which calendar is behind it.\n- **busy**: busy periods between `from` and `to`.\n- **book**: creates the interview with the candidate and interviewer as guests.\nLive mode uses the recruiter's Google Calendar; test mode uses the **Northgate Calendar** table.",
+        "color": 7,
+        "width": 1100,
+        "height": 200
+      }
+    }
+  ],
+  "connections": {
+    "When Called": {
+      "main": [
+        [
+          {
+            "node": "Read Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Settings": {
+      "main": [
+        [
+          {
+            "node": "Route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route": {
+      "main": [
+        [
+          {
+            "node": "Which Calendar?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Which Calendar?": {
+      "main": [
+        [
+          {
+            "node": "Read Test Calendar",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Book in Test Calendar",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Google Calendar Events",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Google Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Test Calendar": {
+      "main": [
+        [
+          {
+            "node": "Busy (Test)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Book in Test Calendar": {
+      "main": [
+        [
+          {
+            "node": "Booked",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Calendar Events": {
+      "main": [
+        [
+          {
+            "node": "Busy (Live)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Google Event": {
+      "main": [
+        [
+          {
+            "node": "Booked",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "timezone": "Europe/London",
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "iTxd64lDk3gI0bKG"
+  }
+}

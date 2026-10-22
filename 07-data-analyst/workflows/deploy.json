@@ -1,0 +1,32 @@
+{
+  "timezone": "Europe/London",
+  "errorWorkflow": "iTxd64lDk3gI0bKG",
+  "workflows": {
+    "00-database-setup.ts": {
+      "id": "ilfDbSetup000000",
+      "description": "Data analyst (project 7): one-off setup. Creates the Ironleaf Fitness demo database (schema ironleaf), the read-only reader role and the safe query function.",
+      "errorWorkflow": false
+    },
+    "01-answer-question.ts": {
+      "id": "ilfAnswerQues001",
+      "description": "Data analyst (project 7): one plain-English question to one answer. GPT-5.4 writes SQL, code checks it, Postgres runs it read-only, one auto-fix on error, GPT-5.4 mini explains the rows."
+    },
+    "02-chat-api.ts": {
+      "id": "ilfChatApi000002",
+      "description": "Data analyst (project 7): the analyst chat page and its API. Keeps the last questions per chat for follow-ups and logs every question."
+    },
+    "03-weekly-anomalies.ts": {
+      "id": "ilfWeeklyAnom003",
+      "description": "Data analyst (project 7): Monday report. Fixed SQL compares last week with the 8 weeks before for each branch; code flags unusual numbers; GPT-5.4 writes the summary."
+    },
+    "04-evaluation.ts": {
+      "id": "ilfEvaluation004",
+      "description": "Data analyst (project 7): runs 19 test questions, compares the assistant's numbers with reference SQL and saves the scores.",
+      "errorWorkflow": false
+    },
+    "05-send-email.ts": {
+      "id": "ilfSendEmail0005",
+      "description": "Data analyst (project 7): sends an email with Gmail in live mode or writes it to the Ironleaf Outbox table in test mode."
+    }
+  }
+}

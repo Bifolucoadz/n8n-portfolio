@@ -1,0 +1,41 @@
+{
+  "timezone": "America/New_York",
+  "errorWorkflow": "iTxd64lDk3gI0bKG",
+  "workflows": {
+    "01-upload-call.ts": {
+      "id": "tdwUploadCall001",
+      "description": "Call to CRM (project 8): form where a rep uploads a sales call recording for a deal; shows the summary, CRM updates and a review link when processing ends."
+    },
+    "02-process-call.ts": {
+      "id": "tdwProcessCall02",
+      "description": "Call to CRM (project 8): transcribes the call with speaker labels, analyses it (GPT-5.4), applies safe CRM updates and queues the rest and the follow-up email for review."
+    },
+    "03-crm.ts": {
+      "id": "tdwCrmAdapter003",
+      "description": "Call to CRM (project 8): CRM adapter. Reads deals and writes notes, tasks and deal fields in HubSpot (live) or the Tidewater tables (test).",
+      "disabled": [
+        "HubSpot Deal",
+        "HubSpot Contacts",
+        "HubSpot Write"
+      ]
+    },
+    "04-review-page.ts": {
+      "id": "tdwReviewPage004",
+      "description": "Call to CRM (project 8): the rep's review page for a processed call, and the endpoint that applies approved changes and sends the follow-up email."
+    },
+    "05-send-email.ts": {
+      "id": "tdwSendEmail0005",
+      "description": "Call to CRM (project 8): sends an email with Gmail in live mode or writes it to the Tidewater Outbox table in test mode."
+    },
+    "06-reset-demo.ts": {
+      "id": "tdwResetDemo0006",
+      "description": "Call to CRM (project 8): puts the demo CRM back to its starting deals, companies and contacts and clears calls, activity and the outbox.",
+      "errorWorkflow": false
+    },
+    "07-make-demo-calls.ts": {
+      "id": "tdwMakeCalls0007",
+      "description": "Call to CRM (project 8): makes the three demo sales call recordings with OpenAI text-to-speech.",
+      "errorWorkflow": false
+    }
+  }
+}

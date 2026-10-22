@@ -1,0 +1,57 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["standalone_question", "request_type", "product", "speaker", "adverse_event", "product_complaint", "off_label", "emergency"],
+  "properties": {
+    "standalone_question": { "type": "string" },
+    "request_type": { "type": "string", "enum": ["medical_question", "product_info", "procedure_question", "report_only", "small_talk", "other"] },
+    "product": { "type": "string", "enum": ["quenvara", "lumetra", "aurivex", "multiple", "none"] },
+    "speaker": { "type": "string", "enum": ["healthcare_professional", "patient_or_caregiver", "company_employee", "unknown"] },
+    "adverse_event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["detected", "summary", "patient", "reporter", "seriousness", "special_situation", "criteria_present", "missing_information"],
+      "properties": {
+        "detected": { "type": "boolean" },
+        "summary": { "type": "string" },
+        "patient": { "type": "string" },
+        "reporter": { "type": "string" },
+        "seriousness": { "type": "string", "enum": ["serious", "not_serious", "unknown"] },
+        "special_situation": { "type": "string", "enum": ["none", "pregnancy", "breastfeeding", "overdose", "medication_error", "misuse", "lack_of_efficacy", "off_label_use", "occupational_exposure", "other"] },
+        "criteria_present": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["patient", "reporter", "product", "event"],
+          "properties": {
+            "patient": { "type": "boolean" },
+            "reporter": { "type": "boolean" },
+            "product": { "type": "boolean" },
+            "event": { "type": "boolean" }
+          }
+        },
+        "missing_information": { "type": "string" }
+      }
+    },
+    "product_complaint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["detected", "summary", "lot_number", "missing_information"],
+      "properties": {
+        "detected": { "type": "boolean" },
+        "summary": { "type": "string" },
+        "lot_number": { "type": "string" },
+        "missing_information": { "type": "string" }
+      }
+    },
+    "off_label": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["detected", "topic"],
+      "properties": {
+        "detected": { "type": "boolean" },
+        "topic": { "type": "string" }
+      }
+    },
+    "emergency": { "type": "boolean" }
+  }
+}

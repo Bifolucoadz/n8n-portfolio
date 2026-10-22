@@ -1,0 +1,1864 @@
+{
+  "id": "honeycrumb-shop-tools",
+  "name": "Honeycrumb 3: Shop Tools",
+  "nodes": [
+    {
+      "id": "f667fae4-6e8f-4cf7-ae7a-08f8b8ed5913",
+      "name": "When Called by Agent",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        200,
+        800
+      ],
+      "parameters": {
+        "inputSource": "workflowInputs",
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "action",
+              "type": "string"
+            },
+            {
+              "name": "phone",
+              "type": "string"
+            },
+            {
+              "name": "customer_name",
+              "type": "string"
+            },
+            {
+              "name": "turn_id",
+              "type": "string"
+            },
+            {
+              "name": "test",
+              "type": "boolean"
+            },
+            {
+              "name": "query",
+              "type": "string"
+            },
+            {
+              "name": "category",
+              "type": "string"
+            },
+            {
+              "name": "sku",
+              "type": "string"
+            },
+            {
+              "name": "qty",
+              "type": "number"
+            },
+            {
+              "name": "op",
+              "type": "string"
+            },
+            {
+              "name": "cake_message",
+              "type": "string"
+            },
+            {
+              "name": "area",
+              "type": "string"
+            },
+            {
+              "name": "fulfilment",
+              "type": "string"
+            },
+            {
+              "name": "address",
+              "type": "string"
+            },
+            {
+              "name": "deliver_on",
+              "type": "string"
+            },
+            {
+              "name": "window",
+              "type": "string"
+            },
+            {
+              "name": "note",
+              "type": "string"
+            },
+            {
+              "name": "email",
+              "type": "string"
+            },
+            {
+              "name": "reason",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "f7c0e974-978e-4141-aa4d-54fec6af710b",
+      "name": "Read Settings",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        420,
+        800
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "PJ1UINshV66iby3v",
+          "cachedResultName": "Honeycrumb Settings"
+        },
+        "returnAll": true
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "75379f95-10b9-401d-958a-6bec0c9288c0",
+      "name": "Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        640,
+        800
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// One tool call from the Honeycrumb agent, plus the shop settings.\nconst c = $(\"When Called by Agent\").first().json;\nconst settings = Object.fromEntries($(\"Read Settings\").all().map(i => [i.json.key, i.json.value ?? \"\"]));\nconst s = v => String(v ?? \"\").trim();\nreturn [{\n  json: {\n    action: s(c.action), phone: s(c.phone).replace(/\\D/g, \"\"), customer_name: s(c.customer_name), turn_id: s(c.turn_id),\n    test: c.test === true || s(c.test) === \"true\",\n    query: s(c.query), category: s(c.category).toLowerCase(), sku: s(c.sku), qty: Number(c.qty ?? 1), op: s(c.op).toLowerCase() || \"view\",\n    cake_message: s(c.cake_message), area: s(c.area), fulfilment: s(c.fulfilment).toLowerCase(), address: s(c.address),\n    deliver_on: s(c.deliver_on), window: s(c.window), note: s(c.note), email: s(c.email), reason: s(c.reason),\n    settings,\n  },\n}];\n"
+      }
+    },
+    {
+      "id": "35c9b1d7-8fca-419b-a460-7bdc3386d1fe",
+      "name": "Which Action?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        860,
+        800
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "outputKey": "menu",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "search_menu"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "outputKey": "cart",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "update_cart"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "outputKey": "delivery",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "delivery_quote"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "outputKey": "checkout",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "checkout"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "outputKey": "status",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "order_status"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "outputKey": "human",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "request_human"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "other"
+        }
+      }
+    },
+    {
+      "id": "2d20f15d-e0cb-465f-b464-4453421e1355",
+      "name": "Read Products",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1100,
+        160
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Z1zpXdhWaw6s43du",
+          "cachedResultName": "Honeycrumb Products"
+        },
+        "returnAll": true
+      }
+    },
+    {
+      "id": "0363e1fc-2018-4520-b53b-76a5efda2789",
+      "name": "Search Menu",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        160
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// ---- lib-shop.js (included by build.py): prices, carts, zones and delivery rules ----\nconst SHOP = {\n  TZ: \"Africa/Lagos\",\n  OPEN_DAYS: [1, 2, 3, 4, 5, 6], // Monday-Saturday\n  CLOSED: [\"2026-12-25\", \"2026-12-26\", \"2027-01-01\"],\n  // window label -> start hour\n  WINDOWS: {\n    delivery: { \"10am-1pm\": 10, \"1pm-4pm\": 13, \"4pm-6pm\": 16 },\n    pickup: { \"9am-12pm\": 9, \"12pm-3pm\": 12, \"3pm-7pm\": 15 },\n  },\n  DAYS_AHEAD: 21,\n  MAX_QTY: 50,\n  CAKE_MESSAGE_MAX: 30,\n  PICKUP: \"14 Admiralty Way, Lekki Phase 1, Lagos\",\n};\n\nconst naira = n => \"₦\" + String(Math.round(Number(n) || 0)).replace(/\\B(?=(\\d{3})+(?!\\d))/g, \",\");\nconst clean = s => String(s ?? \"\").toLowerCase().replace(/[^a-z0-9 ]+/g, \" \").replace(/\\s+/g, \" \").trim();\nconst parseItems = json => {\n  try { const a = JSON.parse(json || \"[]\"); return Array.isArray(a) ? a : []; } catch (e) { return []; }\n};\nconst subtotalOf = items => items.reduce((s, i) => s + i.qty * i.unit_ngn, 0);\nconst itemLine = i => i.qty + \" × \" + i.name + (i.cake_message ? ' (message: \"' + i.cake_message + '\")' : \"\") + \" = \" + naira(i.qty * i.unit_ngn);\nconst newId = prefix => prefix + Array.from({ length: 4 }, () => \"ABCDEFGHJKLMNPQRSTUVWXYZ23456789\"[Math.floor(Math.random() * 32)]).join(\"\");\n\n// Product by SKU, else by name words (all words of the query must appear).\nfunction findProduct(products, ref) {\n  const r = String(ref ?? \"\").trim();\n  if (!r) return null;\n  const bySku = products.find(p => p.sku.toLowerCase() === r.toLowerCase());\n  if (bySku) return bySku;\n  const words = clean(r).split(\" \").filter(w => w.length > 1);\n  const hits = products.filter(p => words.every(w => clean(p.name + \" \" + p.sku).includes(w)));\n  return hits.length === 1 ? hits[0] : null;\n}\n\n// Delivery zone whose name or alias appears in the customer's text.\nfunction matchZone(zones, text) {\n  const t = \" \" + clean(text) + \" \";\n  let best = null;\n  for (const z of zones) {\n    const names = [z.area, ...String(z.aliases ?? \"\").split(\",\")].map(clean).filter(Boolean);\n    for (const n of names) {\n      if (t.includes(\" \" + n + \" \") && (!best || n.length > best.len)) best = { zone: z, len: n.length };\n    }\n  }\n  return best ? best.zone : null;\n}\n\nfunction isOpenDay(d) {\n  return SHOP.OPEN_DAYS.includes(d.weekday) && !SHOP.CLOSED.includes(d.toISODate());\n}\n\n// Earliest (day, window) that respects the longest lead time in the cart.\nfunction earliestSlot(leadHours, fulfilment, now) {\n  const windows = SHOP.WINDOWS[fulfilment] || SHOP.WINDOWS.delivery;\n  const ready = now.plus({ hours: leadHours });\n  for (let d = now.startOf(\"day\"); d <= now.startOf(\"day\").plus({ days: SHOP.DAYS_AHEAD }); d = d.plus({ days: 1 })) {\n    if (!isOpenDay(d)) continue;\n    for (const [label, hour] of Object.entries(windows)) {\n      if (d.set({ hour }) >= ready) return { date: d, window: label };\n    }\n  }\n  return null;\n}\n\n// \"Thursday 30 October, 1pm-4pm\"\nconst sayDay = d => d.toFormat(\"cccc d LLLL\");\n// ---- end lib-shop.js ----\n// Menu lines for the agent: by words and/or category, or a category overview when nothing is asked.\nconst c = $(\"Config\").first().json;\nconst products = $input.all().map(i => i.json).filter(p => p.sku);\nconst line = p => p.name + \" [\" + p.sku + \"]: \" + naira(p.price_ngn) + \", serves \" + p.serves + \", \" +\n  (p.lead_hours >= 24 ? p.lead_hours + \" hours' notice\" : \"same day\") + \", contains \" + p.allergens +\n  (p.available ? \"\" : \" (SOLD OUT today)\") + \". \" + p.description;\nconst words = clean(c.query).split(\" \").filter(w => w.length > 1 && ![\"the\", \"and\", \"for\", \"you\", \"have\", \"any\", \"do\", \"of\", \"a\"].includes(w));\nlet list = products.filter(p => !c.category || p.category === c.category || p.category.startsWith(c.category));\nif (words.length) {\n  list = list\n    .map(p => ({ p, score: words.filter(w => clean([p.name, p.category, p.description, p.allergens, p.sku].join(\" \")).includes(w.replace(/s$/, \"\"))).length }))\n    .filter(x => x.score > 0)\n    .sort((a, b) => b.score - a.score)\n    .map(x => x.p);\n}\nif (!words.length && !c.category) {\n  const cats = [...new Set(products.map(p => p.category))];\n  return [{ json: { result: \"Menu categories: \" + cats.map(cat => {\n    const ps = products.filter(p => p.category === cat && p.available);\n    return cat + \" (\" + ps.length + \" items, from \" + naira(Math.min(...ps.map(p => p.price_ngn))) + \")\";\n  }).join(\"; \") + \". Search a category or words for details.\" } }];\n}\nif (!list.length) return [{ json: { result: \"Nothing on the menu matches \\\"\" + (c.query || c.category) + \"\\\". Categories: \" + [...new Set(products.map(p => p.category))].join(\", \") + \".\" } }];\nreturn [{ json: { result: list.slice(0, 8).map(line).join(\"\\n\") + \"\\nEverything is made in a kitchen that also handles nuts, gluten, dairy and eggs.\" } }];\n"
+      }
+    },
+    {
+      "id": "9d4fef9d-8d59-47ce-811d-105619cc35de",
+      "name": "Read Products (Cart)",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1100,
+        400
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Z1zpXdhWaw6s43du",
+          "cachedResultName": "Honeycrumb Products"
+        },
+        "returnAll": true
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "1c9e300a-5d59-469a-a469-a35d4b07b2b2",
+      "name": "Read Orders (Cart)",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1320,
+        400
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "K3QpMm9jFMF8Daui",
+          "cachedResultName": "Honeycrumb Orders"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "phone",
+              "condition": "eq",
+              "keyValue": "={{ $('Config').first().json.phone }}"
+            }
+          ]
+        },
+        "limit": 10,
+        "orderBy": true,
+        "orderByColumn": "createdAt",
+        "orderByDirection": "DESC"
+      },
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "id": "d6436cc6-8db0-406e-ab38-f1a547b296b8",
+      "name": "Apply Cart",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// ---- lib-shop.js (included by build.py): prices, carts, zones and delivery rules ----\nconst SHOP = {\n  TZ: \"Africa/Lagos\",\n  OPEN_DAYS: [1, 2, 3, 4, 5, 6], // Monday-Saturday\n  CLOSED: [\"2026-12-25\", \"2026-12-26\", \"2027-01-01\"],\n  // window label -> start hour\n  WINDOWS: {\n    delivery: { \"10am-1pm\": 10, \"1pm-4pm\": 13, \"4pm-6pm\": 16 },\n    pickup: { \"9am-12pm\": 9, \"12pm-3pm\": 12, \"3pm-7pm\": 15 },\n  },\n  DAYS_AHEAD: 21,\n  MAX_QTY: 50,\n  CAKE_MESSAGE_MAX: 30,\n  PICKUP: \"14 Admiralty Way, Lekki Phase 1, Lagos\",\n};\n\nconst naira = n => \"₦\" + String(Math.round(Number(n) || 0)).replace(/\\B(?=(\\d{3})+(?!\\d))/g, \",\");\nconst clean = s => String(s ?? \"\").toLowerCase().replace(/[^a-z0-9 ]+/g, \" \").replace(/\\s+/g, \" \").trim();\nconst parseItems = json => {\n  try { const a = JSON.parse(json || \"[]\"); return Array.isArray(a) ? a : []; } catch (e) { return []; }\n};\nconst subtotalOf = items => items.reduce((s, i) => s + i.qty * i.unit_ngn, 0);\nconst itemLine = i => i.qty + \" × \" + i.name + (i.cake_message ? ' (message: \"' + i.cake_message + '\")' : \"\") + \" = \" + naira(i.qty * i.unit_ngn);\nconst newId = prefix => prefix + Array.from({ length: 4 }, () => \"ABCDEFGHJKLMNPQRSTUVWXYZ23456789\"[Math.floor(Math.random() * 32)]).join(\"\");\n\n// Product by SKU, else by name words (all words of the query must appear).\nfunction findProduct(products, ref) {\n  const r = String(ref ?? \"\").trim();\n  if (!r) return null;\n  const bySku = products.find(p => p.sku.toLowerCase() === r.toLowerCase());\n  if (bySku) return bySku;\n  const words = clean(r).split(\" \").filter(w => w.length > 1);\n  const hits = products.filter(p => words.every(w => clean(p.name + \" \" + p.sku).includes(w)));\n  return hits.length === 1 ? hits[0] : null;\n}\n\n// Delivery zone whose name or alias appears in the customer's text.\nfunction matchZone(zones, text) {\n  const t = \" \" + clean(text) + \" \";\n  let best = null;\n  for (const z of zones) {\n    const names = [z.area, ...String(z.aliases ?? \"\").split(\",\")].map(clean).filter(Boolean);\n    for (const n of names) {\n      if (t.includes(\" \" + n + \" \") && (!best || n.length > best.len)) best = { zone: z, len: n.length };\n    }\n  }\n  return best ? best.zone : null;\n}\n\nfunction isOpenDay(d) {\n  return SHOP.OPEN_DAYS.includes(d.weekday) && !SHOP.CLOSED.includes(d.toISODate());\n}\n\n// Earliest (day, window) that respects the longest lead time in the cart.\nfunction earliestSlot(leadHours, fulfilment, now) {\n  const windows = SHOP.WINDOWS[fulfilment] || SHOP.WINDOWS.delivery;\n  const ready = now.plus({ hours: leadHours });\n  for (let d = now.startOf(\"day\"); d <= now.startOf(\"day\").plus({ days: SHOP.DAYS_AHEAD }); d = d.plus({ days: 1 })) {\n    if (!isOpenDay(d)) continue;\n    for (const [label, hour] of Object.entries(windows)) {\n      if (d.set({ hour }) >= ready) return { date: d, window: label };\n    }\n  }\n  return null;\n}\n\n// \"Thursday 30 October, 1pm-4pm\"\nconst sayDay = d => d.toFormat(\"cccc d LLLL\");\n// ---- end lib-shop.js ----\n// add / set / remove / clear / view on the customer's open cart. Prices come from the menu.\nconst c = $(\"Config\").first().json;\nconst products = $(\"Read Products (Cart)\").all().map(i => i.json).filter(p => p.sku);\nconst orders = $input.all().map(i => i.json).filter(o => o.order_id);\nconst now = DateTime.now().setZone(SHOP.TZ);\nconst reply = (result, extra = {}) => [{ json: { write: false, result, ...extra } }];\nconst order = orders.find(o => o.status === \"cart\") || orders.find(o => o.status === \"awaiting_payment\");\nlet items = order ? parseItems(order.items_json) : [];\nconst notes = [];\nconst op = [\"add\", \"set\", \"remove\", \"clear\", \"view\"].includes(c.op) ? c.op : \"view\";\n\nif (op === \"add\" || op === \"set\" || op === \"remove\") {\n  const p = findProduct(products, c.sku);\n  if (!p) return reply('No single menu item matches \"' + c.sku + '\". Call search_menu and use the exact SKU.');\n  if (op !== \"remove\" && !p.available) return reply(p.name + \" is sold out today. Suggest something similar from search_menu.\");\n  const qty = Math.max(0, Math.min(SHOP.MAX_QTY, Math.round(Number.isFinite(c.qty) ? c.qty : 1)));\n  let msg = p.category === \"cakes\" ? c.cake_message : \"\";\n  if (c.cake_message && p.category !== \"cakes\") notes.push(\"Messages can only go on cakes, so none was added.\");\n  if (msg.length > SHOP.CAKE_MESSAGE_MAX) { msg = msg.slice(0, SHOP.CAKE_MESSAGE_MAX); notes.push('Cake message shortened to 30 characters: \"' + msg + '\".'); }\n  const idx = items.findIndex(i => i.sku === p.sku && (op === \"remove\" || (i.cake_message || \"\") === msg));\n  const fresh = q => ({ sku: p.sku, name: p.name, qty: q, unit_ngn: p.price_ngn, lead_hours: p.lead_hours, cake_message: msg });\n  if (op === \"add\") {\n    if (idx >= 0) items[idx].qty = Math.min(SHOP.MAX_QTY, items[idx].qty + (qty || 1));\n    else items.push(fresh(qty || 1));\n  } else if (op === \"set\") {\n    if (idx >= 0) { if (qty === 0) items.splice(idx, 1); else items[idx].qty = qty; }\n    else if (qty > 0) items.push(fresh(qty));\n  } else {\n    if (idx < 0) return reply(p.name + \" isn't in the cart.\");\n    items.splice(idx, 1);\n  }\n} else if (op === \"clear\") {\n  items = [];\n}\n\nconst sub = subtotalOf(items);\nconst fee = Number(order?.delivery_fee_ngn) || 0;\nconst summary = items.length\n  ? \"Cart \" + (order?.order_id ?? \"(new)\") + \":\\n\" + items.map(itemLine).join(\"\\n\") + \"\\nSubtotal: \" + naira(sub) + (fee ? \"\\nDelivery: \" + naira(fee) + \"\\nTotal: \" + naira(sub + fee) : \"\")\n  : \"The cart is empty.\";\nif (op === \"view\") return reply(summary);\n\nconst reverted = order?.status === \"awaiting_payment\";\nconst row = {\n  order_id: order?.order_id ?? newId(\"HC-\"),\n  phone: c.phone,\n  customer_name: order?.customer_name || c.customer_name,\n  status: \"cart\",\n  items_json: JSON.stringify(items),\n  subtotal_ngn: sub,\n  delivery_fee_ngn: fee,\n  total_ngn: sub + fee,\n  fulfilment: order?.fulfilment ?? \"\",\n  area: order?.area ?? \"\",\n  address: order?.address ?? \"\",\n  deliver_on: order?.deliver_on ?? \"\",\n  window: order?.window ?? \"\",\n  note: order?.note ?? \"\",\n  email: order?.email ?? \"\",\n  paystack_ref: \"\",\n  pay_url: \"\",\n  turn_id: c.turn_id,\n  reminder_sent: false,\n  created_at: order?.created_at || now.toISO(),\n  paid_at: \"\",\n  updated_at: now.toISO(),\n};\nconst result = summary.replace(\"Cart (new)\", \"Cart \" + row.order_id) +\n  (notes.length ? \"\\n\" + notes.join(\" \") : \"\") +\n  (reverted ? \"\\nThe cart changed after checkout, so the earlier payment link no longer applies. Checkout again for a new link.\" : \"\");\nreturn [{ json: { write: true, result, row } }];\n"
+      }
+    },
+    {
+      "id": "d87bfa67-dcaa-4376-ae71-19a97d5eb92a",
+      "name": "Cart Changed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1760,
+        400
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.write }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "3a302e9d-5760-428c-82cf-a5cbb995a0d9",
+      "name": "Save Cart",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1980,
+        340
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "K3QpMm9jFMF8Daui",
+          "cachedResultName": "Honeycrumb Orders"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "order_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.row.order_id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "order_id": "={{ $json.row.order_id }}",
+            "phone": "={{ $json.row.phone }}",
+            "customer_name": "={{ $json.row.customer_name }}",
+            "status": "={{ $json.row.status }}",
+            "items_json": "={{ $json.row.items_json }}",
+            "subtotal_ngn": "={{ $json.row.subtotal_ngn }}",
+            "delivery_fee_ngn": "={{ $json.row.delivery_fee_ngn }}",
+            "total_ngn": "={{ $json.row.total_ngn }}",
+            "fulfilment": "={{ $json.row.fulfilment }}",
+            "area": "={{ $json.row.area }}",
+            "address": "={{ $json.row.address }}",
+            "deliver_on": "={{ $json.row.deliver_on }}",
+            "window": "={{ $json.row.window }}",
+            "note": "={{ $json.row.note }}",
+            "email": "={{ $json.row.email }}",
+            "paystack_ref": "={{ $json.row.paystack_ref }}",
+            "pay_url": "={{ $json.row.pay_url }}",
+            "turn_id": "={{ $json.row.turn_id }}",
+            "reminder_sent": "={{ $json.row.reminder_sent }}",
+            "created_at": "={{ $json.row.created_at }}",
+            "paid_at": "={{ $json.row.paid_at }}",
+            "updated_at": "={{ $json.row.updated_at }}"
+          },
+          "schema": [
+            {
+              "id": "order_id",
+              "displayName": "order_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "customer_name",
+              "displayName": "customer_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "items_json",
+              "displayName": "items_json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "subtotal_ngn",
+              "displayName": "subtotal_ngn",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "delivery_fee_ngn",
+              "displayName": "delivery_fee_ngn",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "total_ngn",
+              "displayName": "total_ngn",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "fulfilment",
+              "displayName": "fulfilment",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "area",
+              "displayName": "area",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "address",
+              "displayName": "address",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "deliver_on",
+              "displayName": "deliver_on",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "window",
+              "displayName": "window",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "note",
+              "displayName": "note",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "paystack_ref",
+              "displayName": "paystack_ref",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "pay_url",
+              "displayName": "pay_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "turn_id",
+              "displayName": "turn_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "reminder_sent",
+              "displayName": "reminder_sent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "paid_at",
+              "displayName": "paid_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "updated_at",
+              "displayName": "updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "d588a372-c6e0-4981-bf6b-1011e1b6627f",
+      "name": "Cart Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2200,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "return [{ json: { result: $(\"Apply Cart\").first().json.result } }];\n"
+      }
+    },
+    {
+      "id": "0b64c02a-0f00-4402-b82a-40042bc2b115",
+      "name": "Read Zones",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1100,
+        620
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "edO4Fs5LOquec5e1",
+          "cachedResultName": "Honeycrumb Zones"
+        },
+        "returnAll": true
+      }
+    },
+    {
+      "id": "8a04482a-c500-47cb-9d64-5649a726d4e9",
+      "name": "Delivery Quote",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        620
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// ---- lib-shop.js (included by build.py): prices, carts, zones and delivery rules ----\nconst SHOP = {\n  TZ: \"Africa/Lagos\",\n  OPEN_DAYS: [1, 2, 3, 4, 5, 6], // Monday-Saturday\n  CLOSED: [\"2026-12-25\", \"2026-12-26\", \"2027-01-01\"],\n  // window label -> start hour\n  WINDOWS: {\n    delivery: { \"10am-1pm\": 10, \"1pm-4pm\": 13, \"4pm-6pm\": 16 },\n    pickup: { \"9am-12pm\": 9, \"12pm-3pm\": 12, \"3pm-7pm\": 15 },\n  },\n  DAYS_AHEAD: 21,\n  MAX_QTY: 50,\n  CAKE_MESSAGE_MAX: 30,\n  PICKUP: \"14 Admiralty Way, Lekki Phase 1, Lagos\",\n};\n\nconst naira = n => \"₦\" + String(Math.round(Number(n) || 0)).replace(/\\B(?=(\\d{3})+(?!\\d))/g, \",\");\nconst clean = s => String(s ?? \"\").toLowerCase().replace(/[^a-z0-9 ]+/g, \" \").replace(/\\s+/g, \" \").trim();\nconst parseItems = json => {\n  try { const a = JSON.parse(json || \"[]\"); return Array.isArray(a) ? a : []; } catch (e) { return []; }\n};\nconst subtotalOf = items => items.reduce((s, i) => s + i.qty * i.unit_ngn, 0);\nconst itemLine = i => i.qty + \" × \" + i.name + (i.cake_message ? ' (message: \"' + i.cake_message + '\")' : \"\") + \" = \" + naira(i.qty * i.unit_ngn);\nconst newId = prefix => prefix + Array.from({ length: 4 }, () => \"ABCDEFGHJKLMNPQRSTUVWXYZ23456789\"[Math.floor(Math.random() * 32)]).join(\"\");\n\n// Product by SKU, else by name words (all words of the query must appear).\nfunction findProduct(products, ref) {\n  const r = String(ref ?? \"\").trim();\n  if (!r) return null;\n  const bySku = products.find(p => p.sku.toLowerCase() === r.toLowerCase());\n  if (bySku) return bySku;\n  const words = clean(r).split(\" \").filter(w => w.length > 1);\n  const hits = products.filter(p => words.every(w => clean(p.name + \" \" + p.sku).includes(w)));\n  return hits.length === 1 ? hits[0] : null;\n}\n\n// Delivery zone whose name or alias appears in the customer's text.\nfunction matchZone(zones, text) {\n  const t = \" \" + clean(text) + \" \";\n  let best = null;\n  for (const z of zones) {\n    const names = [z.area, ...String(z.aliases ?? \"\").split(\",\")].map(clean).filter(Boolean);\n    for (const n of names) {\n      if (t.includes(\" \" + n + \" \") && (!best || n.length > best.len)) best = { zone: z, len: n.length };\n    }\n  }\n  return best ? best.zone : null;\n}\n\nfunction isOpenDay(d) {\n  return SHOP.OPEN_DAYS.includes(d.weekday) && !SHOP.CLOSED.includes(d.toISODate());\n}\n\n// Earliest (day, window) that respects the longest lead time in the cart.\nfunction earliestSlot(leadHours, fulfilment, now) {\n  const windows = SHOP.WINDOWS[fulfilment] || SHOP.WINDOWS.delivery;\n  const ready = now.plus({ hours: leadHours });\n  for (let d = now.startOf(\"day\"); d <= now.startOf(\"day\").plus({ days: SHOP.DAYS_AHEAD }); d = d.plus({ days: 1 })) {\n    if (!isOpenDay(d)) continue;\n    for (const [label, hour] of Object.entries(windows)) {\n      if (d.set({ hour }) >= ready) return { date: d, window: label };\n    }\n  }\n  return null;\n}\n\n// \"Thursday 30 October, 1pm-4pm\"\nconst sayDay = d => d.toFormat(\"cccc d LLLL\");\n// ---- end lib-shop.js ----\nconst c = $(\"Config\").first().json;\nconst zones = $input.all().map(i => i.json).filter(z => z.area);\nconst covered = zones.filter(z => z.covered).map(z => z.area + \" \" + naira(z.fee_ngn)).join(\"; \");\nconst z = matchZone(zones, c.area || c.address);\nif (!z) return [{ json: { result: 'Area \"' + c.area + '\" not recognised. We deliver to: ' + covered + \". Ask for the nearest of these, or offer pickup at \" + SHOP.PICKUP + \".\" } }];\nif (!z.covered) return [{ json: { result: \"We don't deliver to \" + z.area + \" yet. Offer pickup at \" + SHOP.PICKUP + \".\" } }];\nreturn [{ json: { result: \"Delivery to \" + z.area + \": \" + naira(z.fee_ngn) + \", usually \" + z.eta + \" within the chosen window. Windows: 10am-1pm, 1pm-4pm, 4pm-6pm, Monday to Saturday.\" } }];\n"
+      }
+    },
+    {
+      "id": "82772f13-14ac-4c0d-93bd-231c83cfdaf8",
+      "name": "Read Products (Checkout)",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1100,
+        860
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Z1zpXdhWaw6s43du",
+          "cachedResultName": "Honeycrumb Products"
+        },
+        "returnAll": true
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "97e5d901-a84f-45d4-90c4-4a20c85cce46",
+      "name": "Read Zones (Checkout)",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1320,
+        860
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "edO4Fs5LOquec5e1",
+          "cachedResultName": "Honeycrumb Zones"
+        },
+        "returnAll": true
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "6738832c-227f-416e-9746-865b30f65f55",
+      "name": "Read Orders (Checkout)",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1540,
+        860
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "K3QpMm9jFMF8Daui",
+          "cachedResultName": "Honeycrumb Orders"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "phone",
+              "condition": "eq",
+              "keyValue": "={{ $('Config').first().json.phone }}"
+            }
+          ]
+        },
+        "limit": 10,
+        "orderBy": true,
+        "orderByColumn": "createdAt",
+        "orderByDirection": "DESC"
+      },
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "id": "287ca9d4-df14-4426-b73d-9cc1de0cf74e",
+      "name": "Validate Checkout",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        860
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// ---- lib-shop.js (included by build.py): prices, carts, zones and delivery rules ----\nconst SHOP = {\n  TZ: \"Africa/Lagos\",\n  OPEN_DAYS: [1, 2, 3, 4, 5, 6], // Monday-Saturday\n  CLOSED: [\"2026-12-25\", \"2026-12-26\", \"2027-01-01\"],\n  // window label -> start hour\n  WINDOWS: {\n    delivery: { \"10am-1pm\": 10, \"1pm-4pm\": 13, \"4pm-6pm\": 16 },\n    pickup: { \"9am-12pm\": 9, \"12pm-3pm\": 12, \"3pm-7pm\": 15 },\n  },\n  DAYS_AHEAD: 21,\n  MAX_QTY: 50,\n  CAKE_MESSAGE_MAX: 30,\n  PICKUP: \"14 Admiralty Way, Lekki Phase 1, Lagos\",\n};\n\nconst naira = n => \"₦\" + String(Math.round(Number(n) || 0)).replace(/\\B(?=(\\d{3})+(?!\\d))/g, \",\");\nconst clean = s => String(s ?? \"\").toLowerCase().replace(/[^a-z0-9 ]+/g, \" \").replace(/\\s+/g, \" \").trim();\nconst parseItems = json => {\n  try { const a = JSON.parse(json || \"[]\"); return Array.isArray(a) ? a : []; } catch (e) { return []; }\n};\nconst subtotalOf = items => items.reduce((s, i) => s + i.qty * i.unit_ngn, 0);\nconst itemLine = i => i.qty + \" × \" + i.name + (i.cake_message ? ' (message: \"' + i.cake_message + '\")' : \"\") + \" = \" + naira(i.qty * i.unit_ngn);\nconst newId = prefix => prefix + Array.from({ length: 4 }, () => \"ABCDEFGHJKLMNPQRSTUVWXYZ23456789\"[Math.floor(Math.random() * 32)]).join(\"\");\n\n// Product by SKU, else by name words (all words of the query must appear).\nfunction findProduct(products, ref) {\n  const r = String(ref ?? \"\").trim();\n  if (!r) return null;\n  const bySku = products.find(p => p.sku.toLowerCase() === r.toLowerCase());\n  if (bySku) return bySku;\n  const words = clean(r).split(\" \").filter(w => w.length > 1);\n  const hits = products.filter(p => words.every(w => clean(p.name + \" \" + p.sku).includes(w)));\n  return hits.length === 1 ? hits[0] : null;\n}\n\n// Delivery zone whose name or alias appears in the customer's text.\nfunction matchZone(zones, text) {\n  const t = \" \" + clean(text) + \" \";\n  let best = null;\n  for (const z of zones) {\n    const names = [z.area, ...String(z.aliases ?? \"\").split(\",\")].map(clean).filter(Boolean);\n    for (const n of names) {\n      if (t.includes(\" \" + n + \" \") && (!best || n.length > best.len)) best = { zone: z, len: n.length };\n    }\n  }\n  return best ? best.zone : null;\n}\n\nfunction isOpenDay(d) {\n  return SHOP.OPEN_DAYS.includes(d.weekday) && !SHOP.CLOSED.includes(d.toISODate());\n}\n\n// Earliest (day, window) that respects the longest lead time in the cart.\nfunction earliestSlot(leadHours, fulfilment, now) {\n  const windows = SHOP.WINDOWS[fulfilment] || SHOP.WINDOWS.delivery;\n  const ready = now.plus({ hours: leadHours });\n  for (let d = now.startOf(\"day\"); d <= now.startOf(\"day\").plus({ days: SHOP.DAYS_AHEAD }); d = d.plus({ days: 1 })) {\n    if (!isOpenDay(d)) continue;\n    for (const [label, hour] of Object.entries(windows)) {\n      if (d.set({ hour }) >= ready) return { date: d, window: label };\n    }\n  }\n  return null;\n}\n\n// \"Thursday 30 October, 1pm-4pm\"\nconst sayDay = d => d.toFormat(\"cccc d LLLL\");\n// ---- end lib-shop.js ----\n// Everything checkout needs, checked in code: items and current prices, name, delivery or pickup,\n// zone and address, date and window against opening days and the longest lead time in the cart.\nconst c = $(\"Config\").first().json;\nconst products = $(\"Read Products (Checkout)\").all().map(i => i.json).filter(p => p.sku);\nconst zones = $(\"Read Zones (Checkout)\").all().map(i => i.json).filter(z => z.area);\nconst orders = $input.all().map(i => i.json).filter(o => o.order_id);\nconst now = DateTime.now().setZone(SHOP.TZ);\nconst order = orders.find(o => o.status === \"cart\") || orders.find(o => o.status === \"awaiting_payment\");\nconst fail = result => [{ json: { ok: false, result } }];\nif (!order) return fail(\"There is no cart yet. Add items with update_cart first.\");\nlet items = parseItems(order.items_json);\nif (!items.length) return fail(\"The cart is empty. Add items with update_cart first.\");\n\nconst problems = [];\nitems = items.map(i => {\n  const p = products.find(x => x.sku === i.sku);\n  if (!p || !p.available) { problems.push(i.name + \" is no longer available\"); return i; }\n  return { ...i, name: p.name, unit_ngn: p.price_ngn, lead_hours: p.lead_hours };\n});\nconst name = c.customer_name || order.customer_name;\nif (name.length < 2) problems.push(\"the customer's name\");\nconst fulfilment = c.fulfilment.startsWith(\"pick\") ? \"pickup\" : c.fulfilment.startsWith(\"deliv\") ? \"delivery\" : \"\";\nif (!fulfilment) problems.push(\"delivery or pickup\");\nlet zone = null;\nif (fulfilment === \"delivery\") {\n  zone = matchZone(zones, c.area + \" \" + c.address);\n  if (!zone) problems.push(\"a delivery area we recognise (use delivery_quote)\");\n  else if (!zone.covered) problems.push(\"a covered delivery area (\" + zone.area + \" is not covered; offer pickup)\");\n  if (c.address.length < 8) problems.push(\"the full delivery address with a landmark\");\n}\nconst lead = Math.max(...items.map(i => Number(i.lead_hours) || 0));\nconst windows = SHOP.WINDOWS[fulfilment || \"delivery\"];\nconst label = Object.keys(windows).find(k => k.replace(/\\s/g, \"\") === c.window.toLowerCase().replace(/\\s/g, \"\"));\nconst day = DateTime.fromISO(c.deliver_on.slice(0, 10), { zone: SHOP.TZ });\nconst first = earliestSlot(lead, fulfilment || \"delivery\", now);\nconst firstText = first ? sayDay(first.date) + \", \" + first.window : \"none in the next three weeks\";\nif (!day.isValid) problems.push(\"the \" + (fulfilment || \"delivery\") + \" date (earliest possible: \" + firstText + \")\");\nif (!label) problems.push(\"a window: \" + Object.keys(windows).join(\", \"));\nif (problems.length) return fail(\"Can't check out yet. Still need: \" + problems.join(\"; \") + \".\");\n\nconst start = day.set({ hour: windows[label], minute: 0, second: 0, millisecond: 0 });\nif (!isOpenDay(day)) return fail(\"We're closed on \" + sayDay(day) + \" (we bake Monday to Saturday). Earliest possible: \" + firstText + \".\");\nif (start < now.plus({ hours: lead })) return fail(\"Too soon: this order needs \" + lead + \" hours' notice. Earliest possible: \" + firstText + \".\");\nif (day > now.startOf(\"day\").plus({ days: SHOP.DAYS_AHEAD })) return fail(\"We take orders up to \" + SHOP.DAYS_AHEAD + \" days ahead.\");\n\nconst sub = subtotalOf(items);\nconst fee = fulfilment === \"delivery\" ? Number(zone.fee_ngn) : 0;\nconst total = sub + fee;\nconst email = /^[^@\\s]+@[^@\\s]+\\.[a-z]{2,}$/i.test(c.email) ? c.email : \"wa\" + c.phone + \"@customers.honeycrumb.example\";\nconst reference = order.order_id + \"-\" + now.toFormat(\"HHmmss\");\nreturn [{\n  json: {\n    ok: true,\n    mode: c.settings.payments === \"paystack\" ? \"paystack\" : \"mock\",\n    row: {\n      order_id: order.order_id, phone: c.phone, customer_name: name, status: \"awaiting_payment\",\n      items_json: JSON.stringify(items), subtotal_ngn: sub, delivery_fee_ngn: fee, total_ngn: total,\n      fulfilment, area: zone ? zone.area : \"\", address: fulfilment === \"delivery\" ? c.address : SHOP.PICKUP,\n      deliver_on: day.toISODate(), window: label, note: c.note || order.note || \"\", email,\n      paystack_ref: reference, pay_url: \"\", turn_id: c.turn_id, reminder_sent: false,\n      created_at: order.created_at || now.toISO(), paid_at: \"\", updated_at: now.toISO(),\n    },\n    paystack: {\n      email, amount: total * 100, currency: \"NGN\", reference,\n      channels: [\"card\", \"bank_transfer\", \"ussd\", \"bank\"],\n      metadata: { order_id: order.order_id, phone: c.phone, custom_fields: [{ display_name: \"Order\", variable_name: \"order_id\", value: order.order_id }] },\n    },\n  },\n}];\n"
+      }
+    },
+    {
+      "id": "53078918-90fe-4756-99dc-7c459d7512ac",
+      "name": "Ready To Pay?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1980,
+        860
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.ok }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "d1bed5bf-82a3-4347-bb0e-d837ae8f7260",
+      "name": "Paystack Mode?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2200,
+        800
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.mode }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "rightValue": "paystack"
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "ca37a7c1-6728-4a11-87bd-9fbda36e9397",
+      "name": "Paystack Initialize",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2420,
+        740
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.paystack.co/transaction/initialize",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.paystack) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "credentials": {},
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1500,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "aaf0e4e8-0992-4338-82bf-6f41c70fd4c6",
+      "name": "Attach Payment",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2640,
+        800
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Paystack's authorization_url (or a mock link before the Paystack key exists) goes on the order.\nconst v = $(\"Validate Checkout\").first().json;\nconst res = $input.first().json;\nconst url = v.mode === \"paystack\" ? res?.data?.authorization_url : \"https://checkout.paystack.com/mock-\" + v.row.paystack_ref.toLowerCase();\nconst ok = Boolean(url);\nreturn [{ json: { ...v.row, status: ok ? \"awaiting_payment\" : \"cart\", pay_url: url || \"\", paystack_ref: ok ? (res?.data?.reference || v.row.paystack_ref) : \"\", _ok: ok, _error: ok ? \"\" : String(res?.message || res?.error?.message || \"no link returned\").slice(0, 200) } }];\n"
+      }
+    },
+    {
+      "id": "ce1994de-afe8-403a-b99b-1b2d4e1758e8",
+      "name": "Checkout Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3080,
+        860
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// ---- lib-shop.js (included by build.py): prices, carts, zones and delivery rules ----\nconst SHOP = {\n  TZ: \"Africa/Lagos\",\n  OPEN_DAYS: [1, 2, 3, 4, 5, 6], // Monday-Saturday\n  CLOSED: [\"2026-12-25\", \"2026-12-26\", \"2027-01-01\"],\n  // window label -> start hour\n  WINDOWS: {\n    delivery: { \"10am-1pm\": 10, \"1pm-4pm\": 13, \"4pm-6pm\": 16 },\n    pickup: { \"9am-12pm\": 9, \"12pm-3pm\": 12, \"3pm-7pm\": 15 },\n  },\n  DAYS_AHEAD: 21,\n  MAX_QTY: 50,\n  CAKE_MESSAGE_MAX: 30,\n  PICKUP: \"14 Admiralty Way, Lekki Phase 1, Lagos\",\n};\n\nconst naira = n => \"₦\" + String(Math.round(Number(n) || 0)).replace(/\\B(?=(\\d{3})+(?!\\d))/g, \",\");\nconst clean = s => String(s ?? \"\").toLowerCase().replace(/[^a-z0-9 ]+/g, \" \").replace(/\\s+/g, \" \").trim();\nconst parseItems = json => {\n  try { const a = JSON.parse(json || \"[]\"); return Array.isArray(a) ? a : []; } catch (e) { return []; }\n};\nconst subtotalOf = items => items.reduce((s, i) => s + i.qty * i.unit_ngn, 0);\nconst itemLine = i => i.qty + \" × \" + i.name + (i.cake_message ? ' (message: \"' + i.cake_message + '\")' : \"\") + \" = \" + naira(i.qty * i.unit_ngn);\nconst newId = prefix => prefix + Array.from({ length: 4 }, () => \"ABCDEFGHJKLMNPQRSTUVWXYZ23456789\"[Math.floor(Math.random() * 32)]).join(\"\");\n\n// Product by SKU, else by name words (all words of the query must appear).\nfunction findProduct(products, ref) {\n  const r = String(ref ?? \"\").trim();\n  if (!r) return null;\n  const bySku = products.find(p => p.sku.toLowerCase() === r.toLowerCase());\n  if (bySku) return bySku;\n  const words = clean(r).split(\" \").filter(w => w.length > 1);\n  const hits = products.filter(p => words.every(w => clean(p.name + \" \" + p.sku).includes(w)));\n  return hits.length === 1 ? hits[0] : null;\n}\n\n// Delivery zone whose name or alias appears in the customer's text.\nfunction matchZone(zones, text) {\n  const t = \" \" + clean(text) + \" \";\n  let best = null;\n  for (const z of zones) {\n    const names = [z.area, ...String(z.aliases ?? \"\").split(\",\")].map(clean).filter(Boolean);\n    for (const n of names) {\n      if (t.includes(\" \" + n + \" \") && (!best || n.length > best.len)) best = { zone: z, len: n.length };\n    }\n  }\n  return best ? best.zone : null;\n}\n\nfunction isOpenDay(d) {\n  return SHOP.OPEN_DAYS.includes(d.weekday) && !SHOP.CLOSED.includes(d.toISODate());\n}\n\n// Earliest (day, window) that respects the longest lead time in the cart.\nfunction earliestSlot(leadHours, fulfilment, now) {\n  const windows = SHOP.WINDOWS[fulfilment] || SHOP.WINDOWS.delivery;\n  const ready = now.plus({ hours: leadHours });\n  for (let d = now.startOf(\"day\"); d <= now.startOf(\"day\").plus({ days: SHOP.DAYS_AHEAD }); d = d.plus({ days: 1 })) {\n    if (!isOpenDay(d)) continue;\n    for (const [label, hour] of Object.entries(windows)) {\n      if (d.set({ hour }) >= ready) return { date: d, window: label };\n    }\n  }\n  return null;\n}\n\n// \"Thursday 30 October, 1pm-4pm\"\nconst sayDay = d => d.toFormat(\"cccc d LLLL\");\n// ---- end lib-shop.js ----\nconst v = $(\"Validate Checkout\").first().json;\nif (!v.ok) return [{ json: { result: v.result } }];\nconst o = $(\"Attach Payment\").first().json;\nif (!o._ok) return [{ json: { result: \"The payment link couldn't be created (\" + o._error + \"). Apologise and use request_human so the team can help.\" } }];\nconst items = parseItems(o.items_json);\nreturn [{\n  json: {\n    result: \"Order \" + o.order_id + \" is ready for payment. \" + items.map(itemLine).join(\"; \") +\n      (o.fulfilment === \"delivery\" ? \"; delivery to \" + o.area + \" \" + naira(o.delivery_fee_ngn) : \"; pickup at \" + SHOP.PICKUP) +\n      \". Total \" + naira(o.total_ngn) + \". \" + (o.fulfilment === \"delivery\" ? \"Delivery\" : \"Pickup\") + \" on \" + sayDay(DateTime.fromISO(o.deliver_on, { zone: SHOP.TZ })) + \", \" + o.window + \".\" +\n      \" A Pay button for this amount is sent automatically under your reply; don't paste the link. The order starts once payment is confirmed.\",\n  },\n}];\n"
+      }
+    },
+    {
+      "id": "972aff61-9be3-43bf-95a1-ea3114b2b6d4",
+      "name": "Read Orders (Status)",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1100,
+        1080
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "K3QpMm9jFMF8Daui",
+          "cachedResultName": "Honeycrumb Orders"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "phone",
+              "condition": "eq",
+              "keyValue": "={{ $('Config').first().json.phone }}"
+            }
+          ]
+        },
+        "limit": 10,
+        "orderBy": true,
+        "orderByColumn": "createdAt",
+        "orderByDirection": "DESC"
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "id": "66902a87-b885-46a4-8855-66138c3f79b3",
+      "name": "Order Status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        1080
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// ---- lib-shop.js (included by build.py): prices, carts, zones and delivery rules ----\nconst SHOP = {\n  TZ: \"Africa/Lagos\",\n  OPEN_DAYS: [1, 2, 3, 4, 5, 6], // Monday-Saturday\n  CLOSED: [\"2026-12-25\", \"2026-12-26\", \"2027-01-01\"],\n  // window label -> start hour\n  WINDOWS: {\n    delivery: { \"10am-1pm\": 10, \"1pm-4pm\": 13, \"4pm-6pm\": 16 },\n    pickup: { \"9am-12pm\": 9, \"12pm-3pm\": 12, \"3pm-7pm\": 15 },\n  },\n  DAYS_AHEAD: 21,\n  MAX_QTY: 50,\n  CAKE_MESSAGE_MAX: 30,\n  PICKUP: \"14 Admiralty Way, Lekki Phase 1, Lagos\",\n};\n\nconst naira = n => \"₦\" + String(Math.round(Number(n) || 0)).replace(/\\B(?=(\\d{3})+(?!\\d))/g, \",\");\nconst clean = s => String(s ?? \"\").toLowerCase().replace(/[^a-z0-9 ]+/g, \" \").replace(/\\s+/g, \" \").trim();\nconst parseItems = json => {\n  try { const a = JSON.parse(json || \"[]\"); return Array.isArray(a) ? a : []; } catch (e) { return []; }\n};\nconst subtotalOf = items => items.reduce((s, i) => s + i.qty * i.unit_ngn, 0);\nconst itemLine = i => i.qty + \" × \" + i.name + (i.cake_message ? ' (message: \"' + i.cake_message + '\")' : \"\") + \" = \" + naira(i.qty * i.unit_ngn);\nconst newId = prefix => prefix + Array.from({ length: 4 }, () => \"ABCDEFGHJKLMNPQRSTUVWXYZ23456789\"[Math.floor(Math.random() * 32)]).join(\"\");\n\n// Product by SKU, else by name words (all words of the query must appear).\nfunction findProduct(products, ref) {\n  const r = String(ref ?? \"\").trim();\n  if (!r) return null;\n  const bySku = products.find(p => p.sku.toLowerCase() === r.toLowerCase());\n  if (bySku) return bySku;\n  const words = clean(r).split(\" \").filter(w => w.length > 1);\n  const hits = products.filter(p => words.every(w => clean(p.name + \" \" + p.sku).includes(w)));\n  return hits.length === 1 ? hits[0] : null;\n}\n\n// Delivery zone whose name or alias appears in the customer's text.\nfunction matchZone(zones, text) {\n  const t = \" \" + clean(text) + \" \";\n  let best = null;\n  for (const z of zones) {\n    const names = [z.area, ...String(z.aliases ?? \"\").split(\",\")].map(clean).filter(Boolean);\n    for (const n of names) {\n      if (t.includes(\" \" + n + \" \") && (!best || n.length > best.len)) best = { zone: z, len: n.length };\n    }\n  }\n  return best ? best.zone : null;\n}\n\nfunction isOpenDay(d) {\n  return SHOP.OPEN_DAYS.includes(d.weekday) && !SHOP.CLOSED.includes(d.toISODate());\n}\n\n// Earliest (day, window) that respects the longest lead time in the cart.\nfunction earliestSlot(leadHours, fulfilment, now) {\n  const windows = SHOP.WINDOWS[fulfilment] || SHOP.WINDOWS.delivery;\n  const ready = now.plus({ hours: leadHours });\n  for (let d = now.startOf(\"day\"); d <= now.startOf(\"day\").plus({ days: SHOP.DAYS_AHEAD }); d = d.plus({ days: 1 })) {\n    if (!isOpenDay(d)) continue;\n    for (const [label, hour] of Object.entries(windows)) {\n      if (d.set({ hour }) >= ready) return { date: d, window: label };\n    }\n  }\n  return null;\n}\n\n// \"Thursday 30 October, 1pm-4pm\"\nconst sayDay = d => d.toFormat(\"cccc d LLLL\");\n// ---- end lib-shop.js ----\nconst orders = $input.all().map(i => i.json).filter(o => o.order_id && o.status !== \"cart\");\nconst words = { awaiting_payment: \"waiting for payment\", paid: \"paid, queued for baking\", baking: \"being baked\", out_for_delivery: \"out for delivery\", ready_for_pickup: \"ready for pickup\", delivered: \"delivered\", cancelled: \"cancelled\", expired: \"expired (not paid in time)\" };\nif (!orders.length) return [{ json: { result: \"This customer has no placed orders yet.\" } }];\nconst lines = orders.slice(0, 3).map(o => o.order_id + \": \" + (words[o.status] || o.status) + \", \" + naira(o.total_ngn) + \", \" +\n  (o.fulfilment === \"delivery\" ? \"delivery to \" + o.area : \"pickup\") + \" on \" + (o.deliver_on ? sayDay(DateTime.fromISO(o.deliver_on, { zone: SHOP.TZ })) : \"?\") + \", \" + o.window + \".\");\nreturn [{ json: { result: lines.join(\"\\n\") } }];\n"
+      }
+    },
+    {
+      "id": "749a5a6c-36a1-45e1-abea-93cd4585c795",
+      "name": "Read Recent Chats",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1100,
+        1300
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "pz1RGq7g1nLY7stj",
+          "cachedResultName": "Honeycrumb Chats"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "phone",
+              "condition": "eq",
+              "keyValue": "={{ $('Config').first().json.phone }}"
+            }
+          ]
+        },
+        "limit": 6,
+        "orderBy": true,
+        "orderByColumn": "createdAt",
+        "orderByDirection": "DESC"
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "id": "ad418f8c-b17a-4356-94f1-576289926b51",
+      "name": "Handoff",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        1300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Pause the bot in this chat for 2 hours and tell the owner, with the last few messages.\nconst c = $(\"Config\").first().json;\nconst now = DateTime.now().setZone(\"Africa/Lagos\");\nconst chats = $input.all().map(i => i.json).filter(m => m.text).reverse().slice(-6);\nconst esc = s => String(s ?? \"\").replace(/&/g, \"&amp;\").replace(/</g, \"&lt;\").replace(/>/g, \"&gt;\");\nconst text = \"🙋 <b>Customer wants a person</b>\\n\" + esc(c.customer_name || \"Customer\") + \", +\" + esc(c.phone) +\n  \"\\nReason: \" + esc(c.reason || \"not given\") + \"\\n\\n\" +\n  chats.map(m => (m.role === \"user\" ? \"👤 \" : \"🤖 \") + esc(String(m.text).slice(0, 300))).join(\"\\n\") +\n  \"\\n\\n<i>The bot stays quiet in this chat until \" + now.plus({ hours: 2 }).toFormat(\"h:mm a\") + \". Reply from the WhatsApp Business inbox.</i>\";\nreturn [{ json: { phone: c.phone, name: c.customer_name, handoff_until: now.plus({ hours: 2 }).toISO(), chat_id: c.settings.owner_chat_id, telegram: text } }];\n"
+      }
+    },
+    {
+      "id": "d77fcb20-98d4-4f39-a37e-dd5f1a8f6544",
+      "name": "Pause Bot",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1540,
+        1300
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "QGkic5oor2SFHsoJ",
+          "cachedResultName": "Honeycrumb Customers"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "phone",
+              "condition": "eq",
+              "keyValue": "={{ $json.phone }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "phone": "={{ $json.phone }}",
+            "handoff_until": "={{ $json.handoff_until }}"
+          },
+          "schema": [
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "handoff_until",
+              "displayName": "handoff_until",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "00dec3b6-192b-4db5-a3b8-1fa22272335f",
+      "name": "Owner Chat Set?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1760,
+        1300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $('Handoff').first().json.chat_id }}",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "95fbdef1-ae69-42c8-947a-cf21d23079fb",
+      "name": "Alert Owner",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1980,
+        1240
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $('Handoff').first().json.chat_id }}",
+        "text": "={{ $('Handoff').first().json.telegram }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML",
+          "disable_web_page_preview": true
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "V3kTN1drqw8YNjzk",
+          "name": "Telegram account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "e8b94582-220a-454d-801b-21dd0b61c346",
+      "name": "Handoff Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2200,
+        1300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "return [{ json: { result: \"Done: a team member has been alerted and will reply in this chat shortly (the assistant pauses here for 2 hours). Tell the customer that, kindly and briefly.\" } }];\n"
+      }
+    },
+    {
+      "id": "1f364e1d-3c40-4e12-892f-ea94e4156e91",
+      "name": "Unknown Action",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        1500
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "return [{ json: { result: \"Unknown action.\" } }];\n"
+      }
+    },
+    {
+      "id": "559355da-5e82-45bc-aca9-9e0722234c97",
+      "name": "Save Checkout",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2860,
+        800
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "K3QpMm9jFMF8Daui",
+          "cachedResultName": "Honeycrumb Orders"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "order_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.order_id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "order_id": "={{ $json.order_id }}",
+            "phone": "={{ $json.phone }}",
+            "customer_name": "={{ $json.customer_name }}",
+            "status": "={{ $json.status }}",
+            "items_json": "={{ $json.items_json }}",
+            "subtotal_ngn": "={{ $json.subtotal_ngn }}",
+            "delivery_fee_ngn": "={{ $json.delivery_fee_ngn }}",
+            "total_ngn": "={{ $json.total_ngn }}",
+            "fulfilment": "={{ $json.fulfilment }}",
+            "area": "={{ $json.area }}",
+            "address": "={{ $json.address }}",
+            "deliver_on": "={{ $json.deliver_on }}",
+            "window": "={{ $json.window }}",
+            "note": "={{ $json.note }}",
+            "email": "={{ $json.email }}",
+            "paystack_ref": "={{ $json.paystack_ref }}",
+            "pay_url": "={{ $json.pay_url }}",
+            "turn_id": "={{ $json.turn_id }}",
+            "reminder_sent": "={{ $json.reminder_sent }}",
+            "created_at": "={{ $json.created_at }}",
+            "paid_at": "={{ $json.paid_at }}",
+            "updated_at": "={{ $json.updated_at }}"
+          },
+          "schema": [
+            {
+              "id": "order_id",
+              "displayName": "order_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "customer_name",
+              "displayName": "customer_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "items_json",
+              "displayName": "items_json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "subtotal_ngn",
+              "displayName": "subtotal_ngn",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "delivery_fee_ngn",
+              "displayName": "delivery_fee_ngn",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "total_ngn",
+              "displayName": "total_ngn",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "fulfilment",
+              "displayName": "fulfilment",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "area",
+              "displayName": "area",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "address",
+              "displayName": "address",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "deliver_on",
+              "displayName": "deliver_on",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "window",
+              "displayName": "window",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "note",
+              "displayName": "note",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "paystack_ref",
+              "displayName": "paystack_ref",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "pay_url",
+              "displayName": "pay_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "turn_id",
+              "displayName": "turn_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "reminder_sent",
+              "displayName": "reminder_sent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "paid_at",
+              "displayName": "paid_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "updated_at",
+              "displayName": "updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "9b9b2745-3706-4706-afb8-085961f70685",
+      "name": "Sticky Note 9b9b2745",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        160,
+        -60
+      ],
+      "parameters": {
+        "content": "## Honeycrumb 3: Shop Tools\nThe agent's tools, one `action` each. All money and rules are code (`lib-shop.js`): prices are read from **Honeycrumb Products** every time, totals are computed here, delivery fees come from **Honeycrumb Zones**, and checkout checks name, address, opening days, windows and the longest lead time in the cart before it creates the Paystack link.\n\nOne open cart per phone in **Honeycrumb Orders**. Changing the cart after checkout drops the old payment link. `payments = mock` in Settings fakes the link for tests before the Paystack key exists.",
+        "color": 5,
+        "width": 1100,
+        "height": 220
+      }
+    }
+  ],
+  "connections": {
+    "When Called by Agent": {
+      "main": [
+        [
+          {
+            "node": "Read Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Settings": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Which Action?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Which Action?": {
+      "main": [
+        [
+          {
+            "node": "Read Products",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Read Products (Cart)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Read Zones",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Read Products (Checkout)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Read Orders (Status)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Read Recent Chats",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Unknown Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Products": {
+      "main": [
+        [
+          {
+            "node": "Search Menu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Products (Cart)": {
+      "main": [
+        [
+          {
+            "node": "Read Orders (Cart)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Orders (Cart)": {
+      "main": [
+        [
+          {
+            "node": "Apply Cart",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apply Cart": {
+      "main": [
+        [
+          {
+            "node": "Cart Changed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cart Changed?": {
+      "main": [
+        [
+          {
+            "node": "Save Cart",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Cart Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Cart": {
+      "main": [
+        [
+          {
+            "node": "Cart Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Zones": {
+      "main": [
+        [
+          {
+            "node": "Delivery Quote",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Products (Checkout)": {
+      "main": [
+        [
+          {
+            "node": "Read Zones (Checkout)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Zones (Checkout)": {
+      "main": [
+        [
+          {
+            "node": "Read Orders (Checkout)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Orders (Checkout)": {
+      "main": [
+        [
+          {
+            "node": "Validate Checkout",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Checkout": {
+      "main": [
+        [
+          {
+            "node": "Ready To Pay?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ready To Pay?": {
+      "main": [
+        [
+          {
+            "node": "Paystack Mode?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Checkout Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Paystack Mode?": {
+      "main": [
+        [
+          {
+            "node": "Paystack Initialize",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Attach Payment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Paystack Initialize": {
+      "main": [
+        [
+          {
+            "node": "Attach Payment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Attach Payment": {
+      "main": [
+        [
+          {
+            "node": "Save Checkout",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Orders (Status)": {
+      "main": [
+        [
+          {
+            "node": "Order Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Recent Chats": {
+      "main": [
+        [
+          {
+            "node": "Handoff",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handoff": {
+      "main": [
+        [
+          {
+            "node": "Pause Bot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pause Bot": {
+      "main": [
+        [
+          {
+            "node": "Owner Chat Set?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Owner Chat Set?": {
+      "main": [
+        [
+          {
+            "node": "Alert Owner",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handoff Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert Owner": {
+      "main": [
+        [
+          {
+            "node": "Handoff Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Checkout": {
+      "main": [
+        [
+          {
+            "node": "Checkout Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {}
+}

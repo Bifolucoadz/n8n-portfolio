@@ -1,0 +1,170 @@
+{
+  "id": "tdwMakeCalls0007",
+  "name": "Tidewater 7: Make Demo Calls",
+  "description": "Call to CRM (project 8): makes the three demo sales call recordings with OpenAI text-to-speech.",
+  "nodes": [
+    {
+      "id": "2a266e04-be70-4f29-a461-67c46f137ae7",
+      "name": "Make Demo Calls",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        200,
+        300
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "8cf5d192-9250-4673-81ca-abc1ffa0058b",
+      "name": "Lines",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        420,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// One item per spoken line, with the voice for that speaker.\n// ---- lib-calls.js (included by build.py): the three scripted demo calls ----\n// Everyone and every company is invented. Each line is [speaker, text]; VOICES maps speakers to\n// OpenAI voices and how they should sound.\nconst VOICES = {\n  'Maya Collins': ['coral', 'A friendly, confident sales account executive on a video call. Natural pace, warm.'],\n  'Renee Alvarez': ['sage', 'A busy operations director at a dental group. Practical and direct, slightly tired.'],\n  'Tom Reyes': ['ash', 'An IT manager at a freight company. Calm, technical, a little sceptical.'],\n  'Janelle Brooks': ['shimmer', 'The CEO of a home care agency. Decisive, upbeat, negotiating firmly but politely.']\n};\n\nconst CALLS = [\n  {\n    file: 'calloway-discovery.wav', deal_id: 'D-1001', title: 'Calloway Dental Group: discovery call',\n    lines: [\n      ['Maya Collins', 'Hi Renee, thanks for making time today. I know Mondays are busy for you.'],\n      ['Renee Alvarez', 'They always are. But this one matters, so go ahead.'],\n      ['Maya Collins', 'Great. I\\'d love to start with how things work today. How do patients get reminded about appointments across your clinics?'],\n      ['Renee Alvarez', 'Honestly, mostly by phone. We have five clinics, and the front desk at each one spends about three hours a day calling patients to confirm.'],\n      ['Maya Collins', 'Three hours a day, per clinic?'],\n      ['Renee Alvarez', 'Per clinic. And we still have a no-show rate of about eleven percent. That\\'s chairs sitting empty every single day.'],\n      ['Maya Collins', 'That adds up fast. What system do you book appointments in?'],\n      ['Renee Alvarez', 'Dentrix, at all five locations.'],\n      ['Maya Collins', 'Good, we\\'ve connected to Dentrix before. Have you looked at any tools for this already?'],\n      ['Renee Alvarez', 'We looked at Weave last year, but it felt heavy for what we need, and the staff didn\\'t want another app.'],\n      ['Maya Collins', 'That makes sense. What we\\'d build is lighter: automatic text and email reminders straight from Dentrix, two-way, so patients can confirm or ask to reschedule, and the front desk only sees the ones that need a person.'],\n      ['Renee Alvarez', 'That\\'s exactly the part I care about. The front desk only dealing with exceptions.'],\n      ['Maya Collins', 'Can I ask about budget? Is there money set aside for this?'],\n      ['Renee Alvarez', 'We set aside around forty thousand dollars for patient communication this year. So it has to fit inside that.'],\n      ['Maya Collins', 'Understood. And who else is involved in the decision?'],\n      ['Renee Alvarez', 'I make the recommendation. Our COO, Mark Feld, signs off on anything over twenty-five thousand, so he\\'ll need to see it.'],\n      ['Maya Collins', 'Makes sense. Is there a date you\\'re working towards?'],\n      ['Renee Alvarez', 'We want it live before the January rush. Insurance resets in January and every clinic gets slammed.'],\n      ['Maya Collins', 'Okay. Then here\\'s what I suggest. I\\'ll send you a short case study from another dental group and an outline of the proposal by Friday.'],\n      ['Renee Alvarez', 'That works. I can send you our no-show report so you can see the numbers per clinic.'],\n      ['Maya Collins', 'That would be really helpful. And could we get thirty minutes with Mark next week to walk him through it?'],\n      ['Renee Alvarez', 'I\\'ll introduce you. Let\\'s aim for next Tuesday.'],\n      ['Maya Collins', 'Perfect. Thanks so much, Renee. Talk soon.'],\n      ['Renee Alvarez', 'Thanks, Maya. Bye.']\n    ]\n  },\n  {\n    file: 'pemberton-demo-followup.wav', deal_id: 'D-1002', title: 'Pemberton Freight: demo follow-up',\n    lines: [\n      ['Maya Collins', 'Hi Tom, thanks for jumping on. How did the team feel about last week\\'s portal demo?'],\n      ['Tom Reyes', 'Overall, good. The dispatchers liked the live tracking view a lot. Customers keep calling us just to ask where their load is.'],\n      ['Maya Collins', 'That\\'s great to hear. What questions came up afterwards?'],\n      ['Tom Reyes', 'Two big ones. First, integration. Everything we do runs on McLeod, so the portal has to read from it without us retyping anything.'],\n      ['Maya Collins', 'That\\'s doable. We\\'d read loads and status updates from McLeod through its API every few minutes. Nobody retypes anything.'],\n      ['Tom Reyes', 'Okay. Second is security. Before anything touches customer data, we need a security review. There\\'s a questionnaire, about eighty questions, and they\\'ll ask about SOC 2.'],\n      ['Maya Collins', 'No problem. Send it over and we\\'ll return it within a week.'],\n      ['Tom Reyes', 'Good. Now, the price. Sixty-five thousand is above what we expected. Our CFO was thinking closer to fifty.'],\n      ['Maya Collins', 'I appreciate you being straight with me. One option is to phase it: the tracking portal first, and the customer self-service features in a second phase.'],\n      ['Tom Reyes', 'A phased option would help. I can take that to the CFO.'],\n      ['Maya Collins', 'Can I ask, are you looking at anyone else?'],\n      ['Tom Reyes', 'We\\'re also talking to Freightlink Labs. Their price is lower, but they don\\'t integrate with McLeod yet.'],\n      ['Maya Collins', 'That\\'s fair to mention. The integration is usually where these projects succeed or fail.'],\n      ['Tom Reyes', 'That\\'s my worry with them too.'],\n      ['Maya Collins', 'So, next steps. I\\'ll send a revised proposal with a phased option by Thursday. Could our lead developer have a technical call with your dev lead about the McLeod API?'],\n      ['Tom Reyes', 'Yes. Let\\'s do Thursday afternoon. I\\'ll also send you the security questionnaire today.'],\n      ['Maya Collins', 'Perfect. And when would your CFO want to make a decision?'],\n      ['Tom Reyes', 'Probably by mid-December. We want to start in the new year.'],\n      ['Maya Collins', 'Great, thanks Tom. I\\'ll get everything over to you.'],\n      ['Tom Reyes', 'Sounds good. Thanks.']\n    ]\n  },\n  {\n    file: 'ostara-negotiation.wav', deal_id: 'D-1003', title: 'Ostara Home Care: contract call',\n    lines: [\n      ['Maya Collins', 'Hi Janelle, thanks for calling back. Did you get a chance to go through the contract?'],\n      ['Janelle Brooks', 'I did, and I\\'ll be honest, we want to do this. But I need two changes before I can sign.'],\n      ['Maya Collins', 'Of course. What are they?'],\n      ['Janelle Brooks', 'First, I want to start with a pilot. Two branches for sixty days, and then roll out to all eight if the caregivers actually use it.'],\n      ['Maya Collins', 'A pilot is reasonable. We can structure it as two branches first, with the full rollout priced in the same contract.'],\n      ['Janelle Brooks', 'Good. Second, if we prepay the whole year, I\\'d like ten percent off.'],\n      ['Maya Collins', 'I can\\'t promise ten today, but I\\'ll take it to my manager. Annual prepay usually gets something.'],\n      ['Janelle Brooks', 'That\\'s fair. Also, our lawyer flagged the data retention clause in the MSA. We have to keep visit records for seven years, and the contract says three.'],\n      ['Maya Collins', 'That\\'s an easy fix. We\\'ll change it to seven years to match your requirement.'],\n      ['Janelle Brooks', 'Great. If you can do the pilot terms and fix that clause, we\\'ll sign this month.'],\n      ['Maya Collins', 'That\\'s great news. I\\'ll send the revised contract with the pilot terms and the retention change by Wednesday.'],\n      ['Janelle Brooks', 'And I\\'ll get our lawyer to sign off as soon as it arrives.'],\n      ['Maya Collins', 'For planning, could we pencil in a kickoff for November tenth?'],\n      ['Janelle Brooks', 'November tenth works. Put it in.'],\n      ['Maya Collins', 'Will do. Thanks so much, Janelle.'],\n      ['Janelle Brooks', 'Thank you, Maya. Talk soon.']\n    ]\n  }\n];\n// ---- end lib-calls.js ----\nconst out = [];\nCALLS.forEach((c, ci) => c.lines.forEach(([speaker, text], li) => {\n  const [voice, instructions] = VOICES[speaker];\n  out.push({ json: { call: ci, line: li, file: c.file, speaker, voice, instructions, text } });\n}));\nreturn out;\n"
+      }
+    },
+    {
+      "id": "22d5215e-70bb-432a-bf0c-b7c9db397464",
+      "name": "Speak Line",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        640,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/audio/speech",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: \"gpt-4o-mini-tts\", voice: $json.voice, input: $json.text, instructions: $json.instructions, response_format: \"pcm\" }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data"
+            }
+          }
+        }
+      },
+      "credentials": {
+        "openAiApi": {
+          "id": "GQdth43VUJxkSsw9",
+          "name": "OpenAI account"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "id": "41e9ff1c-b47b-4cf7-a31d-da6471bf8722",
+      "name": "Join Calls",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Joins each call's lines into one WAV file: the 24 kHz 16-bit mono audio from OpenAI, with a short,\n// slightly varied pause between speakers (like a real call), plus a WAV header.\n// ---- lib-calls.js (included by build.py): the three scripted demo calls ----\n// Everyone and every company is invented. Each line is [speaker, text]; VOICES maps speakers to\n// OpenAI voices and how they should sound.\nconst VOICES = {\n  'Maya Collins': ['coral', 'A friendly, confident sales account executive on a video call. Natural pace, warm.'],\n  'Renee Alvarez': ['sage', 'A busy operations director at a dental group. Practical and direct, slightly tired.'],\n  'Tom Reyes': ['ash', 'An IT manager at a freight company. Calm, technical, a little sceptical.'],\n  'Janelle Brooks': ['shimmer', 'The CEO of a home care agency. Decisive, upbeat, negotiating firmly but politely.']\n};\n\nconst CALLS = [\n  {\n    file: 'calloway-discovery.wav', deal_id: 'D-1001', title: 'Calloway Dental Group: discovery call',\n    lines: [\n      ['Maya Collins', 'Hi Renee, thanks for making time today. I know Mondays are busy for you.'],\n      ['Renee Alvarez', 'They always are. But this one matters, so go ahead.'],\n      ['Maya Collins', 'Great. I\\'d love to start with how things work today. How do patients get reminded about appointments across your clinics?'],\n      ['Renee Alvarez', 'Honestly, mostly by phone. We have five clinics, and the front desk at each one spends about three hours a day calling patients to confirm.'],\n      ['Maya Collins', 'Three hours a day, per clinic?'],\n      ['Renee Alvarez', 'Per clinic. And we still have a no-show rate of about eleven percent. That\\'s chairs sitting empty every single day.'],\n      ['Maya Collins', 'That adds up fast. What system do you book appointments in?'],\n      ['Renee Alvarez', 'Dentrix, at all five locations.'],\n      ['Maya Collins', 'Good, we\\'ve connected to Dentrix before. Have you looked at any tools for this already?'],\n      ['Renee Alvarez', 'We looked at Weave last year, but it felt heavy for what we need, and the staff didn\\'t want another app.'],\n      ['Maya Collins', 'That makes sense. What we\\'d build is lighter: automatic text and email reminders straight from Dentrix, two-way, so patients can confirm or ask to reschedule, and the front desk only sees the ones that need a person.'],\n      ['Renee Alvarez', 'That\\'s exactly the part I care about. The front desk only dealing with exceptions.'],\n      ['Maya Collins', 'Can I ask about budget? Is there money set aside for this?'],\n      ['Renee Alvarez', 'We set aside around forty thousand dollars for patient communication this year. So it has to fit inside that.'],\n      ['Maya Collins', 'Understood. And who else is involved in the decision?'],\n      ['Renee Alvarez', 'I make the recommendation. Our COO, Mark Feld, signs off on anything over twenty-five thousand, so he\\'ll need to see it.'],\n      ['Maya Collins', 'Makes sense. Is there a date you\\'re working towards?'],\n      ['Renee Alvarez', 'We want it live before the January rush. Insurance resets in January and every clinic gets slammed.'],\n      ['Maya Collins', 'Okay. Then here\\'s what I suggest. I\\'ll send you a short case study from another dental group and an outline of the proposal by Friday.'],\n      ['Renee Alvarez', 'That works. I can send you our no-show report so you can see the numbers per clinic.'],\n      ['Maya Collins', 'That would be really helpful. And could we get thirty minutes with Mark next week to walk him through it?'],\n      ['Renee Alvarez', 'I\\'ll introduce you. Let\\'s aim for next Tuesday.'],\n      ['Maya Collins', 'Perfect. Thanks so much, Renee. Talk soon.'],\n      ['Renee Alvarez', 'Thanks, Maya. Bye.']\n    ]\n  },\n  {\n    file: 'pemberton-demo-followup.wav', deal_id: 'D-1002', title: 'Pemberton Freight: demo follow-up',\n    lines: [\n      ['Maya Collins', 'Hi Tom, thanks for jumping on. How did the team feel about last week\\'s portal demo?'],\n      ['Tom Reyes', 'Overall, good. The dispatchers liked the live tracking view a lot. Customers keep calling us just to ask where their load is.'],\n      ['Maya Collins', 'That\\'s great to hear. What questions came up afterwards?'],\n      ['Tom Reyes', 'Two big ones. First, integration. Everything we do runs on McLeod, so the portal has to read from it without us retyping anything.'],\n      ['Maya Collins', 'That\\'s doable. We\\'d read loads and status updates from McLeod through its API every few minutes. Nobody retypes anything.'],\n      ['Tom Reyes', 'Okay. Second is security. Before anything touches customer data, we need a security review. There\\'s a questionnaire, about eighty questions, and they\\'ll ask about SOC 2.'],\n      ['Maya Collins', 'No problem. Send it over and we\\'ll return it within a week.'],\n      ['Tom Reyes', 'Good. Now, the price. Sixty-five thousand is above what we expected. Our CFO was thinking closer to fifty.'],\n      ['Maya Collins', 'I appreciate you being straight with me. One option is to phase it: the tracking portal first, and the customer self-service features in a second phase.'],\n      ['Tom Reyes', 'A phased option would help. I can take that to the CFO.'],\n      ['Maya Collins', 'Can I ask, are you looking at anyone else?'],\n      ['Tom Reyes', 'We\\'re also talking to Freightlink Labs. Their price is lower, but they don\\'t integrate with McLeod yet.'],\n      ['Maya Collins', 'That\\'s fair to mention. The integration is usually where these projects succeed or fail.'],\n      ['Tom Reyes', 'That\\'s my worry with them too.'],\n      ['Maya Collins', 'So, next steps. I\\'ll send a revised proposal with a phased option by Thursday. Could our lead developer have a technical call with your dev lead about the McLeod API?'],\n      ['Tom Reyes', 'Yes. Let\\'s do Thursday afternoon. I\\'ll also send you the security questionnaire today.'],\n      ['Maya Collins', 'Perfect. And when would your CFO want to make a decision?'],\n      ['Tom Reyes', 'Probably by mid-December. We want to start in the new year.'],\n      ['Maya Collins', 'Great, thanks Tom. I\\'ll get everything over to you.'],\n      ['Tom Reyes', 'Sounds good. Thanks.']\n    ]\n  },\n  {\n    file: 'ostara-negotiation.wav', deal_id: 'D-1003', title: 'Ostara Home Care: contract call',\n    lines: [\n      ['Maya Collins', 'Hi Janelle, thanks for calling back. Did you get a chance to go through the contract?'],\n      ['Janelle Brooks', 'I did, and I\\'ll be honest, we want to do this. But I need two changes before I can sign.'],\n      ['Maya Collins', 'Of course. What are they?'],\n      ['Janelle Brooks', 'First, I want to start with a pilot. Two branches for sixty days, and then roll out to all eight if the caregivers actually use it.'],\n      ['Maya Collins', 'A pilot is reasonable. We can structure it as two branches first, with the full rollout priced in the same contract.'],\n      ['Janelle Brooks', 'Good. Second, if we prepay the whole year, I\\'d like ten percent off.'],\n      ['Maya Collins', 'I can\\'t promise ten today, but I\\'ll take it to my manager. Annual prepay usually gets something.'],\n      ['Janelle Brooks', 'That\\'s fair. Also, our lawyer flagged the data retention clause in the MSA. We have to keep visit records for seven years, and the contract says three.'],\n      ['Maya Collins', 'That\\'s an easy fix. We\\'ll change it to seven years to match your requirement.'],\n      ['Janelle Brooks', 'Great. If you can do the pilot terms and fix that clause, we\\'ll sign this month.'],\n      ['Maya Collins', 'That\\'s great news. I\\'ll send the revised contract with the pilot terms and the retention change by Wednesday.'],\n      ['Janelle Brooks', 'And I\\'ll get our lawyer to sign off as soon as it arrives.'],\n      ['Maya Collins', 'For planning, could we pencil in a kickoff for November tenth?'],\n      ['Janelle Brooks', 'November tenth works. Put it in.'],\n      ['Maya Collins', 'Will do. Thanks so much, Janelle.'],\n      ['Janelle Brooks', 'Thank you, Maya. Talk soon.']\n    ]\n  }\n];\n// ---- end lib-calls.js ----\nconst RATE = 24000;\nconst lines = $('Lines').all().map(i => i.json);\nconst parts = {};\nconst items = $input.all();\nfor (let i = 0; i < items.length; i++) {\n  const pcm = await this.helpers.getBinaryDataBuffer(i, 'data');\n  const l = lines[i];\n  const gapMs = 350 + ((l.line * 137) % 450);\n  (parts[l.call] = parts[l.call] || []).push(Buffer.alloc(Math.round(RATE * gapMs / 1000) * 2), pcm);\n}\nconst wav = pcm => {\n  const h = Buffer.alloc(44);\n  h.write('RIFF', 0); h.writeUInt32LE(36 + pcm.length, 4); h.write('WAVE', 8); h.write('fmt ', 12);\n  h.writeUInt32LE(16, 16); h.writeUInt16LE(1, 20); h.writeUInt16LE(1, 22); h.writeUInt32LE(RATE, 24);\n  h.writeUInt32LE(RATE * 2, 28); h.writeUInt16LE(2, 32); h.writeUInt16LE(16, 34); h.write('data', 36); h.writeUInt32LE(pcm.length, 40);\n  return Buffer.concat([h, pcm]);\n};\nconst out = [];\nfor (const [ci, bufs] of Object.entries(parts)) {\n  const c = CALLS[Number(ci)];\n  const file = wav(Buffer.concat(bufs));\n  const data = await this.helpers.prepareBinaryData(file, c.file, 'audio/wav');\n  out.push({ json: { file: c.file, deal_id: c.deal_id, title: c.title, lines: c.lines.length, seconds: Math.round((file.length - 44) / 2 / RATE), path: '/Users/mac/.n8n-files/tidewater/' + c.file }, binary: { data } });\n}\nreturn out;\n"
+      }
+    },
+    {
+      "id": "745839bf-e9bc-46d3-85db-4543812fe4c0",
+      "name": "Save Recording",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1.1,
+      "position": [
+        1080,
+        300
+      ],
+      "parameters": {
+        "operation": "write",
+        "fileName": "={{ $json.path }}",
+        "dataPropertyName": "data"
+      }
+    },
+    {
+      "id": "f827993e-8120-496e-9b4e-2e01ad1bdfa4",
+      "name": "Sticky Note f827993e",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        160,
+        80
+      ],
+      "parameters": {
+        "content": "## Tidewater 7: Make Demo Calls (manual)\nTurns the three scripted sales calls in **lib-calls.js** into recordings: every line is spoken with OpenAI `gpt-4o-mini-tts` in that person's voice, then each call is joined into one WAV file with short pauses between speakers, in `~/.n8n-files/tidewater/`. Upload them on the **Tidewater 1** form to demo the pipeline. All people and companies are invented.",
+        "color": 7,
+        "width": 900,
+        "height": 180
+      }
+    }
+  ],
+  "connections": {
+    "Make Demo Calls": {
+      "main": [
+        [
+          {
+            "node": "Lines",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lines": {
+      "main": [
+        [
+          {
+            "node": "Speak Line",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Speak Line": {
+      "main": [
+        [
+          {
+            "node": "Join Calls",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Join Calls": {
+      "main": [
+        [
+          {
+            "node": "Save Recording",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "timezone": "America/New_York",
+    "callerPolicy": "workflowsFromSameOwner"
+  }
+}

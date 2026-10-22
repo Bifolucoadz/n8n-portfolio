@@ -1,0 +1,15 @@
+{
+  "timezone": "Europe/London",
+  "errorWorkflow": "iTxd64lDk3gI0bKG",
+  "workflows": {
+    "00-create-sheet.ts": { "id": "mgvCreateSheet00", "description": "Quote to cash (project 11): run once to create the Google Sheet the system runs on, with every tab and header row.", "errorWorkflow": false },
+    "01-site-visit.ts": { "id": "mgvSiteVisit0001", "description": "Quote to cash (project 11): estimator's site-visit form (notes, voice memo, photos). GPT-5.4 picks price-book items; code prices them; the draft is saved for the owner.", "settings": { "executionTimeout": 300 } },
+    "02-dashboard.ts": { "id": "mgvDashboard0002", "description": "Quote to cash (project 11): owner dashboard (pipeline, quote editor, history, crew calendar) and its actions: save, send, withdraw, record payment, job done." },
+    "03-client-page.ts": { "id": "mgvClientPage003", "description": "Quote to cash (project 11): the client's quote page with live extras, accept-and-sign (SHA-256 fingerprint), questions and decline; logs views." },
+    "04-payments.ts": { "id": "mgvPayments00004", "description": "Quote to cash (project 11): deposit and balance payments (test checkout or Stripe), booking the job into a free crew slot, receipts.", "disabled": ["Create Stripe Session", "Get Stripe Session"] },
+    "05-documents.ts": { "id": "mgvDocuments0005", "description": "Quote to cash (project 11): quote, invoice and receipt PDFs drawn in code from the sheet; web link and email attachments." },
+    "06-follow-ups.ts": { "id": "mgvFollowUps0006", "description": "Quote to cash (project 11): every morning chases quotes, expires old ones, reminds about deposits and invoices, asks for reviews, emails the owner a summary." },
+    "07-save-changes.ts": { "id": "mgvSaveChange007", "description": "Quote to cash (project 11): writes a plan to Google Sheets (quotes, events, payments, schedule) and sends emails (Gmail live, Outbox tab in test)." },
+    "08-reset-demo.ts": { "id": "mgvResetDemo0008", "description": "Quote to cash (project 11): resets the Google Sheet to the demo: settings, price book, nine sample quotes, history, payments and crew calendars.", "errorWorkflow": false }
+  }
+}

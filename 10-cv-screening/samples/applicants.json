@@ -1,0 +1,101 @@
+[
+  {
+    "file": "amara-okafor-cv.pdf",
+    "name": "Amara Okafor",
+    "email": "amara.okafor@example.com",
+    "phone": "07700 900141",
+    "job": "NG-101",
+    "right_to_work": "Yes",
+    "notice": "1 month",
+    "salary": "44000",
+    "linkedin": "linkedin.com/in/example-amara"
+  },
+  {
+    "file": "daniel-whitfield-cv.pdf",
+    "name": "Daniel Whitfield",
+    "email": "d.whitfield@example.com",
+    "phone": "07700 900233",
+    "job": "NG-101",
+    "right_to_work": "Yes",
+    "notice": "1 month",
+    "salary": "40000",
+    "linkedin": ""
+  },
+  {
+    "file": "grace-lin-cv.pdf",
+    "name": "Grace Lin",
+    "email": "grace.lin@example.com",
+    "phone": "07700 900358",
+    "job": "NG-101",
+    "right_to_work": "Yes",
+    "notice": "4 weeks",
+    "salary": "36000",
+    "linkedin": ""
+  },
+  {
+    "file": "marcus-bell-cv.pdf",
+    "name": "Marcus Bell",
+    "email": "marcus.bell@example.com",
+    "phone": "07700 900472",
+    "job": "NG-101",
+    "right_to_work": "Yes",
+    "notice": "2 weeks",
+    "salary": "38000",
+    "linkedin": ""
+  },
+  {
+    "file": "sofia-marin-cv.pdf",
+    "name": "Sofia Marin",
+    "email": "sofia.marin@example.com",
+    "phone": "07700 900519",
+    "job": "NG-102",
+    "right_to_work": "Yes",
+    "notice": "Available now",
+    "salary": "29000",
+    "linkedin": "linkedin.com/in/example-sofia"
+  },
+  {
+    "file": "kwame-mensah-cv.pdf",
+    "name": "Kwame Mensah",
+    "email": "kwame.mensah@example.com",
+    "phone": "07700 900627",
+    "job": "NG-102",
+    "right_to_work": "Yes",
+    "notice": "Available now",
+    "salary": "30000",
+    "linkedin": ""
+  },
+  {
+    "file": "li-wei-cv.pdf",
+    "name": "Li Wei",
+    "email": "li.wei@example.com",
+    "phone": "07700 900738",
+    "job": "NG-102",
+    "right_to_work": "No, I would need visa sponsorship",
+    "notice": "Available now",
+    "salary": "30000",
+    "linkedin": ""
+  },
+  {
+    "file": "jamie-kowalski-cv.pdf",
+    "name": "Jamie Kowalski",
+    "email": "jamie.k@example.com",
+    "phone": "07700 900846",
+    "job": "NG-103",
+    "right_to_work": "Yes",
+    "notice": "1 month",
+    "salary": "33500",
+    "linkedin": ""
+  },
+  {
+    "file": "ryan-doyle-cv.pdf",
+    "name": "Ryan Doyle",
+    "email": "ryan.doyle@example.com",
+    "phone": "07700 900954",
+    "job": "NG-103",
+    "right_to_work": "Yes",
+    "notice": "1 week",
+    "salary": "31000",
+    "linkedin": ""
+  }
+]

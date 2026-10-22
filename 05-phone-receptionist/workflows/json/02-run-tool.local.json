@@ -1,0 +1,1210 @@
+{
+  "id": "receptionist-run-tool",
+  "name": "Receptionist 2: Run Tool",
+  "nodes": [
+    {
+      "id": "b5751b3c-ad02-4d73-a7a9-47cfd56721ce",
+      "name": "When Called",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        240,
+        700
+      ],
+      "parameters": {
+        "inputSource": "passthrough"
+      }
+    },
+    {
+      "id": "f10f7936-067e-4d4f-9f1a-5ff076333197",
+      "name": "Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        700
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Normalise the tool call coming from Receptionist 1 (one call per execution).\nconst c = $input.first().json;\nlet args = c.args ?? {};\nif (typeof args === \"string\") { try { args = JSON.parse(args); } catch (e) { args = {}; } }\nreturn [{ json: { ...c, args, name: String(c.name ?? \"\").trim() } }];\n"
+      }
+    },
+    {
+      "id": "496b3cc7-69cd-400d-9253-e2911dbaa536",
+      "name": "Which Tool?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        680,
+        700
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "outputKey": "availability",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.name }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "check_availability"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "outputKey": "book",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.name }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "book_appointment"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "outputKey": "manage",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.name }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "regex"
+                    },
+                    "rightValue": "^(find|cancel|reschedule)_appointment$"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "outputKey": "message",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.name }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "take_message"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "other"
+        }
+      }
+    },
+    {
+      "id": "67f45cc2-9d16-4ac7-95ee-69df70fb289b",
+      "name": "Work Out Window",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        920,
+        200
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// ---- lib-slots.js (included by build.py): clinic hours, appointment types and slot rules ----\nconst SLOT = {\n  TZ: \"America/Chicago\",\n  TYPES: {\n    new_patient: { label: \"New patient exam and X-rays\", minutes: 60, notice: 120 },\n    cleaning: { label: \"Cleaning and check-up\", minutes: 60, notice: 120 },\n    emergency: { label: \"Emergency exam\", minutes: 30, notice: 60 },\n    consultation: { label: \"Cosmetic or Invisalign consultation\", minutes: 30, notice: 120 },\n  },\n  // Luxon weekday (1 = Monday) -> open spans. Lunch 12-1 Mon-Thu, Friday until 2 pm.\n  HOURS: {\n    1: [[\"08:00\", \"12:00\"], [\"13:00\", \"17:00\"]],\n    2: [[\"08:00\", \"12:00\"], [\"13:00\", \"17:00\"]],\n    3: [[\"08:00\", \"12:00\"], [\"13:00\", \"17:00\"]],\n    4: [[\"08:00\", \"12:00\"], [\"13:00\", \"17:00\"]],\n    5: [[\"08:00\", \"14:00\"]],\n  },\n  HOLIDAYS: [\"2026-11-26\", \"2026-11-27\", \"2026-12-24\", \"2026-12-25\", \"2026-12-31\", \"2027-01-01\"],\n  DAYS_AHEAD: 30,\n  STEP: 30,\n};\n\n// The model usually sends the key, but accept everyday words too.\nfunction typeKey(raw) {\n  const s = String(raw ?? \"\").toLowerCase();\n  if (SLOT.TYPES[s]) return s;\n  if (/emergenc|pain|ache|broken|knock|chip|swell|lost (a )?(filling|crown)/.test(s)) return \"emergency\";\n  if (/new/.test(s)) return \"new_patient\";\n  if (/clean|check|hygien|exam/.test(s)) return \"cleaning\";\n  if (/cosmetic|whiten|invisalign|consult|align|veneer/.test(s)) return \"consultation\";\n  return null;\n}\n\n// Calendar events -> busy intervals in clinic time. All-day events close the whole day.\nfunction busyFrom(events, excludeId) {\n  return events\n    .filter(e => e && e.start && e.status !== \"cancelled\" && e.transparency !== \"transparent\" && e.id !== excludeId)\n    .map(e => e.start.date\n      ? { start: DateTime.fromISO(e.start.date, { zone: SLOT.TZ }), end: DateTime.fromISO(e.end.date, { zone: SLOT.TZ }) }\n      : { start: DateTime.fromISO(e.start.dateTime).setZone(SLOT.TZ), end: DateTime.fromISO(e.end.dateTime).setZone(SLOT.TZ) });\n}\n\nfunction isOpen(day) {\n  return Boolean(SLOT.HOURS[day.weekday]) && !SLOT.HOLIDAYS.includes(day.toISODate());\n}\n\n// Every start time on `day` that fits inside opening hours, respects the notice period and\n// doesn't overlap a busy interval. One appointment at a time (single demo calendar).\nfunction freeStarts(day, type, busy, now) {\n  const t = SLOT.TYPES[type];\n  if (!t || !isOpen(day)) return [];\n  const earliest = now.plus({ minutes: t.notice });\n  const out = [];\n  for (const [a, b] of SLOT.HOURS[day.weekday]) {\n    const [ah, am] = a.split(\":\").map(Number);\n    const [bh, bm] = b.split(\":\").map(Number);\n    const open = day.set({ hour: ah, minute: am, second: 0, millisecond: 0 });\n    const close = day.set({ hour: bh, minute: bm, second: 0, millisecond: 0 });\n    for (let s = open; s.plus({ minutes: t.minutes }) <= close; s = s.plus({ minutes: SLOT.STEP })) {\n      if (s < earliest) continue;\n      const e = s.plus({ minutes: t.minutes });\n      if (busy.some(x => x.start < e && x.end > s)) continue;\n      out.push(s);\n    }\n  }\n  return out;\n}\n\n// Speech-friendly labels: \"Tuesday, October 28 at 9 AM\" / \"at 2:30 PM\".\nconst sayDay = d => (typeof d === \"string\" ? DateTime.fromISO(d, { zone: SLOT.TZ }) : d).toFormat(\"cccc, LLLL d\");\nconst say = d => sayDay(d) + \" at \" + d.toFormat(d.minute ? \"h:mm a\" : \"h a\");\nconst startValue = d => d.toISO({ suppressMilliseconds: true });\nconst spell = code => code.split(\"\").map(ch => (ch === \"-\" ? \"dash\" : ch)).join(\" \");\nconst digits10 = s => String(s ?? \"\").replace(/\\D/g, \"\").slice(-10);\n\n// Appointment events written by book_appointment carry these description lines.\nfunction parseAppointment(e) {\n  const d = String(e.description ?? \"\");\n  const line = k => ((new RegExp(\"^\" + k + \":\\\\s*(.*)$\", \"m\")).exec(d) || [])[1] || \"\";\n  const startIso = e.start?.dateTime ?? e.start?.date;\n  return {\n    id: e.id,\n    code: line(\"Confirmation\").trim().toUpperCase(),\n    name: line(\"Patient\").trim(),\n    phone: digits10(line(\"Phone\")),\n    type: line(\"Type key\").trim(),\n    type_label: line(\"Type\").trim() || String(e.summary ?? \"\").split(\":\")[0],\n    start: startIso ? DateTime.fromISO(startIso).setZone(SLOT.TZ) : null,\n    description: d,\n  };\n}\n// ---- end lib-slots.js ----\n// Turn the model's dates into a search window. Searches one more week past it so that\n// \"nothing free on Tuesday\" can come back with the nearest alternatives in the same turn.\nconst c = $(\"Config\").first().json;\nconst a = c.args ?? {};\nconst now = DateTime.now().setZone(SLOT.TZ);\nconst today = now.startOf(\"day\");\nconst last = today.plus({ days: SLOT.DAYS_AHEAD });\nconst parseDay = s => {\n  const d = DateTime.fromISO(String(s ?? \"\").slice(0, 10), { zone: SLOT.TZ });\n  return d.isValid ? d.startOf(\"day\") : null;\n};\nlet from = parseDay(a.date_from) ?? today;\nif (from < today) from = today;\nlet to = parseDay(a.date_to) ?? from;\nif (to < from) to = from;\nif (to > from.plus({ days: 13 })) to = from.plus({ days: 13 });\nconst outOfRange = from > last;\nif (outOfRange) { from = last; to = last; }\nif (to > last) to = last;\nconst searchEnd = DateTime.min(to.plus({ days: 7 }), last);\nconst tod = String(a.time_of_day ?? \"\").toLowerCase();\nreturn [{\n  json: {\n    tool_call_id: c.tool_call_id,\n    type: typeKey(a.appointment_type),\n    from: from.toISODate(),\n    to: to.toISODate(),\n    search_end: searchEnd.toISODate(),\n    time_of_day: [\"morning\", \"afternoon\"].includes(tod) ? tod : \"any\",\n    out_of_range: outOfRange,\n    last_day: last.toISODate(),\n    time_min: from.toISO(),\n    time_max: searchEnd.endOf(\"day\").toISO(),\n  },\n}];\n"
+      }
+    },
+    {
+      "id": "218ffe1d-1c63-4db2-8167-b631c3792ae1",
+      "name": "Read Calendar",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        1140,
+        200
+      ],
+      "parameters": {
+        "resource": "event",
+        "operation": "getAll",
+        "calendar": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Config').first().json.calendar_id }}"
+        },
+        "returnAll": true,
+        "timeMin": "={{ $json.time_min }}",
+        "timeMax": "={{ $json.time_max }}",
+        "options": {
+          "singleEvents": true,
+          "orderBy": "startTime"
+        }
+      },
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "5G8pvfh0Kjd75Asw",
+          "name": "Google Calendar account"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000,
+      "alwaysOutputData": true
+    },
+    {
+      "id": "b81f0125-07f2-4fa9-83a7-684b45d9ec1a",
+      "name": "Find Free Slots",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1360,
+        200
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// ---- lib-slots.js (included by build.py): clinic hours, appointment types and slot rules ----\nconst SLOT = {\n  TZ: \"America/Chicago\",\n  TYPES: {\n    new_patient: { label: \"New patient exam and X-rays\", minutes: 60, notice: 120 },\n    cleaning: { label: \"Cleaning and check-up\", minutes: 60, notice: 120 },\n    emergency: { label: \"Emergency exam\", minutes: 30, notice: 60 },\n    consultation: { label: \"Cosmetic or Invisalign consultation\", minutes: 30, notice: 120 },\n  },\n  // Luxon weekday (1 = Monday) -> open spans. Lunch 12-1 Mon-Thu, Friday until 2 pm.\n  HOURS: {\n    1: [[\"08:00\", \"12:00\"], [\"13:00\", \"17:00\"]],\n    2: [[\"08:00\", \"12:00\"], [\"13:00\", \"17:00\"]],\n    3: [[\"08:00\", \"12:00\"], [\"13:00\", \"17:00\"]],\n    4: [[\"08:00\", \"12:00\"], [\"13:00\", \"17:00\"]],\n    5: [[\"08:00\", \"14:00\"]],\n  },\n  HOLIDAYS: [\"2026-11-26\", \"2026-11-27\", \"2026-12-24\", \"2026-12-25\", \"2026-12-31\", \"2027-01-01\"],\n  DAYS_AHEAD: 30,\n  STEP: 30,\n};\n\n// The model usually sends the key, but accept everyday words too.\nfunction typeKey(raw) {\n  const s = String(raw ?? \"\").toLowerCase();\n  if (SLOT.TYPES[s]) return s;\n  if (/emergenc|pain|ache|broken|knock|chip|swell|lost (a )?(filling|crown)/.test(s)) return \"emergency\";\n  if (/new/.test(s)) return \"new_patient\";\n  if (/clean|check|hygien|exam/.test(s)) return \"cleaning\";\n  if (/cosmetic|whiten|invisalign|consult|align|veneer/.test(s)) return \"consultation\";\n  return null;\n}\n\n// Calendar events -> busy intervals in clinic time. All-day events close the whole day.\nfunction busyFrom(events, excludeId) {\n  return events\n    .filter(e => e && e.start && e.status !== \"cancelled\" && e.transparency !== \"transparent\" && e.id !== excludeId)\n    .map(e => e.start.date\n      ? { start: DateTime.fromISO(e.start.date, { zone: SLOT.TZ }), end: DateTime.fromISO(e.end.date, { zone: SLOT.TZ }) }\n      : { start: DateTime.fromISO(e.start.dateTime).setZone(SLOT.TZ), end: DateTime.fromISO(e.end.dateTime).setZone(SLOT.TZ) });\n}\n\nfunction isOpen(day) {\n  return Boolean(SLOT.HOURS[day.weekday]) && !SLOT.HOLIDAYS.includes(day.toISODate());\n}\n\n// Every start time on `day` that fits inside opening hours, respects the notice period and\n// doesn't overlap a busy interval. One appointment at a time (single demo calendar).\nfunction freeStarts(day, type, busy, now) {\n  const t = SLOT.TYPES[type];\n  if (!t || !isOpen(day)) return [];\n  const earliest = now.plus({ minutes: t.notice });\n  const out = [];\n  for (const [a, b] of SLOT.HOURS[day.weekday]) {\n    const [ah, am] = a.split(\":\").map(Number);\n    const [bh, bm] = b.split(\":\").map(Number);\n    const open = day.set({ hour: ah, minute: am, second: 0, millisecond: 0 });\n    const close = day.set({ hour: bh, minute: bm, second: 0, millisecond: 0 });\n    for (let s = open; s.plus({ minutes: t.minutes }) <= close; s = s.plus({ minutes: SLOT.STEP })) {\n      if (s < earliest) continue;\n      const e = s.plus({ minutes: t.minutes });\n      if (busy.some(x => x.start < e && x.end > s)) continue;\n      out.push(s);\n    }\n  }\n  return out;\n}\n\n// Speech-friendly labels: \"Tuesday, October 28 at 9 AM\" / \"at 2:30 PM\".\nconst sayDay = d => (typeof d === \"string\" ? DateTime.fromISO(d, { zone: SLOT.TZ }) : d).toFormat(\"cccc, LLLL d\");\nconst say = d => sayDay(d) + \" at \" + d.toFormat(d.minute ? \"h:mm a\" : \"h a\");\nconst startValue = d => d.toISO({ suppressMilliseconds: true });\nconst spell = code => code.split(\"\").map(ch => (ch === \"-\" ? \"dash\" : ch)).join(\" \");\nconst digits10 = s => String(s ?? \"\").replace(/\\D/g, \"\").slice(-10);\n\n// Appointment events written by book_appointment carry these description lines.\nfunction parseAppointment(e) {\n  const d = String(e.description ?? \"\");\n  const line = k => ((new RegExp(\"^\" + k + \":\\\\s*(.*)$\", \"m\")).exec(d) || [])[1] || \"\";\n  const startIso = e.start?.dateTime ?? e.start?.date;\n  return {\n    id: e.id,\n    code: line(\"Confirmation\").trim().toUpperCase(),\n    name: line(\"Patient\").trim(),\n    phone: digits10(line(\"Phone\")),\n    type: line(\"Type key\").trim(),\n    type_label: line(\"Type\").trim() || String(e.summary ?? \"\").split(\":\")[0],\n    start: startIso ? DateTime.fromISO(startIso).setZone(SLOT.TZ) : null,\n    description: d,\n  };\n}\n// ---- end lib-slots.js ----\n// Free start times in the requested window, spread across the day(s); if none, the nearest ones\n// in the following week. The result is one line the voice model can turn into speech.\nconst w = $(\"Work Out Window\").first().json;\nconst reply = result => [{ json: { tool_call_id: w.tool_call_id, result } }];\nif (!w.type) return reply(\"Unknown appointment type. Ask whether it's a new patient exam, a cleaning and check-up, an emergency visit, or a cosmetic or Invisalign consultation.\");\n\nconst t = SLOT.TYPES[w.type];\nconst now = DateTime.now().setZone(SLOT.TZ);\nconst busy = busyFrom($input.all().map(i => i.json));\nconst inPart = s => w.time_of_day === \"any\" || (w.time_of_day === \"morning\" ? s.hour < 12 : s.hour >= 12);\nconst days = (a, b) => {\n  const out = [];\n  for (let d = DateTime.fromISO(a, { zone: SLOT.TZ }); d <= DateTime.fromISO(b, { zone: SLOT.TZ }); d = d.plus({ days: 1 })) out.push(d);\n  return out;\n};\nconst collect = list => list.map(d => freeStarts(d, w.type, busy, now).filter(inPart)).filter(g => g.length);\nconst spread = (arr, n) => (arr.length <= n ? arr : Array.from({ length: n }, (_, i) => arr[Math.round(i * (arr.length - 1) / (n - 1))]));\nconst pick = groups => (groups.length === 1 ? spread(groups[0], 4) : groups.slice(0, 3).flatMap(g => spread(g, 2)));\n\nconst notes = [];\nif (w.out_of_range) notes.push(\"Appointments can be booked up to \" + SLOT.DAYS_AHEAD + \" days ahead, so the latest day is \" + sayDay(w.last_day) + \".\");\nconst asked = days(w.from, w.to);\nconst closed = asked.filter(d => !isOpen(d));\nif (closed.length === asked.length) notes.push(\"The clinic is closed \" + (asked.length === 1 ? \"on \" + sayDay(asked[0]) : \"on those days\") + \".\");\n\nlet groups = collect(asked);\nif (!groups.length) {\n  const span = w.from === w.to ? \"on \" + sayDay(w.from) : \"between \" + sayDay(w.from) + \" and \" + sayDay(w.to);\n  if (closed.length !== asked.length) notes.push(\"Nothing free \" + span + (w.time_of_day === \"any\" ? \"\" : \" in the \" + w.time_of_day) + \".\");\n  const next = DateTime.fromISO(w.to, { zone: SLOT.TZ }).plus({ days: 1 }).toISODate();\n  groups = next <= w.search_end ? collect(days(next, w.search_end)) : [];\n  if (groups.length) notes.push(\"Nearest alternatives:\");\n}\nif (!groups.length) return reply(notes.join(\" \") + \" No free \" + t.label + \" times in the following week either. Offer to take a message so the front desk can call back.\");\n\nconst slots = pick(groups);\nreturn reply(\n  notes.join(\" \") + (notes.length ? \" \" : \"\") +\n  \"Free times for \" + t.label + \" (\" + t.minutes + \" minutes): \" +\n  slots.map(s => say(s) + \" [start \" + startValue(s) + \"]\").join(\"; \") +\n  \". Offer two or three in words. To book, pass the chosen start value exactly.\"\n);\n"
+      }
+    },
+    {
+      "id": "31d756af-1bae-4604-b859-67998104bf22",
+      "name": "Prepare Booking",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        920,
+        460
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// ---- lib-slots.js (included by build.py): clinic hours, appointment types and slot rules ----\nconst SLOT = {\n  TZ: \"America/Chicago\",\n  TYPES: {\n    new_patient: { label: \"New patient exam and X-rays\", minutes: 60, notice: 120 },\n    cleaning: { label: \"Cleaning and check-up\", minutes: 60, notice: 120 },\n    emergency: { label: \"Emergency exam\", minutes: 30, notice: 60 },\n    consultation: { label: \"Cosmetic or Invisalign consultation\", minutes: 30, notice: 120 },\n  },\n  // Luxon weekday (1 = Monday) -> open spans. Lunch 12-1 Mon-Thu, Friday until 2 pm.\n  HOURS: {\n    1: [[\"08:00\", \"12:00\"], [\"13:00\", \"17:00\"]],\n    2: [[\"08:00\", \"12:00\"], [\"13:00\", \"17:00\"]],\n    3: [[\"08:00\", \"12:00\"], [\"13:00\", \"17:00\"]],\n    4: [[\"08:00\", \"12:00\"], [\"13:00\", \"17:00\"]],\n    5: [[\"08:00\", \"14:00\"]],\n  },\n  HOLIDAYS: [\"2026-11-26\", \"2026-11-27\", \"2026-12-24\", \"2026-12-25\", \"2026-12-31\", \"2027-01-01\"],\n  DAYS_AHEAD: 30,\n  STEP: 30,\n};\n\n// The model usually sends the key, but accept everyday words too.\nfunction typeKey(raw) {\n  const s = String(raw ?? \"\").toLowerCase();\n  if (SLOT.TYPES[s]) return s;\n  if (/emergenc|pain|ache|broken|knock|chip|swell|lost (a )?(filling|crown)/.test(s)) return \"emergency\";\n  if (/new/.test(s)) return \"new_patient\";\n  if (/clean|check|hygien|exam/.test(s)) return \"cleaning\";\n  if (/cosmetic|whiten|invisalign|consult|align|veneer/.test(s)) return \"consultation\";\n  return null;\n}\n\n// Calendar events -> busy intervals in clinic time. All-day events close the whole day.\nfunction busyFrom(events, excludeId) {\n  return events\n    .filter(e => e && e.start && e.status !== \"cancelled\" && e.transparency !== \"transparent\" && e.id !== excludeId)\n    .map(e => e.start.date\n      ? { start: DateTime.fromISO(e.start.date, { zone: SLOT.TZ }), end: DateTime.fromISO(e.end.date, { zone: SLOT.TZ }) }\n      : { start: DateTime.fromISO(e.start.dateTime).setZone(SLOT.TZ), end: DateTime.fromISO(e.end.dateTime).setZone(SLOT.TZ) });\n}\n\nfunction isOpen(day) {\n  return Boolean(SLOT.HOURS[day.weekday]) && !SLOT.HOLIDAYS.includes(day.toISODate());\n}\n\n// Every start time on `day` that fits inside opening hours, respects the notice period and\n// doesn't overlap a busy interval. One appointment at a time (single demo calendar).\nfunction freeStarts(day, type, busy, now) {\n  const t = SLOT.TYPES[type];\n  if (!t || !isOpen(day)) return [];\n  const earliest = now.plus({ minutes: t.notice });\n  const out = [];\n  for (const [a, b] of SLOT.HOURS[day.weekday]) {\n    const [ah, am] = a.split(\":\").map(Number);\n    const [bh, bm] = b.split(\":\").map(Number);\n    const open = day.set({ hour: ah, minute: am, second: 0, millisecond: 0 });\n    const close = day.set({ hour: bh, minute: bm, second: 0, millisecond: 0 });\n    for (let s = open; s.plus({ minutes: t.minutes }) <= close; s = s.plus({ minutes: SLOT.STEP })) {\n      if (s < earliest) continue;\n      const e = s.plus({ minutes: t.minutes });\n      if (busy.some(x => x.start < e && x.end > s)) continue;\n      out.push(s);\n    }\n  }\n  return out;\n}\n\n// Speech-friendly labels: \"Tuesday, October 28 at 9 AM\" / \"at 2:30 PM\".\nconst sayDay = d => (typeof d === \"string\" ? DateTime.fromISO(d, { zone: SLOT.TZ }) : d).toFormat(\"cccc, LLLL d\");\nconst say = d => sayDay(d) + \" at \" + d.toFormat(d.minute ? \"h:mm a\" : \"h a\");\nconst startValue = d => d.toISO({ suppressMilliseconds: true });\nconst spell = code => code.split(\"\").map(ch => (ch === \"-\" ? \"dash\" : ch)).join(\" \");\nconst digits10 = s => String(s ?? \"\").replace(/\\D/g, \"\").slice(-10);\n\n// Appointment events written by book_appointment carry these description lines.\nfunction parseAppointment(e) {\n  const d = String(e.description ?? \"\");\n  const line = k => ((new RegExp(\"^\" + k + \":\\\\s*(.*)$\", \"m\")).exec(d) || [])[1] || \"\";\n  const startIso = e.start?.dateTime ?? e.start?.date;\n  return {\n    id: e.id,\n    code: line(\"Confirmation\").trim().toUpperCase(),\n    name: line(\"Patient\").trim(),\n    phone: digits10(line(\"Phone\")),\n    type: line(\"Type key\").trim(),\n    type_label: line(\"Type\").trim() || String(e.summary ?? \"\").split(\":\")[0],\n    start: startIso ? DateTime.fromISO(startIso).setZone(SLOT.TZ) : null,\n    description: d,\n  };\n}\n// ---- end lib-slots.js ----\n// Validate book_appointment's arguments and build the event. The slot itself is re-checked next.\nconst c = $(\"Config\").first().json;\nconst a = c.args ?? {};\nconst type = typeKey(a.appointment_type);\nconst start = DateTime.fromISO(String(a.start ?? \"\"), { setZone: true });\nconst name = String(a.patient_name ?? \"\").replace(/\\s+/g, \" \").trim();\nconst phone = String(a.phone ?? \"\").trim() || String(c.caller_number ?? \"\");\nconst missing = [];\nif (!type) missing.push(\"the appointment type\");\nif (!start.isValid) missing.push(\"a start value from check_availability\");\nif (name.split(\" \").length < 2) missing.push(\"the patient's first and last name\");\nif (digits10(phone).length < 10) missing.push(\"a phone number with area code\");\nif (missing.length) {\n  return [{ json: { ok: false, tool_call_id: c.tool_call_id, result: \"Not booked yet: still need \" + missing.join(\", \") + \". Ask for it, then call book_appointment again.\" } }];\n}\nconst t = SLOT.TYPES[type];\nconst s = start.setZone(SLOT.TZ);\nconst alphabet = \"ABCDEFGHJKLMNPQRSTUVWXYZ23456789\";\nconst code = \"FD-\" + Array.from({ length: 4 }, () => alphabet[Math.floor(Math.random() * alphabet.length)]).join(\"\");\nconst isNew = a.is_new_patient === true || String(a.is_new_patient).toLowerCase() === \"true\" || type === \"new_patient\";\nreturn [{\n  json: {\n    ok: true,\n    tool_call_id: c.tool_call_id,\n    calendar_id: c.calendar_id,\n    type,\n    type_label: t.label,\n    start: s.toISO(),\n    end: s.plus({ minutes: t.minutes }).toISO(),\n    time_min: s.startOf(\"day\").toISO(),\n    time_max: s.endOf(\"day\").toISO(),\n    patient_name: name,\n    phone,\n    is_new_patient: isNew,\n    insurance: String(a.insurance ?? \"\").trim() || (isNew ? \"not given\" : \"on file\"),\n    reason: String(a.reason ?? \"\").trim() || \"not given\",\n    code,\n    call_id: c.call_id,\n    summary: t.label + \": \" + name,\n    description: [\n      \"Confirmation: \" + code,\n      \"Patient: \" + name,\n      \"Phone: \" + phone,\n      \"Type: \" + t.label,\n      \"Type key: \" + type,\n      \"New patient: \" + (isNew ? \"yes\" : \"no\"),\n      \"Insurance: \" + (String(a.insurance ?? \"\").trim() || (isNew ? \"not given\" : \"on file\")),\n      \"Reason: \" + (String(a.reason ?? \"\").trim() || \"not given\"),\n      \"\",\n      \"Booked by Nora (AI receptionist), call \" + (c.call_id || \"n/a\") + \".\",\n    ].join(\"\\n\"),\n  },\n}];\n"
+      }
+    },
+    {
+      "id": "026e5007-4a26-4067-a946-1f3f25a85ea1",
+      "name": "Booking Ready?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1140,
+        460
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.ok }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "fac7cf03-1d7c-41ea-9e21-36c9dd604f96",
+      "name": "Read Booking Day",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        1360,
+        400
+      ],
+      "parameters": {
+        "resource": "event",
+        "operation": "getAll",
+        "calendar": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Config').first().json.calendar_id }}"
+        },
+        "returnAll": true,
+        "timeMin": "={{ $json.time_min }}",
+        "timeMax": "={{ $json.time_max }}",
+        "options": {
+          "singleEvents": true,
+          "orderBy": "startTime"
+        }
+      },
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "5G8pvfh0Kjd75Asw",
+          "name": "Google Calendar account"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000,
+      "alwaysOutputData": true
+    },
+    {
+      "id": "fa9e1241-aafe-4930-ad19-30a6168796d4",
+      "name": "Check Booking Slot",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1580,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// ---- lib-slots.js (included by build.py): clinic hours, appointment types and slot rules ----\nconst SLOT = {\n  TZ: \"America/Chicago\",\n  TYPES: {\n    new_patient: { label: \"New patient exam and X-rays\", minutes: 60, notice: 120 },\n    cleaning: { label: \"Cleaning and check-up\", minutes: 60, notice: 120 },\n    emergency: { label: \"Emergency exam\", minutes: 30, notice: 60 },\n    consultation: { label: \"Cosmetic or Invisalign consultation\", minutes: 30, notice: 120 },\n  },\n  // Luxon weekday (1 = Monday) -> open spans. Lunch 12-1 Mon-Thu, Friday until 2 pm.\n  HOURS: {\n    1: [[\"08:00\", \"12:00\"], [\"13:00\", \"17:00\"]],\n    2: [[\"08:00\", \"12:00\"], [\"13:00\", \"17:00\"]],\n    3: [[\"08:00\", \"12:00\"], [\"13:00\", \"17:00\"]],\n    4: [[\"08:00\", \"12:00\"], [\"13:00\", \"17:00\"]],\n    5: [[\"08:00\", \"14:00\"]],\n  },\n  HOLIDAYS: [\"2026-11-26\", \"2026-11-27\", \"2026-12-24\", \"2026-12-25\", \"2026-12-31\", \"2027-01-01\"],\n  DAYS_AHEAD: 30,\n  STEP: 30,\n};\n\n// The model usually sends the key, but accept everyday words too.\nfunction typeKey(raw) {\n  const s = String(raw ?? \"\").toLowerCase();\n  if (SLOT.TYPES[s]) return s;\n  if (/emergenc|pain|ache|broken|knock|chip|swell|lost (a )?(filling|crown)/.test(s)) return \"emergency\";\n  if (/new/.test(s)) return \"new_patient\";\n  if (/clean|check|hygien|exam/.test(s)) return \"cleaning\";\n  if (/cosmetic|whiten|invisalign|consult|align|veneer/.test(s)) return \"consultation\";\n  return null;\n}\n\n// Calendar events -> busy intervals in clinic time. All-day events close the whole day.\nfunction busyFrom(events, excludeId) {\n  return events\n    .filter(e => e && e.start && e.status !== \"cancelled\" && e.transparency !== \"transparent\" && e.id !== excludeId)\n    .map(e => e.start.date\n      ? { start: DateTime.fromISO(e.start.date, { zone: SLOT.TZ }), end: DateTime.fromISO(e.end.date, { zone: SLOT.TZ }) }\n      : { start: DateTime.fromISO(e.start.dateTime).setZone(SLOT.TZ), end: DateTime.fromISO(e.end.dateTime).setZone(SLOT.TZ) });\n}\n\nfunction isOpen(day) {\n  return Boolean(SLOT.HOURS[day.weekday]) && !SLOT.HOLIDAYS.includes(day.toISODate());\n}\n\n// Every start time on `day` that fits inside opening hours, respects the notice period and\n// doesn't overlap a busy interval. One appointment at a time (single demo calendar).\nfunction freeStarts(day, type, busy, now) {\n  const t = SLOT.TYPES[type];\n  if (!t || !isOpen(day)) return [];\n  const earliest = now.plus({ minutes: t.notice });\n  const out = [];\n  for (const [a, b] of SLOT.HOURS[day.weekday]) {\n    const [ah, am] = a.split(\":\").map(Number);\n    const [bh, bm] = b.split(\":\").map(Number);\n    const open = day.set({ hour: ah, minute: am, second: 0, millisecond: 0 });\n    const close = day.set({ hour: bh, minute: bm, second: 0, millisecond: 0 });\n    for (let s = open; s.plus({ minutes: t.minutes }) <= close; s = s.plus({ minutes: SLOT.STEP })) {\n      if (s < earliest) continue;\n      const e = s.plus({ minutes: t.minutes });\n      if (busy.some(x => x.start < e && x.end > s)) continue;\n      out.push(s);\n    }\n  }\n  return out;\n}\n\n// Speech-friendly labels: \"Tuesday, October 28 at 9 AM\" / \"at 2:30 PM\".\nconst sayDay = d => (typeof d === \"string\" ? DateTime.fromISO(d, { zone: SLOT.TZ }) : d).toFormat(\"cccc, LLLL d\");\nconst say = d => sayDay(d) + \" at \" + d.toFormat(d.minute ? \"h:mm a\" : \"h a\");\nconst startValue = d => d.toISO({ suppressMilliseconds: true });\nconst spell = code => code.split(\"\").map(ch => (ch === \"-\" ? \"dash\" : ch)).join(\" \");\nconst digits10 = s => String(s ?? \"\").replace(/\\D/g, \"\").slice(-10);\n\n// Appointment events written by book_appointment carry these description lines.\nfunction parseAppointment(e) {\n  const d = String(e.description ?? \"\");\n  const line = k => ((new RegExp(\"^\" + k + \":\\\\s*(.*)$\", \"m\")).exec(d) || [])[1] || \"\";\n  const startIso = e.start?.dateTime ?? e.start?.date;\n  return {\n    id: e.id,\n    code: line(\"Confirmation\").trim().toUpperCase(),\n    name: line(\"Patient\").trim(),\n    phone: digits10(line(\"Phone\")),\n    type: line(\"Type key\").trim(),\n    type_label: line(\"Type\").trim() || String(e.summary ?? \"\").split(\":\")[0],\n    start: startIso ? DateTime.fromISO(startIso).setZone(SLOT.TZ) : null,\n    description: d,\n  };\n}\n// ---- end lib-slots.js ----\n// Is the chosen start still free? If not, offer the other free times that day.\nconst p = $(\"Prepare Booking\").first().json;\nconst now = DateTime.now().setZone(SLOT.TZ);\nconst start = DateTime.fromISO(p.start, { zone: SLOT.TZ });\nconst free = freeStarts(start.startOf(\"day\"), p.type, busyFrom($input.all().map(i => i.json)), now);\nif (free.some(s => +s === +start)) return [{ json: { ...p, free: true } }];\nconst others = free.slice(0, 4);\nreturn [{\n  json: {\n    ...p,\n    free: false,\n    result: \"Not booked: \" + say(start) + \" is no longer available\" +\n      (others.length ? \". Other free times that day: \" + others.map(s => say(s) + \" [start \" + startValue(s) + \"]\").join(\"; \") + \". Offer these.\" : \". Nothing else is free that day; call check_availability for another day.\"),\n  },\n}];\n"
+      }
+    },
+    {
+      "id": "3c561de0-c5d3-41dc-b143-8bbd3cd3decc",
+      "name": "Slot Free?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1800,
+        400
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.free }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "4b4ba630-6f8b-410b-8f87-50da4499c789",
+      "name": "Create Event",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        2020,
+        340
+      ],
+      "parameters": {
+        "resource": "event",
+        "operation": "create",
+        "calendar": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Config').first().json.calendar_id }}"
+        },
+        "start": "={{ $json.start }}",
+        "end": "={{ $json.end }}",
+        "additionalFields": {
+          "summary": "={{ $json.summary }}",
+          "description": "={{ $json.description }}",
+          "location": "Fernhollow Dental, 4180 Oakridge Parkway, Suite 200, Austin, TX 78745",
+          "sendUpdates": "none"
+        }
+      },
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "5G8pvfh0Kjd75Asw",
+          "name": "Google Calendar account"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000
+    },
+    {
+      "id": "a4417a53-51f2-41ad-b10c-9eb29f4bfc43",
+      "name": "Booked Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2240,
+        340
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// ---- lib-slots.js (included by build.py): clinic hours, appointment types and slot rules ----\nconst SLOT = {\n  TZ: \"America/Chicago\",\n  TYPES: {\n    new_patient: { label: \"New patient exam and X-rays\", minutes: 60, notice: 120 },\n    cleaning: { label: \"Cleaning and check-up\", minutes: 60, notice: 120 },\n    emergency: { label: \"Emergency exam\", minutes: 30, notice: 60 },\n    consultation: { label: \"Cosmetic or Invisalign consultation\", minutes: 30, notice: 120 },\n  },\n  // Luxon weekday (1 = Monday) -> open spans. Lunch 12-1 Mon-Thu, Friday until 2 pm.\n  HOURS: {\n    1: [[\"08:00\", \"12:00\"], [\"13:00\", \"17:00\"]],\n    2: [[\"08:00\", \"12:00\"], [\"13:00\", \"17:00\"]],\n    3: [[\"08:00\", \"12:00\"], [\"13:00\", \"17:00\"]],\n    4: [[\"08:00\", \"12:00\"], [\"13:00\", \"17:00\"]],\n    5: [[\"08:00\", \"14:00\"]],\n  },\n  HOLIDAYS: [\"2026-11-26\", \"2026-11-27\", \"2026-12-24\", \"2026-12-25\", \"2026-12-31\", \"2027-01-01\"],\n  DAYS_AHEAD: 30,\n  STEP: 30,\n};\n\n// The model usually sends the key, but accept everyday words too.\nfunction typeKey(raw) {\n  const s = String(raw ?? \"\").toLowerCase();\n  if (SLOT.TYPES[s]) return s;\n  if (/emergenc|pain|ache|broken|knock|chip|swell|lost (a )?(filling|crown)/.test(s)) return \"emergency\";\n  if (/new/.test(s)) return \"new_patient\";\n  if (/clean|check|hygien|exam/.test(s)) return \"cleaning\";\n  if (/cosmetic|whiten|invisalign|consult|align|veneer/.test(s)) return \"consultation\";\n  return null;\n}\n\n// Calendar events -> busy intervals in clinic time. All-day events close the whole day.\nfunction busyFrom(events, excludeId) {\n  return events\n    .filter(e => e && e.start && e.status !== \"cancelled\" && e.transparency !== \"transparent\" && e.id !== excludeId)\n    .map(e => e.start.date\n      ? { start: DateTime.fromISO(e.start.date, { zone: SLOT.TZ }), end: DateTime.fromISO(e.end.date, { zone: SLOT.TZ }) }\n      : { start: DateTime.fromISO(e.start.dateTime).setZone(SLOT.TZ), end: DateTime.fromISO(e.end.dateTime).setZone(SLOT.TZ) });\n}\n\nfunction isOpen(day) {\n  return Boolean(SLOT.HOURS[day.weekday]) && !SLOT.HOLIDAYS.includes(day.toISODate());\n}\n\n// Every start time on `day` that fits inside opening hours, respects the notice period and\n// doesn't overlap a busy interval. One appointment at a time (single demo calendar).\nfunction freeStarts(day, type, busy, now) {\n  const t = SLOT.TYPES[type];\n  if (!t || !isOpen(day)) return [];\n  const earliest = now.plus({ minutes: t.notice });\n  const out = [];\n  for (const [a, b] of SLOT.HOURS[day.weekday]) {\n    const [ah, am] = a.split(\":\").map(Number);\n    const [bh, bm] = b.split(\":\").map(Number);\n    const open = day.set({ hour: ah, minute: am, second: 0, millisecond: 0 });\n    const close = day.set({ hour: bh, minute: bm, second: 0, millisecond: 0 });\n    for (let s = open; s.plus({ minutes: t.minutes }) <= close; s = s.plus({ minutes: SLOT.STEP })) {\n      if (s < earliest) continue;\n      const e = s.plus({ minutes: t.minutes });\n      if (busy.some(x => x.start < e && x.end > s)) continue;\n      out.push(s);\n    }\n  }\n  return out;\n}\n\n// Speech-friendly labels: \"Tuesday, October 28 at 9 AM\" / \"at 2:30 PM\".\nconst sayDay = d => (typeof d === \"string\" ? DateTime.fromISO(d, { zone: SLOT.TZ }) : d).toFormat(\"cccc, LLLL d\");\nconst say = d => sayDay(d) + \" at \" + d.toFormat(d.minute ? \"h:mm a\" : \"h a\");\nconst startValue = d => d.toISO({ suppressMilliseconds: true });\nconst spell = code => code.split(\"\").map(ch => (ch === \"-\" ? \"dash\" : ch)).join(\" \");\nconst digits10 = s => String(s ?? \"\").replace(/\\D/g, \"\").slice(-10);\n\n// Appointment events written by book_appointment carry these description lines.\nfunction parseAppointment(e) {\n  const d = String(e.description ?? \"\");\n  const line = k => ((new RegExp(\"^\" + k + \":\\\\s*(.*)$\", \"m\")).exec(d) || [])[1] || \"\";\n  const startIso = e.start?.dateTime ?? e.start?.date;\n  return {\n    id: e.id,\n    code: line(\"Confirmation\").trim().toUpperCase(),\n    name: line(\"Patient\").trim(),\n    phone: digits10(line(\"Phone\")),\n    type: line(\"Type key\").trim(),\n    type_label: line(\"Type\").trim() || String(e.summary ?? \"\").split(\":\")[0],\n    start: startIso ? DateTime.fromISO(startIso).setZone(SLOT.TZ) : null,\n    description: d,\n  };\n}\n// ---- end lib-slots.js ----\nconst p = $(\"Check Booking Slot\").first().json;\nconst when = say(DateTime.fromISO(p.start, { zone: SLOT.TZ }));\nreturn [{\n  json: {\n    tool_call_id: p.tool_call_id,\n    event_id: $input.first().json.id ?? \"\",\n    result: \"Booked: \" + p.type_label + \" for \" + p.patient_name + \" on \" + when + \". Confirmation code \" + p.code +\n      \" (say it as: \" + spell(p.code) + \").\" +\n      (p.is_new_patient ? \" First visit: arrive 15 minutes early with photo ID and insurance card; forms will be sent beforehand.\" : \"\"),\n  },\n}];\n"
+      }
+    },
+    {
+      "id": "41f160b9-51ba-4fdc-948f-96097959afc4",
+      "name": "Slot Taken",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        2020,
+        480
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "d0456970-5bcc-43de-8455-58232e002d6d",
+      "name": "Booking Incomplete",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1360,
+        560
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "ce544785-15b1-41d6-8ec3-98a4ca44c79d",
+      "name": "Read Upcoming",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        920,
+        760
+      ],
+      "parameters": {
+        "resource": "event",
+        "operation": "getAll",
+        "calendar": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Config').first().json.calendar_id }}"
+        },
+        "returnAll": true,
+        "timeMin": "={{ $now.toISO() }}",
+        "timeMax": "={{ $now.plus({ days: 60 }).toISO() }}",
+        "options": {
+          "singleEvents": true,
+          "orderBy": "startTime"
+        }
+      },
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "5G8pvfh0Kjd75Asw",
+          "name": "Google Calendar account"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000,
+      "alwaysOutputData": true
+    },
+    {
+      "id": "6c186168-a1c7-4ab4-8664-21db55a76831",
+      "name": "Match Appointments",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1140,
+        760
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// ---- lib-slots.js (included by build.py): clinic hours, appointment types and slot rules ----\nconst SLOT = {\n  TZ: \"America/Chicago\",\n  TYPES: {\n    new_patient: { label: \"New patient exam and X-rays\", minutes: 60, notice: 120 },\n    cleaning: { label: \"Cleaning and check-up\", minutes: 60, notice: 120 },\n    emergency: { label: \"Emergency exam\", minutes: 30, notice: 60 },\n    consultation: { label: \"Cosmetic or Invisalign consultation\", minutes: 30, notice: 120 },\n  },\n  // Luxon weekday (1 = Monday) -> open spans. Lunch 12-1 Mon-Thu, Friday until 2 pm.\n  HOURS: {\n    1: [[\"08:00\", \"12:00\"], [\"13:00\", \"17:00\"]],\n    2: [[\"08:00\", \"12:00\"], [\"13:00\", \"17:00\"]],\n    3: [[\"08:00\", \"12:00\"], [\"13:00\", \"17:00\"]],\n    4: [[\"08:00\", \"12:00\"], [\"13:00\", \"17:00\"]],\n    5: [[\"08:00\", \"14:00\"]],\n  },\n  HOLIDAYS: [\"2026-11-26\", \"2026-11-27\", \"2026-12-24\", \"2026-12-25\", \"2026-12-31\", \"2027-01-01\"],\n  DAYS_AHEAD: 30,\n  STEP: 30,\n};\n\n// The model usually sends the key, but accept everyday words too.\nfunction typeKey(raw) {\n  const s = String(raw ?? \"\").toLowerCase();\n  if (SLOT.TYPES[s]) return s;\n  if (/emergenc|pain|ache|broken|knock|chip|swell|lost (a )?(filling|crown)/.test(s)) return \"emergency\";\n  if (/new/.test(s)) return \"new_patient\";\n  if (/clean|check|hygien|exam/.test(s)) return \"cleaning\";\n  if (/cosmetic|whiten|invisalign|consult|align|veneer/.test(s)) return \"consultation\";\n  return null;\n}\n\n// Calendar events -> busy intervals in clinic time. All-day events close the whole day.\nfunction busyFrom(events, excludeId) {\n  return events\n    .filter(e => e && e.start && e.status !== \"cancelled\" && e.transparency !== \"transparent\" && e.id !== excludeId)\n    .map(e => e.start.date\n      ? { start: DateTime.fromISO(e.start.date, { zone: SLOT.TZ }), end: DateTime.fromISO(e.end.date, { zone: SLOT.TZ }) }\n      : { start: DateTime.fromISO(e.start.dateTime).setZone(SLOT.TZ), end: DateTime.fromISO(e.end.dateTime).setZone(SLOT.TZ) });\n}\n\nfunction isOpen(day) {\n  return Boolean(SLOT.HOURS[day.weekday]) && !SLOT.HOLIDAYS.includes(day.toISODate());\n}\n\n// Every start time on `day` that fits inside opening hours, respects the notice period and\n// doesn't overlap a busy interval. One appointment at a time (single demo calendar).\nfunction freeStarts(day, type, busy, now) {\n  const t = SLOT.TYPES[type];\n  if (!t || !isOpen(day)) return [];\n  const earliest = now.plus({ minutes: t.notice });\n  const out = [];\n  for (const [a, b] of SLOT.HOURS[day.weekday]) {\n    const [ah, am] = a.split(\":\").map(Number);\n    const [bh, bm] = b.split(\":\").map(Number);\n    const open = day.set({ hour: ah, minute: am, second: 0, millisecond: 0 });\n    const close = day.set({ hour: bh, minute: bm, second: 0, millisecond: 0 });\n    for (let s = open; s.plus({ minutes: t.minutes }) <= close; s = s.plus({ minutes: SLOT.STEP })) {\n      if (s < earliest) continue;\n      const e = s.plus({ minutes: t.minutes });\n      if (busy.some(x => x.start < e && x.end > s)) continue;\n      out.push(s);\n    }\n  }\n  return out;\n}\n\n// Speech-friendly labels: \"Tuesday, October 28 at 9 AM\" / \"at 2:30 PM\".\nconst sayDay = d => (typeof d === \"string\" ? DateTime.fromISO(d, { zone: SLOT.TZ }) : d).toFormat(\"cccc, LLLL d\");\nconst say = d => sayDay(d) + \" at \" + d.toFormat(d.minute ? \"h:mm a\" : \"h a\");\nconst startValue = d => d.toISO({ suppressMilliseconds: true });\nconst spell = code => code.split(\"\").map(ch => (ch === \"-\" ? \"dash\" : ch)).join(\" \");\nconst digits10 = s => String(s ?? \"\").replace(/\\D/g, \"\").slice(-10);\n\n// Appointment events written by book_appointment carry these description lines.\nfunction parseAppointment(e) {\n  const d = String(e.description ?? \"\");\n  const line = k => ((new RegExp(\"^\" + k + \":\\\\s*(.*)$\", \"m\")).exec(d) || [])[1] || \"\";\n  const startIso = e.start?.dateTime ?? e.start?.date;\n  return {\n    id: e.id,\n    code: line(\"Confirmation\").trim().toUpperCase(),\n    name: line(\"Patient\").trim(),\n    phone: digits10(line(\"Phone\")),\n    type: line(\"Type key\").trim(),\n    type_label: line(\"Type\").trim() || String(e.summary ?? \"\").split(\":\")[0],\n    start: startIso ? DateTime.fromISO(startIso).setZone(SLOT.TZ) : null,\n    description: d,\n  };\n}\n// ---- end lib-slots.js ----\n// find_appointment / cancel_appointment / reschedule_appointment: find the caller's appointment\n// by confirmation code (or the last 4 characters of it), else by the phone number it was booked\n// with. Decides the next step: reply, delete, or move (after a slot check).\nconst c = $(\"Config\").first().json;\nconst a = c.args ?? {};\nconst now = DateTime.now().setZone(SLOT.TZ);\nconst reply = result => [{ json: { action: \"reply\", tool_call_id: c.tool_call_id, result } }];\n\nconst appts = $input.all().map(i => i.json)\n  .filter(e => e && e.id && e.status !== \"cancelled\")\n  .map(parseAppointment)\n  .filter(x => x.code && x.start && x.start > now)\n  .sort((x, y) => x.start - y.start);\nconst wanted = String(a.confirmation_code ?? \"\").toUpperCase().replace(/[^A-Z0-9]/g, \"\");\nconst phone = digits10(a.phone) || digits10(c.caller_number);\nlet hits = [];\nif (wanted.length >= 4) hits = appts.filter(x => x.code.replace(/[^A-Z0-9]/g, \"\").endsWith(wanted.slice(-4)));\nif (!hits.length && phone.length === 10) hits = appts.filter(x => x.phone === phone);\nconst describe = x => x.type_label + \" for \" + x.name + \" on \" + say(x.start) + \", confirmation \" + x.code;\n\nif (!hits.length) {\n  return reply(\"No upcoming appointment found for \" + (wanted ? \"that confirmation code\" : \"\") + (wanted && phone ? \" or \" : \"\") + (phone ? \"that phone number\" : \"\") +\n    (!wanted && !phone ? \"nothing (ask for the confirmation code or the phone number used to book)\" : \"\") +\n    \". Ask them to check the code or the number they booked with, or offer to take a message.\");\n}\nif (c.name === \"find_appointment\") {\n  return reply(\"Found \" + hits.length + \" upcoming appointment\" + (hits.length > 1 ? \"s\" : \"\") + \": \" + hits.map(describe).join(\"; \") + \".\");\n}\nif (hits.length > 1) {\n  return reply(\"That number has \" + hits.length + \" upcoming appointments: \" + hits.map(describe).join(\"; \") + \". Ask which one, then call again with its confirmation code.\");\n}\nconst x = hits[0];\nif (c.name === \"cancel_appointment\") {\n  const late = x.start.diff(now, \"hours\").hours < 24;\n  return [{ json: { action: \"delete\", tool_call_id: c.tool_call_id, event_id: x.id, calendar_id: c.calendar_id, appointment: describe(x), late } }];\n}\n// reschedule_appointment\nconst type = typeKey(x.type) || typeKey(x.type_label) || \"cleaning\";\nconst t = SLOT.TYPES[type];\nconst ns = DateTime.fromISO(String(a.new_start ?? \"\"), { setZone: true });\nif (!ns.isValid) return reply(\"Found \" + describe(x) + \". To move it, call check_availability for \" + t.label + \" and pass the chosen start value as new_start.\");\nconst s = ns.setZone(SLOT.TZ);\nreturn [{\n  json: {\n    action: \"move\",\n    tool_call_id: c.tool_call_id,\n    calendar_id: c.calendar_id,\n    event_id: x.id,\n    type,\n    type_label: t.label,\n    code: x.code,\n    name: x.name,\n    old_start: x.start.toISO(),\n    start: s.toISO(),\n    end: s.plus({ minutes: t.minutes }).toISO(),\n    time_min: s.startOf(\"day\").toISO(),\n    time_max: s.endOf(\"day\").toISO(),\n    description: x.description + \"\\nRescheduled by Nora on \" + now.toFormat(\"LLL d, h:mm a\") + \" (was \" + say(x.start) + \").\",\n  },\n}];\n"
+      }
+    },
+    {
+      "id": "2449fffc-aa99-4e64-a1a2-83473ecc0f1d",
+      "name": "Next Step",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        1360,
+        760
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "outputKey": "reply",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "reply"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "outputKey": "cancel",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "delete"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "outputKey": "move",
+              "renameOutput": true,
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "move"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "96830f3e-8289-424f-aca1-842b3cc3fd0b",
+      "name": "Manage Reply",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1580,
+        660
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "591e65fc-3ac5-470d-8d4d-3acfe6a1c0c3",
+      "name": "Delete Event",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        1580,
+        800
+      ],
+      "parameters": {
+        "resource": "event",
+        "operation": "delete",
+        "calendar": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Config').first().json.calendar_id }}"
+        },
+        "eventId": "={{ $json.event_id }}",
+        "options": {
+          "sendUpdates": "none"
+        }
+      },
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "5G8pvfh0Kjd75Asw",
+          "name": "Google Calendar account"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000
+    },
+    {
+      "id": "38221c6e-026e-45aa-b03a-0d8ae4922863",
+      "name": "Cancelled Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1800,
+        800
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const m = $(\"Match Appointments\").first().json;\nreturn [{\n  json: {\n    tool_call_id: m.tool_call_id,\n    result: \"Cancelled: \" + m.appointment + \".\" + (m.late ? \" It was less than 24 hours away; mention the 24-hour notice policy kindly.\" : \"\") + \" Offer to book a new time.\",\n  },\n}];\n"
+      }
+    },
+    {
+      "id": "f4f8a1b2-d7a5-4a16-86e1-e0767afbbf61",
+      "name": "Read New Day",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        1580,
+        960
+      ],
+      "parameters": {
+        "resource": "event",
+        "operation": "getAll",
+        "calendar": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Config').first().json.calendar_id }}"
+        },
+        "returnAll": true,
+        "timeMin": "={{ $json.time_min }}",
+        "timeMax": "={{ $json.time_max }}",
+        "options": {
+          "singleEvents": true,
+          "orderBy": "startTime"
+        }
+      },
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "5G8pvfh0Kjd75Asw",
+          "name": "Google Calendar account"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000,
+      "alwaysOutputData": true
+    },
+    {
+      "id": "d7b26626-d9ef-450b-8a75-2486cc4d16b5",
+      "name": "Check Move Slot",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1800,
+        960
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// ---- lib-slots.js (included by build.py): clinic hours, appointment types and slot rules ----\nconst SLOT = {\n  TZ: \"America/Chicago\",\n  TYPES: {\n    new_patient: { label: \"New patient exam and X-rays\", minutes: 60, notice: 120 },\n    cleaning: { label: \"Cleaning and check-up\", minutes: 60, notice: 120 },\n    emergency: { label: \"Emergency exam\", minutes: 30, notice: 60 },\n    consultation: { label: \"Cosmetic or Invisalign consultation\", minutes: 30, notice: 120 },\n  },\n  // Luxon weekday (1 = Monday) -> open spans. Lunch 12-1 Mon-Thu, Friday until 2 pm.\n  HOURS: {\n    1: [[\"08:00\", \"12:00\"], [\"13:00\", \"17:00\"]],\n    2: [[\"08:00\", \"12:00\"], [\"13:00\", \"17:00\"]],\n    3: [[\"08:00\", \"12:00\"], [\"13:00\", \"17:00\"]],\n    4: [[\"08:00\", \"12:00\"], [\"13:00\", \"17:00\"]],\n    5: [[\"08:00\", \"14:00\"]],\n  },\n  HOLIDAYS: [\"2026-11-26\", \"2026-11-27\", \"2026-12-24\", \"2026-12-25\", \"2026-12-31\", \"2027-01-01\"],\n  DAYS_AHEAD: 30,\n  STEP: 30,\n};\n\n// The model usually sends the key, but accept everyday words too.\nfunction typeKey(raw) {\n  const s = String(raw ?? \"\").toLowerCase();\n  if (SLOT.TYPES[s]) return s;\n  if (/emergenc|pain|ache|broken|knock|chip|swell|lost (a )?(filling|crown)/.test(s)) return \"emergency\";\n  if (/new/.test(s)) return \"new_patient\";\n  if (/clean|check|hygien|exam/.test(s)) return \"cleaning\";\n  if (/cosmetic|whiten|invisalign|consult|align|veneer/.test(s)) return \"consultation\";\n  return null;\n}\n\n// Calendar events -> busy intervals in clinic time. All-day events close the whole day.\nfunction busyFrom(events, excludeId) {\n  return events\n    .filter(e => e && e.start && e.status !== \"cancelled\" && e.transparency !== \"transparent\" && e.id !== excludeId)\n    .map(e => e.start.date\n      ? { start: DateTime.fromISO(e.start.date, { zone: SLOT.TZ }), end: DateTime.fromISO(e.end.date, { zone: SLOT.TZ }) }\n      : { start: DateTime.fromISO(e.start.dateTime).setZone(SLOT.TZ), end: DateTime.fromISO(e.end.dateTime).setZone(SLOT.TZ) });\n}\n\nfunction isOpen(day) {\n  return Boolean(SLOT.HOURS[day.weekday]) && !SLOT.HOLIDAYS.includes(day.toISODate());\n}\n\n// Every start time on `day` that fits inside opening hours, respects the notice period and\n// doesn't overlap a busy interval. One appointment at a time (single demo calendar).\nfunction freeStarts(day, type, busy, now) {\n  const t = SLOT.TYPES[type];\n  if (!t || !isOpen(day)) return [];\n  const earliest = now.plus({ minutes: t.notice });\n  const out = [];\n  for (const [a, b] of SLOT.HOURS[day.weekday]) {\n    const [ah, am] = a.split(\":\").map(Number);\n    const [bh, bm] = b.split(\":\").map(Number);\n    const open = day.set({ hour: ah, minute: am, second: 0, millisecond: 0 });\n    const close = day.set({ hour: bh, minute: bm, second: 0, millisecond: 0 });\n    for (let s = open; s.plus({ minutes: t.minutes }) <= close; s = s.plus({ minutes: SLOT.STEP })) {\n      if (s < earliest) continue;\n      const e = s.plus({ minutes: t.minutes });\n      if (busy.some(x => x.start < e && x.end > s)) continue;\n      out.push(s);\n    }\n  }\n  return out;\n}\n\n// Speech-friendly labels: \"Tuesday, October 28 at 9 AM\" / \"at 2:30 PM\".\nconst sayDay = d => (typeof d === \"string\" ? DateTime.fromISO(d, { zone: SLOT.TZ }) : d).toFormat(\"cccc, LLLL d\");\nconst say = d => sayDay(d) + \" at \" + d.toFormat(d.minute ? \"h:mm a\" : \"h a\");\nconst startValue = d => d.toISO({ suppressMilliseconds: true });\nconst spell = code => code.split(\"\").map(ch => (ch === \"-\" ? \"dash\" : ch)).join(\" \");\nconst digits10 = s => String(s ?? \"\").replace(/\\D/g, \"\").slice(-10);\n\n// Appointment events written by book_appointment carry these description lines.\nfunction parseAppointment(e) {\n  const d = String(e.description ?? \"\");\n  const line = k => ((new RegExp(\"^\" + k + \":\\\\s*(.*)$\", \"m\")).exec(d) || [])[1] || \"\";\n  const startIso = e.start?.dateTime ?? e.start?.date;\n  return {\n    id: e.id,\n    code: line(\"Confirmation\").trim().toUpperCase(),\n    name: line(\"Patient\").trim(),\n    phone: digits10(line(\"Phone\")),\n    type: line(\"Type key\").trim(),\n    type_label: line(\"Type\").trim() || String(e.summary ?? \"\").split(\":\")[0],\n    start: startIso ? DateTime.fromISO(startIso).setZone(SLOT.TZ) : null,\n    description: d,\n  };\n}\n// ---- end lib-slots.js ----\n// Same check as booking, ignoring the appointment being moved.\nconst p = $(\"Match Appointments\").first().json;\nconst now = DateTime.now().setZone(SLOT.TZ);\nconst start = DateTime.fromISO(p.start, { zone: SLOT.TZ });\nconst free = freeStarts(start.startOf(\"day\"), p.type, busyFrom($input.all().map(i => i.json), p.event_id), now);\nif (free.some(s => +s === +start)) return [{ json: { ...p, free: true } }];\nconst others = free.filter(s => +s !== +start).slice(0, 4);\nreturn [{\n  json: {\n    ...p,\n    free: false,\n    result: \"Not moved: \" + say(start) + \" is not available\" +\n      (others.length ? \". Other free times that day: \" + others.map(s => say(s) + \" [start \" + startValue(s) + \"]\").join(\"; \") + \".\" : \". Call check_availability for another day.\"),\n  },\n}];\n"
+      }
+    },
+    {
+      "id": "ae4efeb5-0950-4671-9eba-c1d6c4f0cd5e",
+      "name": "Move Free?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2020,
+        960
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.free }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "330f8f08-0c76-4caa-9319-47027dab8296",
+      "name": "Update Event",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        2240,
+        900
+      ],
+      "parameters": {
+        "resource": "event",
+        "operation": "update",
+        "calendar": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Config').first().json.calendar_id }}"
+        },
+        "eventId": "={{ $json.event_id }}",
+        "updateFields": {
+          "start": "={{ $json.start }}",
+          "end": "={{ $json.end }}",
+          "description": "={{ $json.description }}",
+          "sendUpdates": "none"
+        }
+      },
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "5G8pvfh0Kjd75Asw",
+          "name": "Google Calendar account"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000
+    },
+    {
+      "id": "42f0595e-2d9a-4583-a4fc-edba18826275",
+      "name": "Moved Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2460,
+        900
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// ---- lib-slots.js (included by build.py): clinic hours, appointment types and slot rules ----\nconst SLOT = {\n  TZ: \"America/Chicago\",\n  TYPES: {\n    new_patient: { label: \"New patient exam and X-rays\", minutes: 60, notice: 120 },\n    cleaning: { label: \"Cleaning and check-up\", minutes: 60, notice: 120 },\n    emergency: { label: \"Emergency exam\", minutes: 30, notice: 60 },\n    consultation: { label: \"Cosmetic or Invisalign consultation\", minutes: 30, notice: 120 },\n  },\n  // Luxon weekday (1 = Monday) -> open spans. Lunch 12-1 Mon-Thu, Friday until 2 pm.\n  HOURS: {\n    1: [[\"08:00\", \"12:00\"], [\"13:00\", \"17:00\"]],\n    2: [[\"08:00\", \"12:00\"], [\"13:00\", \"17:00\"]],\n    3: [[\"08:00\", \"12:00\"], [\"13:00\", \"17:00\"]],\n    4: [[\"08:00\", \"12:00\"], [\"13:00\", \"17:00\"]],\n    5: [[\"08:00\", \"14:00\"]],\n  },\n  HOLIDAYS: [\"2026-11-26\", \"2026-11-27\", \"2026-12-24\", \"2026-12-25\", \"2026-12-31\", \"2027-01-01\"],\n  DAYS_AHEAD: 30,\n  STEP: 30,\n};\n\n// The model usually sends the key, but accept everyday words too.\nfunction typeKey(raw) {\n  const s = String(raw ?? \"\").toLowerCase();\n  if (SLOT.TYPES[s]) return s;\n  if (/emergenc|pain|ache|broken|knock|chip|swell|lost (a )?(filling|crown)/.test(s)) return \"emergency\";\n  if (/new/.test(s)) return \"new_patient\";\n  if (/clean|check|hygien|exam/.test(s)) return \"cleaning\";\n  if (/cosmetic|whiten|invisalign|consult|align|veneer/.test(s)) return \"consultation\";\n  return null;\n}\n\n// Calendar events -> busy intervals in clinic time. All-day events close the whole day.\nfunction busyFrom(events, excludeId) {\n  return events\n    .filter(e => e && e.start && e.status !== \"cancelled\" && e.transparency !== \"transparent\" && e.id !== excludeId)\n    .map(e => e.start.date\n      ? { start: DateTime.fromISO(e.start.date, { zone: SLOT.TZ }), end: DateTime.fromISO(e.end.date, { zone: SLOT.TZ }) }\n      : { start: DateTime.fromISO(e.start.dateTime).setZone(SLOT.TZ), end: DateTime.fromISO(e.end.dateTime).setZone(SLOT.TZ) });\n}\n\nfunction isOpen(day) {\n  return Boolean(SLOT.HOURS[day.weekday]) && !SLOT.HOLIDAYS.includes(day.toISODate());\n}\n\n// Every start time on `day` that fits inside opening hours, respects the notice period and\n// doesn't overlap a busy interval. One appointment at a time (single demo calendar).\nfunction freeStarts(day, type, busy, now) {\n  const t = SLOT.TYPES[type];\n  if (!t || !isOpen(day)) return [];\n  const earliest = now.plus({ minutes: t.notice });\n  const out = [];\n  for (const [a, b] of SLOT.HOURS[day.weekday]) {\n    const [ah, am] = a.split(\":\").map(Number);\n    const [bh, bm] = b.split(\":\").map(Number);\n    const open = day.set({ hour: ah, minute: am, second: 0, millisecond: 0 });\n    const close = day.set({ hour: bh, minute: bm, second: 0, millisecond: 0 });\n    for (let s = open; s.plus({ minutes: t.minutes }) <= close; s = s.plus({ minutes: SLOT.STEP })) {\n      if (s < earliest) continue;\n      const e = s.plus({ minutes: t.minutes });\n      if (busy.some(x => x.start < e && x.end > s)) continue;\n      out.push(s);\n    }\n  }\n  return out;\n}\n\n// Speech-friendly labels: \"Tuesday, October 28 at 9 AM\" / \"at 2:30 PM\".\nconst sayDay = d => (typeof d === \"string\" ? DateTime.fromISO(d, { zone: SLOT.TZ }) : d).toFormat(\"cccc, LLLL d\");\nconst say = d => sayDay(d) + \" at \" + d.toFormat(d.minute ? \"h:mm a\" : \"h a\");\nconst startValue = d => d.toISO({ suppressMilliseconds: true });\nconst spell = code => code.split(\"\").map(ch => (ch === \"-\" ? \"dash\" : ch)).join(\" \");\nconst digits10 = s => String(s ?? \"\").replace(/\\D/g, \"\").slice(-10);\n\n// Appointment events written by book_appointment carry these description lines.\nfunction parseAppointment(e) {\n  const d = String(e.description ?? \"\");\n  const line = k => ((new RegExp(\"^\" + k + \":\\\\s*(.*)$\", \"m\")).exec(d) || [])[1] || \"\";\n  const startIso = e.start?.dateTime ?? e.start?.date;\n  return {\n    id: e.id,\n    code: line(\"Confirmation\").trim().toUpperCase(),\n    name: line(\"Patient\").trim(),\n    phone: digits10(line(\"Phone\")),\n    type: line(\"Type key\").trim(),\n    type_label: line(\"Type\").trim() || String(e.summary ?? \"\").split(\":\")[0],\n    start: startIso ? DateTime.fromISO(startIso).setZone(SLOT.TZ) : null,\n    description: d,\n  };\n}\n// ---- end lib-slots.js ----\nconst p = $(\"Check Move Slot\").first().json;\nreturn [{\n  json: {\n    tool_call_id: p.tool_call_id,\n    result: \"Moved: \" + p.type_label + \" for \" + p.name + \" is now on \" + say(DateTime.fromISO(p.start, { zone: SLOT.TZ })) +\n      \" (was \" + say(DateTime.fromISO(p.old_start, { zone: SLOT.TZ })) + \"). Same confirmation code \" + p.code + \".\",\n  },\n}];\n"
+      }
+    },
+    {
+      "id": "c6d200ba-5b48-4462-8d9a-34a39ce59f63",
+      "name": "Move Taken",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        2240,
+        1040
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "fb4ecd25-b72f-4cfc-be74-dbad3d9c1c7c",
+      "name": "Prepare Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        920,
+        1260
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// take_message: validate, then build the staff alert and the Messages row.\nconst c = $(\"Config\").first().json;\nconst a = c.args ?? {};\nconst name = String(a.caller_name ?? \"\").trim();\nconst phone = String(a.phone ?? \"\").trim() || String(c.caller_number ?? \"\");\nconst message = String(a.message ?? \"\").trim();\nconst urgent = a.urgent === true || String(a.urgent).toLowerCase() === \"true\";\nconst missing = [];\nif (!name) missing.push(\"their name\");\nif (phone.replace(/\\D/g, \"\").length < 10) missing.push(\"a callback number\");\nif (message.length < 3) missing.push(\"the message\");\nconst esc = s => s.replace(/&/g, \"&amp;\").replace(/</g, \"&lt;\").replace(/>/g, \"&gt;\");\nconst at = DateTime.now().setZone(\"America/Chicago\");\nreturn [{\n  json: {\n    ok: missing.length === 0,\n    tool_call_id: c.tool_call_id,\n    sheet_id: c.sheet_id,\n    staff_chat_id: c.staff_chat_id,\n    missing: missing.join(\", \"),\n    urgent,\n    telegram: (urgent ? \"🚨 <b>URGENT message</b>\" : \"📞 <b>New message</b>\") + \" from the phone line\\n\" +\n      \"<b>\" + esc(name) + \"</b>, \" + esc(phone) + \"\\n\" + esc(message) + \"\\n<i>\" + at.toFormat(\"ccc LLL d, h:mm a\") + \" (Nora)</i>\",\n    row: { at: at.toFormat(\"yyyy-MM-dd HH:mm\"), caller_name: name, phone, message, urgent: urgent ? \"yes\" : \"no\", status: \"new\", call_id: c.call_id ?? \"\" },\n  },\n}];\n"
+      }
+    },
+    {
+      "id": "2ed47e41-1870-43f3-a708-a106c1ec6237",
+      "name": "Message Complete?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1140,
+        1260
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.ok }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "d49782b0-5a56-4be8-8074-0d5b54509420",
+      "name": "Log Message (background)",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        1360,
+        1200
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "pL4bVosX1Dga62wJ",
+          "cachedResultName": "Receptionist 4: Log Row"
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "ab579d55-83d8-4a5f-b678-4473d88aff06",
+      "name": "Alert Staff",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1580,
+        1200
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $('Prepare Message').first().json.staff_chat_id }}",
+        "text": "={{ $('Prepare Message').first().json.telegram }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML",
+          "disable_web_page_preview": true
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "V3kTN1drqw8YNjzk",
+          "name": "Telegram account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "b59d8c68-419d-4250-b259-a6438294ac1e",
+      "name": "Message Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1800,
+        1260
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const m = $(\"Prepare Message\").first().json;\nreturn [{\n  json: {\n    tool_call_id: m.tool_call_id,\n    result: m.ok\n      ? \"Message passed to the front desk\" + (m.urgent ? \" as urgent: they call back within two hours during opening hours.\" : \": they call back within one business day.\")\n      : \"Message not sent yet: still need \" + m.missing + \". Ask for it, then call take_message again.\",\n  },\n}];\n"
+      }
+    },
+    {
+      "id": "fab8b2f0-ac77-4c81-bb0d-9112aaed2b0a",
+      "name": "Unknown Tool",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        920,
+        1460
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const c = $(\"Config\").first().json;\nreturn [{ json: { tool_call_id: c.tool_call_id, result: \"That action isn't available. Offer to take a message for the front desk.\" } }];\n"
+      }
+    },
+    {
+      "id": "1ba0a088-53cd-4b63-b516-17b7637c69dd",
+      "name": "Sticky Note 1ba0a088",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        180,
+        -80
+      ],
+      "parameters": {
+        "content": "## Receptionist 2: Run Tool\nRuns one Vapi tool call for **Receptionist 1** and always ends in `{ tool_call_id, result }`, where `result` is one line the voice model turns into speech.\n\nAll scheduling rules are code (`lib-slots.js`): opening hours, lunch, holidays, notice periods, 30-minute steps, 30 days ahead. Bookings and moves re-read the day and re-check the exact slot before writing, so two callers can't get the same time. Appointments are found by confirmation code or by the phone number they were booked with; nobody else's details are given out.",
+        "color": 4,
+        "width": 1000,
+        "height": 220
+      }
+    }
+  ],
+  "connections": {
+    "When Called": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Which Tool?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Which Tool?": {
+      "main": [
+        [
+          {
+            "node": "Work Out Window",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare Booking",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Read Upcoming",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare Message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Unknown Tool",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Work Out Window": {
+      "main": [
+        [
+          {
+            "node": "Read Calendar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Calendar": {
+      "main": [
+        [
+          {
+            "node": "Find Free Slots",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Booking": {
+      "main": [
+        [
+          {
+            "node": "Booking Ready?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Booking Ready?": {
+      "main": [
+        [
+          {
+            "node": "Read Booking Day",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Booking Incomplete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Booking Day": {
+      "main": [
+        [
+          {
+            "node": "Check Booking Slot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Booking Slot": {
+      "main": [
+        [
+          {
+            "node": "Slot Free?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slot Free?": {
+      "main": [
+        [
+          {
+            "node": "Create Event",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Slot Taken",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Event": {
+      "main": [
+        [
+          {
+            "node": "Booked Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Upcoming": {
+      "main": [
+        [
+          {
+            "node": "Match Appointments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Match Appointments": {
+      "main": [
+        [
+          {
+            "node": "Next Step",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Next Step": {
+      "main": [
+        [
+          {
+            "node": "Manage Reply",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Delete Event",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Read New Day",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Event": {
+      "main": [
+        [
+          {
+            "node": "Cancelled Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read New Day": {
+      "main": [
+        [
+          {
+            "node": "Check Move Slot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Move Slot": {
+      "main": [
+        [
+          {
+            "node": "Move Free?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Move Free?": {
+      "main": [
+        [
+          {
+            "node": "Update Event",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Move Taken",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Event": {
+      "main": [
+        [
+          {
+            "node": "Moved Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Message": {
+      "main": [
+        [
+          {
+            "node": "Message Complete?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message Complete?": {
+      "main": [
+        [
+          {
+            "node": "Log Message (background)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Message Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Message (background)": {
+      "main": [
+        [
+          {
+            "node": "Alert Staff",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert Staff": {
+      "main": [
+        [
+          {
+            "node": "Message Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {}
+}

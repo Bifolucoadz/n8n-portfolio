@@ -1,0 +1,26 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["doc_code", "title", "product", "doc_type", "version", "effective_date", "summary", "contexts"],
+  "properties": {
+    "doc_code": { "type": "string", "description": "Document number from the header, or an empty string" },
+    "title": { "type": "string" },
+    "product": { "type": "string", "description": "Product brand name, or General for documents that cover all products" },
+    "doc_type": { "type": "string" },
+    "version": { "type": "string" },
+    "effective_date": { "type": "string", "description": "YYYY-MM-DD, or an empty string" },
+    "summary": { "type": "string", "description": "2 to 3 sentences on what the whole document covers" },
+    "contexts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["i", "context"],
+        "properties": {
+          "i": { "type": "integer" },
+          "context": { "type": "string" }
+        }
+      }
+    }
+  }
+}

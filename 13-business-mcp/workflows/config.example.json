@@ -1,0 +1,8 @@
+{
+  "SHEET_ID": "<your SHEET_ID>",
+  "SHEETS_CRED_ID": "<your SHEETS_CRED_ID>",
+  "TEAM_CRED_ID": "<your TEAM_CRED_ID>",
+  "FINANCE_CRED_ID": "<your FINANCE_CRED_ID>",
+  "TEAM_TOKEN": "<your TEAM_TOKEN>",
+  "FINANCE_TOKEN": "<your FINANCE_TOKEN>"
+}

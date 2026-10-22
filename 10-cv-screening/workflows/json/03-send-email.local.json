@@ -1,0 +1,290 @@
+{
+  "id": "ngtSendEmail0003",
+  "name": "Northgate 3: Send Email",
+  "description": "CV screening (project 10): sends an email with Gmail in live mode, or writes it to the Northgate Outbox table in test mode.",
+  "nodes": [
+    {
+      "id": "29096e57-a226-485c-a1d2-6f85141b4e76",
+      "name": "When Called",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        200,
+        300
+      ],
+      "parameters": {
+        "inputSource": "passthrough"
+      }
+    },
+    {
+      "id": "c24daa51-42f7-4d99-ad50-54fc5bd65d21",
+      "name": "Read Settings",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        420,
+        300
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "LXDSXYJhXdqQV8KO",
+          "cachedResultName": "Northgate Settings"
+        },
+        "returnAll": true
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "5474365b-fb85-4f49-8e9b-57d110023774",
+      "name": "Route",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        640,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// One item per email (items without a recipient are skipped), with the sending mode from Settings\n// (test writes to the Outbox table).\n// ---- lib-ngt.js (included by build.py): shared helpers for the Northgate workflows ----\nconst TZ = 'Europe/London';\nconst esc = s => String(s === null || s === undefined ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');\nconst settingsOf = items => Object.fromEntries(items.map(i => i.json).filter(r => r && r.key).map(r => [r.key, r.value]));\nconst parseJson = (s, d) => { try { return typeof s === 'string' ? JSON.parse(s) : (s === null || s === undefined ? d : s); } catch (e) { return d; } };\nconst nowIso = () => DateTime.now().setZone(TZ).toISO();\nconst newToken = n => Array.from({ length: n || 24 }, () => 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 56)]).join('');\nconst pounds = n => '£' + Math.round(Number(n) || 0).toLocaleString('en-GB');\nconst whenText = iso => DateTime.fromISO(String(iso), { zone: TZ }).toFormat(\"cccc d LLLL 'at' h:mm a\").replace(':00 ', ' ');\nconst firstName = name => String(name || '').trim().split(/\\s+/)[0] || 'there';\n\n// OpenAI node (Responses API) output: the JSON object from the first output_text part, or null.\nfunction aiJson(res) {\n  if (!res || res.error) return null;\n  const msg = (res.output || []).find(o => o && o.type === 'message');\n  const part = msg && (msg.content || []).find(c => c && c.type === 'output_text');\n  let t = part ? part.text : null;\n  if (typeof t === 'string') { try { t = JSON.parse(t); } catch (e) { t = null; } }\n  return t && typeof t === 'object' ? t : null;\n}\n\n// Plain, left-aligned email body with the agency's name at the top.\nfunction emailHtml(company, paragraphs, extraHtml) {\n  const p = paragraphs.map(t => '<p style=\"margin:0 0 14px;text-align:left\">' + t + '</p>').join('');\n  return '<div style=\"font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.55;color:#1f2933;max-width:560px;text-align:left\">'\n    + '<div style=\"font-weight:700;font-size:13px;letter-spacing:1px;text-transform:uppercase;color:#0b6e4f;margin:0 0 18px\">' + esc(company) + '</div>'\n    + p + (extraHtml || '') + '</div>';\n}\n\n// A small standalone web page for candidates (booking links, confirmations, problems).\nfunction pageHtml(company, title, bodyHtml) {\n  return '<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>' + esc(title) + ' · ' + esc(company) + '</title>'\n    + '<style>body{margin:0;background:#eef3f0;font:16px/1.55 -apple-system,\"Segoe UI\",Helvetica,Arial,sans-serif;color:#10231a}'\n    + '.card{max-width:520px;margin:48px auto;background:#fff;border:1px solid #dbe5df;border-radius:16px;padding:32px 30px;box-shadow:0 6px 24px rgba(16,35,26,.06)}'\n    + '.brand{font-size:12px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#0b6e4f;margin-bottom:18px}'\n    + 'h1{font-size:23px;margin:0 0 10px;letter-spacing:-.3px}p{color:#3d4f45;margin:0 0 12px}'\n    + '.slot{display:block;padding:12px 16px;border:1px solid #dbe5df;border-radius:12px;margin:8px 0;color:#0b6e4f;font-weight:600;text-decoration:none}.slot:hover{border-color:#0b6e4f;background:#f3faf6}'\n    + '.big{font-size:19px;font-weight:700;color:#10231a;margin:6px 0 14px}.muted{color:#6b7c72;font-size:13px}</style></head><body><div class=\"card\">'\n    + '<div class=\"brand\">' + esc(company) + '</div><h1>' + esc(title) + '</h1>' + bodyHtml + '</div></body></html>';\n}\n\nconst BAND_LABEL = { shortlist: 'Shortlist', review: 'Worth a look', unlikely: 'Unlikely fit', knockout: 'Knockout' };\n// ---- end lib-ngt.js ----\nconst s = settingsOf($('Read Settings').all());\nreturn $('When Called').all().filter(i => i.json.to).map(i => ({ json: {\n  to: String(i.json.to || ''),\n  subject: String(i.json.subject || ''),\n  html: String(i.json.html || ''),\n  kind: String(i.json.kind || ''),\n  candidate_id: String(i.json.candidate_id || ''),\n  live: s.mode === 'live',\n  sender: s.company || 'Northgate Talent',\n  reply_to: s.recruiter_email || '',\n  at: nowIso()\n} }));\n"
+      }
+    },
+    {
+      "id": "1498f90a-34a9-45e8-b7c3-f3785195bd1c",
+      "name": "Live Mode?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        860,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.live }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "dfe58f12-391d-4462-a6eb-51ce9f7452b2",
+      "name": "Send with Gmail",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1100,
+        200
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "emailType": "html",
+        "message": "={{ $json.html }}",
+        "options": {
+          "appendAttribution": false,
+          "senderName": "={{ $json.sender }}",
+          "replyTo": "={{ $json.reply_to }}"
+        }
+      },
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "7rH5EpTCyRAbJqwK",
+          "name": "Gmail account 2"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "id": "35975d1c-eef5-4c80-974d-68951ec9174f",
+      "name": "Write to Outbox",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1100,
+        400
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "ygMH59WjeBt0Og19",
+          "cachedResultName": "Northgate Outbox"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "to": "={{ $json.to }}",
+            "subject": "={{ $json.subject }}",
+            "body": "={{ $json.html }}",
+            "kind": "={{ $json.kind }}",
+            "candidate_id": "={{ $json.candidate_id }}",
+            "at": "={{ $json.at }}"
+          },
+          "schema": [
+            {
+              "id": "to",
+              "displayName": "to",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "subject",
+              "displayName": "subject",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "body",
+              "displayName": "body",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "kind",
+              "displayName": "kind",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "candidate_id",
+              "displayName": "candidate_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "at",
+              "displayName": "at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "870c24d0-70d7-430f-bf51-50ea8e697c9f",
+      "name": "Sticky Note 870c24d0",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        160,
+        40
+      ],
+      "parameters": {
+        "content": "## Northgate 3: Send Email\nEvery email to applicants and the recruiter goes through here. With `mode = live` in **Northgate Settings** it sends with Gmail; in test mode it writes to the **Northgate Outbox** table instead, so the whole pipeline can be tested without emailing anyone.",
+        "color": 7,
+        "width": 900,
+        "height": 160
+      }
+    }
+  ],
+  "connections": {
+    "When Called": {
+      "main": [
+        [
+          {
+            "node": "Read Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Settings": {
+      "main": [
+        [
+          {
+            "node": "Route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route": {
+      "main": [
+        [
+          {
+            "node": "Live Mode?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Live Mode?": {
+      "main": [
+        [
+          {
+            "node": "Send with Gmail",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Write to Outbox",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "timezone": "Europe/London",
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "iTxd64lDk3gI0bKG"
+  }
+}

@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>How it connects</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#f3f1ec;font:17px/1.5 Inter,-apple-system,Helvetica,Arial,sans-serif;color:#1f1f1d;width:1680px;height:1008px;overflow:hidden;display:flex;flex-direction:column;justify-content:center}
+h1{font-size:38px;font-weight:800;letter-spacing:-.6px;margin:0 0 8px 70px}
+.sub{color:#6b6a65;font-size:19px;margin:0 0 56px 70px}
+.flow{display:grid;grid-template-columns:290px 84px 390px 84px 320px 84px 288px;align-items:center;padding:0 70px}
+.col{display:flex;flex-direction:column;gap:14px}
+.box{background:#fff;border:1px solid #e3ded3;border-radius:16px;padding:18px 20px;box-shadow:0 6px 20px rgba(0,0,0,.04)}
+.box h3{margin:0 0 4px;font-size:17px}
+.box p{margin:0;color:#5f5e59;font-size:15px}
+.client{display:flex;align-items:center;gap:12px}
+.dot{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;font-weight:800;color:#fff;flex:none}
+.arrow{height:2px;background:#c8c1b2;position:relative}
+.arrow:after{content:"";position:absolute;right:-2px;top:-5px;border:6px solid transparent;border-left:9px solid #c8c1b2}
+.lbl{position:absolute;top:-30px;left:-10px;right:-10px;text-align:center;font-size:12.5px;color:#8b867b;font-weight:600;white-space:nowrap}
+.n8n{background:#1d2433;color:#e6e9f2;border:0}
+.n8n h3{color:#fff}.n8n p{color:#aab3c6}
+.srv{background:#263049;border-radius:12px;padding:12px 14px;margin-top:10px}
+.srv b{color:#fff;font-size:14px}.srv .u{font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#9aa6bd}
+.tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}.tags span{font-family:ui-monospace,Menlo,monospace;font-size:11.5px;background:#33405e;border-radius:6px;padding:2px 7px;color:#d4dbe9}
+.tags span.w{background:#d97757;color:#fff}
+.check li{margin:6px 0;color:#3b3a36;font-size:15px}
+.check{padding-left:18px;margin:6px 0 0}
+.sheet{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-top:10px}
+.sheet span{background:#e8f3ec;color:#1f6b45;border-radius:7px;padding:5px 8px;font-size:13px;font-weight:600}
+.notes{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;padding:64px 70px 0}
+.note{background:#fff;border-radius:14px;border:1px solid #e3ded3;padding:16px 20px}
+.note b{display:block;margin-bottom:4px}
+.note p{margin:0;color:#5f5e59;font-size:15.5px}
+</style>
+</head>
+<body>
+<h1>Ask your business data in plain English, from Claude</h1>
+<div class="sub">Brindle Studio (an invented 14-person design studio): two MCP servers built in n8n on top of a Google Sheet</div>
+<div class="flow">
+  <div class="col">
+    <div class="box client"><div class="dot" style="background:#d97757">C</div><div><h3>Claude</h3><p>Desktop, web or Claude Code</p></div></div>
+    <div class="box client"><div class="dot" style="background:#10a37f">G</div><div><h3>ChatGPT</h3><p>with an MCP connector</p></div></div>
+    <div class="box client"><div class="dot" style="background:#3b3a36">⌘</div><div><h3>Cursor or any MCP client</h3><p>Streamable HTTP</p></div></div>
+  </div>
+  <div class="arrow"><div class="lbl">bearer token</div></div>
+  <div class="box n8n">
+    <h3>n8n: MCP Server Triggers</h3>
+    <p>Each tool is a workflow with typed inputs</p>
+    <div class="srv"><b>Team server</b> <span class="u">/mcp/brindle</span><div class="tags"><span>search</span><span>client_overview</span><span>project_status</span><span>list_tasks</span><span>my_week</span><span>team_capacity</span><span class="w">log_time</span><span class="w">create_task</span><span class="w">update_task</span></div></div>
+    <div class="srv"><b>Finance server</b> <span class="u">/mcp/brindle-finance</span><div class="tags"><span>client_finances</span><span>invoices</span><span>profitability</span><span class="w">draft_invoice</span></div></div>
+  </div>
+  <div class="arrow"><div class="lbl">every call</div></div>
+  <div class="box">
+    <h3>Tools workflow</h3>
+    <p>Answers are worked out in code, so the numbers are exact</p>
+    <ul class="check"><li>Finds clients and projects by name</li><li>Checks every write: no future dates, max 12 h a day, no time on paused projects</li><li>Invoices: preview first, then confirm</li><li>Logs each call to the Audit tab</li></ul>
+  </div>
+  <div class="arrow"><div class="lbl">one read</div></div>
+  <div class="box">
+    <h3>Google Sheet</h3>
+    <p>The studio's data, editable by the team</p>
+    <div class="sheet"><span>Team</span><span>Clients</span><span>Projects</span><span>Tasks</span><span>Time</span><span>Invoices</span><span>Settings</span><span>Audit</span></div>
+  </div>
+</div>
+<div class="notes">
+  <div class="note"><b>Separate access for money</b><p>The team token can't see rates, margins or invoices. Directors add the finance server too.</p></div>
+  <div class="note"><b>Safe writes</b><p>Orange tools change data. Each one checks its input and refuses with a clear reason, and Claude passes that on.</p></div>
+  <div class="note"><b>Swap the data source</b><p>The Sheet can be replaced by a real project tool or accounting API without changing the tools Claude sees.</p></div>
+</div>
+</body>
+</html>

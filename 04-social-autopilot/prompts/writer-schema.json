@@ -1,0 +1,33 @@
+{
+  "type": "object",
+  "properties": {
+    "angle": {
+      "type": "string",
+      "description": "One sentence: the single idea this post makes"
+    },
+    "linkedin": {
+      "type": "string",
+      "description": "LinkedIn version, 120-220 words, hashtags on the last line"
+    },
+    "telegram": {
+      "type": "string",
+      "description": "Telegram channel version, 60-150 words, plain text"
+    },
+    "image_prompt": {
+      "type": "string",
+      "description": "Scene description for the image generator, or empty string"
+    },
+    "image_alt": {
+      "type": "string",
+      "description": "Alt text for the image, or empty string"
+    }
+  },
+  "required": [
+    "angle",
+    "linkedin",
+    "telegram",
+    "image_prompt",
+    "image_alt"
+  ],
+  "additionalProperties": false
+}

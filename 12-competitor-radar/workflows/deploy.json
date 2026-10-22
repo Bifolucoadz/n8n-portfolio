@@ -1,0 +1,14 @@
+{
+  "timezone": "Europe/London",
+  "errorWorkflow": "iTxd64lDk3gI0bKG",
+  "workflows": {
+    "00-demo-sites.ts": { "id": "csrDemoSites0000", "description": "Competitor radar (project 12), demo only: four invented competitor websites that change from week 1 to 4, plus an admin link to set the week.", "errorWorkflow": false },
+    "01-run-checks.ts": { "id": "csrRunChecks0001", "description": "Competitor radar (project 12): every 6 hours checks each watched page, has GPT-5.4 rate and explain the changes, saves them and emails alerts.", "settings": { "executionTimeout": 600 } },
+    "02-check-page.ts": { "id": "csrCheckPage0002", "description": "Competitor radar (project 12): fetches and cleans one page, fingerprints it, reads products (JSON-LD or GPT-5.4 mini) and lists what changed." },
+    "03-dashboard.ts": { "id": "csrDashboard0003", "description": "Competitor radar (project 12): the team dashboard (change feed, price position, history charts, page health) and its actions." },
+    "04-weekly-digest.ts": { "id": "csrWeeklyDgst04", "description": "Competitor radar (project 12): Monday 8:00 email with the week's changes by importance, price position and page problems." },
+    "05-save-changes.ts": { "id": "csrSaveChange005", "description": "Competitor radar (project 12): writes a plan to Google Sheets (changes, prices, runs, matches, pages) and sends emails (Gmail live, Outbox in test)." },
+    "06-reset-demo.ts": { "id": "csrResetDemo0006", "description": "Competitor radar (project 12): resets the sheet (settings, our bikes, watchlist, matches) and the demo competitor sites to week 1.", "errorWorkflow": false },
+    "07-create-sheet.ts": { "id": "csrCreateSheet07", "description": "Competitor radar (project 12): run once to create the Google Sheet the radar runs on.", "errorWorkflow": false }
+  }
+}

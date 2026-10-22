@@ -1,0 +1,6 @@
+{
+  "type": "object", "additionalProperties": false, "required": ["headline", "fixes"],
+  "properties": { "headline": { "type": "string" },
+    "fixes": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["title", "why", "action"],
+      "properties": { "title": { "type": "string" }, "why": { "type": "string" }, "action": { "type": "string" } } } } }
+}

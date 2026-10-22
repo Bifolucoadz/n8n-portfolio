@@ -1,0 +1,394 @@
+{
+  "id": "mgvSaveChange007",
+  "name": "Mossgrove 7: Save Changes",
+  "description": "Quote to cash (project 11): writes a plan to Google Sheets (quotes, events, payments, schedule) and sends emails (Gmail live, Outbox tab in test).",
+  "nodes": [
+    {
+      "id": "f9d2090d-0341-4dbb-9046-61b90e61b256",
+      "name": "When Called",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        200,
+        300
+      ],
+      "parameters": {
+        "inputSource": "passthrough"
+      }
+    },
+    {
+      "id": "c6f1c27c-f3a8-4dfa-99f7-83bdf90b1542",
+      "name": "Read Sheet Map",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        420,
+        300
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/1754F1Rep-Rg9J3x6Dnga0fjTeSR4zfaLOS_zD7Zp1J4?ranges=Quotes!A:A&ranges=Events!A1&ranges=Payments!A1&ranges=Schedule!A1&ranges=Outbox!A1&includeGridData=true&fields=sheets(properties(sheetId,title),data.rowData.values.effectiveValue)",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "D8rKxzgMrJwmFZoQ",
+          "name": "Google Sheets account"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1500
+    },
+    {
+      "id": "f057efef-710e-465d-8e1a-4d3c6081b578",
+      "name": "Build Batch",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        640,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Turns the plan into ONE Sheets API batchUpdate: new rows are appended to each tab (appendCells) and\n// changed quote fields are written cell by cell (updateCells), so the whole plan is saved in a single,\n// all-or-nothing request. Values are written as plain text or numbers, never as formulas.\nconst COLUMNS = {\"Settings\": [\"key\", \"value\", \"note\"], \"Price Book\": [\"code\", \"category\", \"item\", \"unit\", \"unit_price\", \"labour_days\", \"min_qty\", \"notes\", \"active\"], \"Quotes\": [\"quote_id\", \"token\", \"status\", \"client_name\", \"client_email\", \"client_phone\", \"site_address\", \"postcode\", \"job_title\", \"summary\", \"visit_notes\", \"transcript\", \"lines_json\", \"extras_json\", \"custom_json\", \"assumptions_json\", \"questions_json\", \"flags_json\", \"subtotal\", \"vat\", \"total\", \"deposit\", \"labour_days\", \"version\", \"estimator\", \"created_at\", \"build_ms\", \"sent_at\", \"valid_until\", \"viewed_at\", \"view_count\", \"accepted_at\", \"signed_name\", \"sign_meta_json\", \"chosen_extras_json\", \"accepted_subtotal\", \"accepted_vat\", \"accepted_total\", \"deposit_due\", \"deposit_paid_at\", \"job_start\", \"job_end\", \"crew\", \"completed_at\", \"invoice_id\", \"balance_due\", \"balance_paid_at\", \"review_sent_at\", \"declined_at\", \"decline_reason\", \"reminders_sent\", \"last_reminder_at\", \"messages_json\", \"updated_at\"], \"Events\": [\"at\", \"quote_id\", \"event\", \"detail\", \"actor\"], \"Payments\": [\"payment_id\", \"quote_id\", \"kind\", \"amount\", \"status\", \"provider\", \"provider_ref\", \"created_at\", \"paid_at\"], \"Schedule\": [\"entry_id\", \"quote_id\", \"title\", \"start\", \"end\", \"crew\", \"kind\", \"notes\"], \"Outbox\": [\"at\", \"to\", \"subject\", \"kind\", \"quote_id\", \"links\", \"html\"]};\nconst plan = $('When Called').first().json.plan || {};\nconst meta = $('Read Sheet Map').first().json;\nconst sheetId = {}, quoteRow = {};\nfor (const sh of meta.sheets || []) {\n  sheetId[sh.properties.title] = sh.properties.sheetId;\n  if (sh.properties.title === 'Quotes') ((sh.data && sh.data[0] && sh.data[0].rowData) || []).forEach((r, i) => {\n    const v = r.values && r.values[0] && r.values[0].effectiveValue;\n    if (v && i > 0) quoteRow[String(v.stringValue || v.numberValue)] = i;\n  });\n}\nconst cell = v => v === null || v === undefined || v === '' ? {} : (typeof v === 'number' ? { userEnteredValue: { numberValue: v } } : (typeof v === 'boolean' ? { userEnteredValue: { boolValue: v } } : { userEnteredValue: { stringValue: typeof v === 'object' ? JSON.stringify(v) : String(v) } }));\nconst requests = [];\nconst append = (tab, objs) => {\n  if (!objs || !objs.length) return;\n  if (sheetId[tab] === undefined) throw new Error('The sheet has no ' + tab + ' tab');\n  requests.push({ appendCells: { sheetId: sheetId[tab], rows: objs.map(o => ({ values: COLUMNS[tab].map(c => cell(o[c])) })), fields: 'userEnteredValue' } });\n};\nappend('Quotes', plan.quote_inserts);\nappend('Events', plan.events);\nappend('Payments', plan.payments);\nappend('Schedule', plan.schedule);\nif (plan.mode !== 'live') append('Outbox', (plan.emails || []).filter(e => e.to).map(e => Object.assign({ at: DateTime.now().setZone('Europe/London').set({ millisecond: 0 }).toISO({ suppressMilliseconds: true }) }, e)));\nconst missing = [];\nfor (const u of plan.quote_updates || []) {\n  const row = quoteRow[u.quote_id];\n  if (row === undefined) { missing.push(u.quote_id); continue; }\n  for (const [k, v] of Object.entries(u)) {\n    const col = COLUMNS.Quotes.indexOf(k);\n    if (k === 'quote_id' || col < 0) continue;\n    requests.push({ updateCells: { start: { sheetId: sheetId.Quotes, rowIndex: row, columnIndex: col }, rows: [{ values: [cell(v)] }], fields: 'userEnteredValue' } });\n  }\n}\nif (missing.length) throw new Error('Quote not found in the sheet: ' + missing.join(', '));\nreturn [{ json: { has_writes: requests.length > 0, body: { requests }, count: requests.length } }];\n"
+      }
+    },
+    {
+      "id": "7178fac2-f61c-4b2d-8030-208812c1216a",
+      "name": "Anything to Write?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        860,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.has_writes }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "97fa6375-6fce-4eaf-83b3-2e4ddeefb462",
+      "name": "Write to Sheet (one batch)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1080,
+        220
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/1754F1Rep-Rg9J3x6Dnga0fjTeSR4zfaLOS_zD7Zp1J4:batchUpdate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "D8rKxzgMrJwmFZoQ",
+          "name": "Google Sheets account"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1500
+    },
+    {
+      "id": "5d5d1bf5-d89e-4377-b5dc-063638ad8707",
+      "name": "Live Emails",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        620
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Live mode only: one item per email for Gmail (test mode wrote them to the Outbox tab in the batch).\nconst plan = $('When Called').first().json.plan || {};\nif (plan.mode !== 'live') return [];\nreturn (plan.emails || []).filter(e => e.to).map(e => ({ json: e }));\n"
+      }
+    },
+    {
+      "id": "1d7a06cf-93c0-4fa5-a416-307ea0ebcd78",
+      "name": "Attach PDF?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        660,
+        620
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.attach }}",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "de6f70a9-af21-4c2f-b20f-af730469b894",
+      "name": "Make PDF",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        880,
+        540
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "mgvDocuments0005",
+          "cachedResultName": "Mossgrove 5: PDF Documents"
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    },
+    {
+      "id": "cef6dfa5-f605-460d-9254-97f1282390c7",
+      "name": "Send with PDF",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1100,
+        540
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "={{ $('Live Emails').item.json.to }}",
+        "subject": "={{ $('Live Emails').item.json.subject }}",
+        "emailType": "html",
+        "message": "={{ $('Live Emails').item.json.html }}",
+        "options": {
+          "appendAttribution": false,
+          "senderName": "Mossgrove Landscapes",
+          "attachmentsUi": {
+            "attachmentsBinary": [
+              {
+                "property": "data"
+              }
+            ]
+          }
+        }
+      },
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "7rH5EpTCyRAbJqwK",
+          "name": "Gmail account 2"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "id": "bc2d18f2-52d1-4be1-bc78-cdad93ed6e28",
+      "name": "Send Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        880,
+        700
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "emailType": "html",
+        "message": "={{ $json.html }}",
+        "options": {
+          "appendAttribution": false,
+          "senderName": "Mossgrove Landscapes"
+        }
+      },
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "7rH5EpTCyRAbJqwK",
+          "name": "Gmail account 2"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "id": "c4bcb46f-6121-48a3-93e1-4ffe6d83ec28",
+      "name": "Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        880
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// What the caller gets back. Runs last (lowest branch), so it is the sub-workflow's output.\nconst plan = $('When Called').first().json.plan || {};\nreturn [{ json: Object.assign({ ok: true }, plan.result || {}) }];\n"
+      }
+    },
+    {
+      "id": "aef9c356-9212-4cee-89e6-12580f10b039",
+      "name": "Sticky Note aef9c356",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        160,
+        -60
+      ],
+      "parameters": {
+        "content": "## Mossgrove 7: Save Changes\nEvery other workflow decides what should happen in code (a **plan**) and hands it here. **Build Batch** turns the plan into one Google Sheets request: new quotes, history, payments, bookings and (in test mode) emails are appended to their tabs, and changed quote fields are written cell by cell. One request means the whole change is saved or none of it is, in about a second; values are written as text or numbers, never formulas. In live mode emails go out with Gmail, with the quote, invoice or receipt PDF attached. **Result** runs last and is what the caller gets back.",
+        "color": 7,
+        "width": 1160,
+        "height": 200
+      }
+    }
+  ],
+  "connections": {
+    "When Called": {
+      "main": [
+        [
+          {
+            "node": "Read Sheet Map",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Live Emails",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Sheet Map": {
+      "main": [
+        [
+          {
+            "node": "Build Batch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Batch": {
+      "main": [
+        [
+          {
+            "node": "Anything to Write?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anything to Write?": {
+      "main": [
+        [
+          {
+            "node": "Write to Sheet (one batch)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Live Emails": {
+      "main": [
+        [
+          {
+            "node": "Attach PDF?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Attach PDF?": {
+      "main": [
+        [
+          {
+            "node": "Make PDF",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Make PDF": {
+      "main": [
+        [
+          {
+            "node": "Send with PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "timezone": "Europe/London",
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "iTxd64lDk3gI0bKG"
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "QUESTIONS": [["session_id","string"],["question","string"],["sql","string"],["ok","boolean"],["row_count","number"],["answer","string"],["error","string"],["attempts","number"],["ms","number"],["at","string"]],
+  "OUTBOX": [["to","string"],["subject","string"],["body","string"],["kind","string"],["ref","string"],["at","string"]],
+  "REPORTS": [["kind","string"],["period","string"],["summary","string"],["data_json","string"],["created_at","string"]],
+  "EVAL": [["run_id","string"],["qid","string"],["question","string"],["expected_json","string"],["got_json","string"],["sql","string"],["pass","boolean"],["note","string"],["ms","number"],["at","string"]]
+}

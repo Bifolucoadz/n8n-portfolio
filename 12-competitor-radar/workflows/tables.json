@@ -1,0 +1,10 @@
+{
+  "Settings": ["key", "value", "note"],
+  "Watchlist": ["page_id", "competitor", "page_type", "url", "active", "last_checked", "last_status", "last_hash", "last_method", "fail_count", "last_items_json", "last_text", "note"],
+  "Our Products": ["sku", "name", "category", "price", "battery_wh", "range_km", "motor", "url"],
+  "Matches": ["competitor", "competitor_product", "our_sku", "confidence", "matched_by", "matched_at"],
+  "Prices": ["checked_at", "competitor", "product", "price", "was_price", "in_stock", "page_id", "our_sku"],
+  "Changes": ["change_id", "detected_at", "run_id", "competitor", "page_id", "page_type", "kind", "item", "before", "after", "delta_pct", "our_sku", "our_price", "significance", "headline", "why_it_matters", "suggested_action", "alerted", "status"],
+  "Runs": ["run_id", "started_at", "finished_at", "trigger", "pages", "unchanged", "changed", "failed", "changes", "alerts", "ai_calls", "ms"],
+  "Outbox": ["at", "to", "subject", "kind", "links", "html"]
+}

@@ -1,0 +1,12 @@
+{
+  "type": "object", "additionalProperties": false, "required": ["can_answer", "clarification", "sql", "explanation", "assumptions", "chart"],
+  "properties": {
+    "can_answer": { "type": "boolean" },
+    "clarification": { "type": "string" },
+    "sql": { "type": "string" },
+    "explanation": { "type": "string" },
+    "assumptions": { "type": "array", "items": { "type": "string" } },
+    "chart": { "type": "object", "additionalProperties": false, "required": ["type", "x", "y", "title"],
+      "properties": { "type": { "type": "string", "enum": ["number", "line", "bar", "pie", "table"] }, "x": { "type": "string" }, "y": { "type": "array", "items": { "type": "string" } }, "title": { "type": "string" } } }
+  }
+}

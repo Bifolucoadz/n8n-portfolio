@@ -1,0 +1,675 @@
+{
+  "id": "receptionist-setup",
+  "name": "Receptionist 0a: Setup",
+  "nodes": [
+    {
+      "id": "b0406dad-c472-440d-b51b-8bfeaa34497c",
+      "name": "Run Setup",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        200,
+        300
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "294a08bf-32a6-4ce9-b771-b26c15ce532d",
+      "name": "Read Settings",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        420,
+        300
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "qh2lP825xnkmt4z2",
+          "cachedResultName": "Receptionist Settings"
+        },
+        "returnAll": true
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "e363b380-6512-41a2-b0f4-5c5db6a55d4e",
+      "name": "Read Autopilot State",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        640,
+        300
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "PDrCjnORTqy1EDhP",
+          "cachedResultName": "Social Autopilot State"
+        },
+        "returnAll": true
+      },
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "id": "a6744276-40f2-480f-b1c3-325953e64fde",
+      "name": "Plan",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// One-off: refuses to run twice so it can't create a second calendar or sheet.\nconst s = Object.fromEntries($(\"Read Settings\").all().map(i => [i.json.key, i.json.value ?? \"\"]));\nif (s.calendar_id || s.sheet_id) throw new Error(\"Setup already ran (calendar_id / sheet_id are set in Receptionist Settings). Clear them first to start over.\");\nconst autopilot = Object.fromEntries($(\"Read Autopilot State\").all().map(i => [i.json.key, i.json.value ?? \"\"]));\n// Staff alerts go to the same Telegram chat as Social Autopilot's approver unless set already.\nreturn [{ json: { staff_chat_id: s.staff_chat_id || autopilot.approver_chat_id || \"\" } }];\n"
+      }
+    },
+    {
+      "id": "94bc63fd-1123-457c-8522-b93696e31821",
+      "name": "Create Calendar",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1080,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://www.googleapis.com/calendar/v3/calendars",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleCalendarOAuth2Api",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": {
+          "summary": "Fernhollow Dental (demo)",
+          "description": "Appointments booked by Nora, the AI phone receptionist (n8n portfolio project 5). Fictional clinic.",
+          "timeZone": "America/Chicago"
+        }
+      },
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "5G8pvfh0Kjd75Asw",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "id": "387d90e9-ca3d-4f22-8bcb-5c1e4fc2dc50",
+      "name": "Create Sheet",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1300,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://sheets.googleapis.com/v4/spreadsheets?fields=spreadsheetId,spreadsheetUrl",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": {
+          "properties": {
+            "title": "Fernhollow Dental Front Desk",
+            "timeZone": "America/Chicago"
+          },
+          "sheets": [
+            {
+              "properties": {
+                "sheetId": 1,
+                "title": "Calls",
+                "gridProperties": {
+                  "frozenRowCount": 1
+                }
+              },
+              "data": [
+                {
+                  "startRow": 0,
+                  "startColumn": 0,
+                  "rowData": [
+                    {
+                      "values": [
+                        {
+                          "userEnteredValue": {
+                            "stringValue": "call_id"
+                          }
+                        },
+                        {
+                          "userEnteredValue": {
+                            "stringValue": "started_at"
+                          }
+                        },
+                        {
+                          "userEnteredValue": {
+                            "stringValue": "caller"
+                          }
+                        },
+                        {
+                          "userEnteredValue": {
+                            "stringValue": "caller_name"
+                          }
+                        },
+                        {
+                          "userEnteredValue": {
+                            "stringValue": "duration_s"
+                          }
+                        },
+                        {
+                          "userEnteredValue": {
+                            "stringValue": "outcome"
+                          }
+                        },
+                        {
+                          "userEnteredValue": {
+                            "stringValue": "appointment"
+                          }
+                        },
+                        {
+                          "userEnteredValue": {
+                            "stringValue": "confirmation_code"
+                          }
+                        },
+                        {
+                          "userEnteredValue": {
+                            "stringValue": "summary"
+                          }
+                        },
+                        {
+                          "userEnteredValue": {
+                            "stringValue": "follow_up"
+                          }
+                        },
+                        {
+                          "userEnteredValue": {
+                            "stringValue": "recording_url"
+                          }
+                        },
+                        {
+                          "userEnteredValue": {
+                            "stringValue": "ended_reason"
+                          }
+                        },
+                        {
+                          "userEnteredValue": {
+                            "stringValue": "cost_usd"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "properties": {
+                "sheetId": 2,
+                "title": "Messages",
+                "gridProperties": {
+                  "frozenRowCount": 1
+                }
+              },
+              "data": [
+                {
+                  "startRow": 0,
+                  "startColumn": 0,
+                  "rowData": [
+                    {
+                      "values": [
+                        {
+                          "userEnteredValue": {
+                            "stringValue": "at"
+                          }
+                        },
+                        {
+                          "userEnteredValue": {
+                            "stringValue": "caller_name"
+                          }
+                        },
+                        {
+                          "userEnteredValue": {
+                            "stringValue": "phone"
+                          }
+                        },
+                        {
+                          "userEnteredValue": {
+                            "stringValue": "message"
+                          }
+                        },
+                        {
+                          "userEnteredValue": {
+                            "stringValue": "urgent"
+                          }
+                        },
+                        {
+                          "userEnteredValue": {
+                            "stringValue": "status"
+                          }
+                        },
+                        {
+                          "userEnteredValue": {
+                            "stringValue": "call_id"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "D8rKxzgMrJwmFZoQ",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "id": "e71b3eb6-28dd-4c2c-8de1-eb7a076e4e24",
+      "name": "Format Sheet",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1520,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://sheets.googleapis.com/v4/spreadsheets/{{ $json.spreadsheetId }}:batchUpdate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": {
+          "requests": [
+            {
+              "repeatCell": {
+                "range": {
+                  "sheetId": 1,
+                  "startRowIndex": 0,
+                  "endRowIndex": 1
+                },
+                "cell": {
+                  "userEnteredFormat": {
+                    "textFormat": {
+                      "bold": true
+                    },
+                    "backgroundColor": {
+                      "red": 0.88,
+                      "green": 0.94,
+                      "blue": 0.93
+                    }
+                  }
+                },
+                "fields": "userEnteredFormat(textFormat,backgroundColor)"
+              }
+            },
+            {
+              "repeatCell": {
+                "range": {
+                  "sheetId": 2,
+                  "startRowIndex": 0,
+                  "endRowIndex": 1
+                },
+                "cell": {
+                  "userEnteredFormat": {
+                    "textFormat": {
+                      "bold": true
+                    },
+                    "backgroundColor": {
+                      "red": 0.88,
+                      "green": 0.94,
+                      "blue": 0.93
+                    }
+                  }
+                },
+                "fields": "userEnteredFormat(textFormat,backgroundColor)"
+              }
+            },
+            {
+              "updateDimensionProperties": {
+                "range": {
+                  "sheetId": 1,
+                  "dimension": "COLUMNS",
+                  "startIndex": 8,
+                  "endIndex": 9
+                },
+                "properties": {
+                  "pixelSize": 420
+                },
+                "fields": "pixelSize"
+              }
+            },
+            {
+              "updateDimensionProperties": {
+                "range": {
+                  "sheetId": 2,
+                  "dimension": "COLUMNS",
+                  "startIndex": 3,
+                  "endIndex": 4
+                },
+                "properties": {
+                  "pixelSize": 380
+                },
+                "fields": "pixelSize"
+              }
+            },
+            {
+              "setDataValidation": {
+                "range": {
+                  "sheetId": 2,
+                  "startRowIndex": 1,
+                  "startColumnIndex": 5,
+                  "endColumnIndex": 6
+                },
+                "rule": {
+                  "condition": {
+                    "type": "ONE_OF_LIST",
+                    "values": [
+                      {
+                        "userEnteredValue": "new"
+                      },
+                      {
+                        "userEnteredValue": "called back"
+                      },
+                      {
+                        "userEnteredValue": "done"
+                      }
+                    ]
+                  },
+                  "showCustomUi": true
+                }
+              }
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "D8rKxzgMrJwmFZoQ",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "id": "8972837f-e66e-4899-8971-da930c764cef",
+      "name": "Generate Secret",
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 2,
+      "position": [
+        1740,
+        300
+      ],
+      "parameters": {
+        "action": "generate",
+        "encodingType": "hex",
+        "stringLength": 40
+      }
+    },
+    {
+      "id": "cb235813-72e4-4374-aa5e-5d1db352c0d7",
+      "name": "Settings Rows",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1960,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "return [\n  { json: { key: \"calendar_id\", value: $(\"Create Calendar\").first().json.id } },\n  { json: { key: \"sheet_id\", value: $(\"Create Sheet\").first().json.spreadsheetId } },\n  { json: { key: \"webhook_secret\", value: $(\"Generate Secret\").first().json.data } },\n  { json: { key: \"staff_chat_id\", value: $(\"Plan\").first().json.staff_chat_id } },\n];\n"
+      }
+    },
+    {
+      "id": "f50cca72-5ae3-45d0-ada5-30b4a51c2f5a",
+      "name": "Save Settings",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2180,
+        300
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "qh2lP825xnkmt4z2",
+          "cachedResultName": "Receptionist Settings"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "key",
+              "condition": "eq",
+              "keyValue": "={{ $json.key }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "key": "={{ $json.key }}",
+            "value": "={{ $json.value }}"
+          },
+          "schema": [
+            {
+              "id": "key",
+              "displayName": "key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "value",
+              "displayName": "value",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "bb1b63b6-b785-48c2-b472-b468c58828b6",
+      "name": "Read Settings Again",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2400,
+        300
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "qh2lP825xnkmt4z2",
+          "cachedResultName": "Receptionist Settings"
+        },
+        "returnAll": true
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "dd75208b-217e-41a8-8b0e-ae2cd3d45cb9",
+      "name": "Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2620,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const s = Object.fromEntries($(\"Read Settings Again\").all().map(i => [i.json.key, i.json.value ?? \"\"]));\nreturn [{\n  json: {\n    calendar_id: s.calendar_id || \"(missing)\",\n    sheet: s.sheet_id ? \"https://docs.google.com/spreadsheets/d/\" + s.sheet_id + \"/edit\" : \"(missing)\",\n    webhook_secret: s.webhook_secret ? \"set (\" + s.webhook_secret.length + \" characters)\" : \"(missing)\",\n    staff_chat_id: s.staff_chat_id || \"(empty: staff alerts are skipped until it is set)\",\n    next: \"Set public_base_url to the ngrok https address, create the 'Vapi API' credential, then run Receptionist 0b.\",\n  },\n}];\n"
+      }
+    },
+    {
+      "id": "a30af296-8a88-4f38-8662-09b36426b552",
+      "name": "Sticky Note a30af296",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        160,
+        40
+      ],
+      "parameters": {
+        "content": "## Receptionist 0a: Setup (run once)\nCreates the **Fernhollow Dental (demo)** Google Calendar, the **Fernhollow Dental Front Desk** sheet (Calls and Messages tabs), and a random 40-character webhook secret, and saves them in the **Receptionist Settings** data table. Staff alerts default to Social Autopilot's Telegram approver chat.\n\nRefuses to run again once a calendar or sheet is saved. Next: put the ngrok address in `public_base_url` and run **0b** to create the Vapi assistant.",
+        "color": 4,
+        "width": 1000,
+        "height": 200
+      }
+    }
+  ],
+  "connections": {
+    "Run Setup": {
+      "main": [
+        [
+          {
+            "node": "Read Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Settings": {
+      "main": [
+        [
+          {
+            "node": "Read Autopilot State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Autopilot State": {
+      "main": [
+        [
+          {
+            "node": "Plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Plan": {
+      "main": [
+        [
+          {
+            "node": "Create Calendar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Calendar": {
+      "main": [
+        [
+          {
+            "node": "Create Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Sheet": {
+      "main": [
+        [
+          {
+            "node": "Format Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Sheet": {
+      "main": [
+        [
+          {
+            "node": "Generate Secret",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Secret": {
+      "main": [
+        [
+          {
+            "node": "Settings Rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings Rows": {
+      "main": [
+        [
+          {
+            "node": "Save Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Settings": {
+      "main": [
+        [
+          {
+            "node": "Read Settings Again",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Settings Again": {
+      "main": [
+        [
+          {
+            "node": "Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {}
+}

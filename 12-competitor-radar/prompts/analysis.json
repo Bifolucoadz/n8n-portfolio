@@ -1,0 +1,37 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["changes", "matches"],
+  "properties": {
+    "changes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ref", "kind", "headline", "why_it_matters", "suggested_action", "significance"],
+        "properties": {
+          "ref": { "type": "string" },
+          "kind": { "type": "string", "enum": ["price_drop", "price_rise", "new_product", "removed_product", "out_of_stock", "back_in_stock", "promotion", "hiring", "news", "messaging", "layout_warning", "fetch_failed", "other"] },
+          "headline": { "type": "string" },
+          "why_it_matters": { "type": "string" },
+          "suggested_action": { "type": "string" },
+          "significance": { "type": "integer" }
+        }
+      }
+    },
+    "matches": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["competitor", "competitor_product", "our_sku", "confidence"],
+        "properties": {
+          "competitor": { "type": "string" },
+          "competitor_product": { "type": "string" },
+          "our_sku": { "type": "string" },
+          "confidence": { "type": "string", "enum": ["high", "medium", "low"] }
+        }
+      }
+    }
+  }
+}

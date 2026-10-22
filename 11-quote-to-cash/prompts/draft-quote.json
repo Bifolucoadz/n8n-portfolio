@@ -1,0 +1,54 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["job_title", "client_summary", "lines", "extras", "custom_items", "assumptions", "questions", "confidence"],
+  "properties": {
+    "job_title": { "type": "string", "description": "Short title for the job, e.g. 'Sandstone patio and side fence'" },
+    "client_summary": { "type": "string" },
+    "lines": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "quantity", "label", "evidence"],
+        "properties": {
+          "code": { "type": "string" },
+          "quantity": { "type": "number" },
+          "label": { "type": "string" },
+          "evidence": { "type": "string" }
+        }
+      }
+    },
+    "extras": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "quantity", "label", "why"],
+        "properties": {
+          "code": { "type": "string" },
+          "quantity": { "type": "number" },
+          "label": { "type": "string" },
+          "why": { "type": "string" }
+        }
+      }
+    },
+    "custom_items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["description", "quantity", "unit", "why"],
+        "properties": {
+          "description": { "type": "string" },
+          "quantity": { "type": "number" },
+          "unit": { "type": "string" },
+          "why": { "type": "string" }
+        }
+      }
+    },
+    "assumptions": { "type": "array", "items": { "type": "string" } },
+    "questions": { "type": "array", "items": { "type": "string" } },
+    "confidence": { "type": "string", "enum": ["high", "medium", "low"] }
+  }
+}

@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Test inbox</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#eef0f3;font:14px/1.5 -apple-system,"Segoe UI",Helvetica,Arial,sans-serif;color:#1c2430}
+.bar{background:#1c2430;color:#fff;padding:12px 20px;display:flex;align-items:center;gap:12px;font-weight:600}
+.bar span{font-weight:400;color:#aab3c2;font-size:13px}
+.wrap{display:grid;grid-template-columns:380px 1fr;height:calc(100vh - 46px)}
+.list{overflow:auto;border-right:1px solid #d9dde4;background:#f7f8fa}
+.m{padding:12px 16px;border-bottom:1px solid #e3e6eb;cursor:pointer}
+.m:hover{background:#fff}
+.m.on{background:#fff;box-shadow:inset 3px 0 0 #3b82f6}
+.m .s{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.m .t{font-size:12.5px;color:#6b7686;display:flex;justify-content:space-between;gap:8px}
+.k{font-size:11px;font-weight:600;background:#e6eaf0;border-radius:6px;padding:1px 7px;color:#4a5566}
+.view{overflow:auto;padding:24px}
+.mail{max-width:760px;margin:0 auto;background:#fff;border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,.08);overflow:hidden}
+.head{padding:18px 24px;border-bottom:1px solid #eceff3}
+.head h1{font-size:19px;margin:0 0 10px}
+.head .r{font-size:13px;color:#5b6676;margin:2px 0}
+.head .r b{color:#1c2430;font-weight:600;display:inline-block;width:52px}
+.body{padding:26px 28px 34px}
+.empty{padding:40px;text-align:center;color:#6b7686}
+@media (max-width:800px){.wrap{grid-template-columns:1fr;height:auto}.list{max-height:40vh}}
+</style>
+</head>
+<body>
+<div class="bar">Test inbox <span id="sub"></span></div>
+<div class="wrap"><div class="list" id="list"></div><div class="view" id="view"></div></div>
+<script>
+var D = /*__DATA__*/null;
+(function () {
+  if (!D) return;
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+  var when = function (iso) { return iso ? new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''; };
+  $('sub').textContent = D.company + ' · ' + D.mails.length + ' emails that test mode kept instead of sending';
+  var sel = Math.min(D.selected || 0, D.mails.length - 1);
+  function show() {
+    $('list').innerHTML = D.mails.length ? D.mails.map(function (m, i) { return '<div class="m' + (i === sel ? ' on' : '') + '" data-i="' + i + '"><div class="s">' + esc(m.subject) + '</div><div class="t"><span>' + esc(m.to) + '</span><span>' + when(m.at) + '</span></div><span class="k">' + esc(m.kind) + '</span></div>'; }).join('') : '<div class="empty">No emails yet.</div>';
+    var m = D.mails[sel];
+    $('view').innerHTML = m ? '<div class="mail"><div class="head"><h1>' + esc(m.subject) + '</h1><div class="r"><b>From</b>' + esc(D.from) + '</div><div class="r"><b>To</b>' + esc(m.to) + '</div><div class="r"><b>Date</b>' + when(m.at) + '</div></div><div class="body">' + m.html + '</div></div>' : '';
+  }
+  document.addEventListener('click', function (e) { var r = e.target.closest('[data-i]'); if (r) { sel = +r.getAttribute('data-i'); show(); } });
+  show();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,588 @@
+import { workflow, node, trigger, sticky, ifElse, expr } from '@n8n/workflow-sdk';
+
+const SHEETS_CRED = { googleSheetsOAuth2Api: { id: 'D8rKxzgMrJwmFZoQ', name: 'Google Sheets account' } };
+const RUN_WF = { __rl: true, mode: 'id', value: 'csrRunChecks0001', cachedResultName: 'Radar 1: Run Checks' };
+const SAVE_WF = { __rl: true, mode: 'id', value: 'csrSaveChange005', cachedResultName: 'Radar 5: Save Changes' };
+const LOAD_URL = 'https://sheets.googleapis.com/v4/spreadsheets/1TyTgZFE87WFKQzOTdusFeov6m27SAixpu-Xiz7DHD7g/values:batchGet?ranges=Settings&ranges=Watchlist&ranges=%27Our%20Products%27&ranges=Matches&ranges=Prices&ranges=Changes&ranges=Runs&valueRenderOption=UNFORMATTED_VALUE';
+const HTML_HEADERS = { entries: [{ name: 'Content-Type', value: 'text/html; charset=utf-8' }, { name: 'Cache-Control', value: 'no-store' }, { name: 'X-Robots-Tag', value: 'noindex' }] };
+const IS_OK = { options: { caseSensitive: true, leftValue: '', typeValidation: 'loose' }, conditions: [{ leftValue: expr('{{ $json.ok }}'), operator: { type: 'boolean', operation: 'true', singleValue: true } }], combinator: 'and' };
+
+const pageHook = trigger({
+  type: 'n8n-nodes-base.webhook',
+  version: 2.1,
+  config: { name: 'Dashboard Request', position: [200, 300], parameters: { httpMethod: 'GET', path: 'radar/dashboard', responseMode: 'responseNode', options: {} } },
+  output: [{ query: { key: 'k' } }]
+});
+
+const loadAll = node({
+  type: 'n8n-nodes-base.httpRequest',
+  version: 4.4,
+  config: {
+    name: 'Load All',
+    position: [420, 300],
+    retryOnFail: true, maxTries: 3, waitBetweenTries: 2000,
+    parameters: { method: 'GET', url: LOAD_URL, authentication: 'predefinedCredentialType', nodeCredentialType: 'googleSheetsOAuth2Api', options: {} },
+    credentials: SHEETS_CRED
+  },
+  output: [{ valueRanges: [] }]
+});
+
+const buildPage = node({
+  type: 'n8n-nodes-base.code',
+  version: 2,
+  config: { name: 'Build Page', position: [640, 300], parameters: { mode: 'runOnceForAllItems', language: 'javaScript', jsCode:
+        '// The radar dashboard with its data. Needs the key from Settings.\n' +
+        '// ---- lib-cs.js (included by build.py): shared helpers for the Competitor Radar workflows ----\n' +
+        'const TZ = \'Europe/London\';\n' +
+        'const esc = s => String(s === null || s === undefined ? \'\' : s).replace(/&/g, \'&amp;\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\').replace(/"/g, \'&quot;\');\n' +
+        'const parseJson = (s, d) => { try { return typeof s === \'string\' ? (s.trim() ? JSON.parse(s) : d) : (s === null || s === undefined ? d : s); } catch (e) { return d; } };\n' +
+        'const nowDt = () => DateTime.now().setZone(TZ);\n' +
+        'const toDt = iso => DateTime.fromISO(String(iso), { zone: TZ });\n' +
+        'const isoOf = dt => dt.set({ millisecond: 0 }).toISO({ suppressMilliseconds: true });\n' +
+        'const nowIso = () => isoOf(nowDt());\n' +
+        'const newId = (p, n) => p + Array.from({ length: n || 8 }, () => \'ABCDEFGHJKLMNPQRSTUVWXYZ23456789\'[Math.floor(Math.random() * 32)]).join(\'\');\n' +
+        'const newToken = n => Array.from({ length: n || 24 }, () => \'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789\'[Math.floor(Math.random() * 56)]).join(\'\');\n' +
+        'const gbp = n => n === null || n === undefined || n === \'\' ? \'\' : \'£\' + Number(n).toLocaleString(\'en-GB\', { minimumFractionDigits: 0, maximumFractionDigits: 2 });\n' +
+        'const day = iso => iso ? toDt(iso).toFormat(\'d LLL yyyy\') : \'\';\n' +
+        'const truthy = v => v === true || /^(true|yes|1|y)$/i.test(String(v).trim());\n' +
+        'const COLUMNS = {"Settings": ["key", "value", "note"], "Watchlist": ["page_id", "competitor", "page_type", "url", "active", "last_checked", "last_status", "last_hash", "last_method", "fail_count", "last_items_json", "last_text", "note"], "Our Products": ["sku", "name", "category", "price", "battery_wh", "range_km", "motor", "url"], "Matches": ["competitor", "competitor_product", "our_sku", "confidence", "matched_by", "matched_at"], "Prices": ["checked_at", "competitor", "product", "price", "was_price", "in_stock", "page_id", "our_sku"], "Changes": ["change_id", "detected_at", "run_id", "competitor", "page_id", "page_type", "kind", "item", "before", "after", "delta_pct", "our_sku", "our_price", "significance", "headline", "why_it_matters", "suggested_action", "alerted", "status"], "Runs": ["run_id", "started_at", "finished_at", "trigger", "pages", "unchanged", "changed", "failed", "changes", "alerts", "ai_calls", "ms"], "Outbox": ["at", "to", "subject", "kind", "links", "html"]};\n' +
+        '// Product names compared without case, punctuation or the competitor\'s own name\n' +
+        'const normName = (name, competitor) => String(name || \'\').toLowerCase().replace(String(competitor || \'\').toLowerCase(), \'\').replace(/[^a-z0-9]+/g, \' \').trim();\n' +
+        '\n' +
+        'function tablesOf(res) {\n' +
+        '  const out = {};\n' +
+        '  for (const vr of (res && res.valueRanges) || []) {\n' +
+        '    const name = String(vr.range || \'\').split(\'!\')[0].replace(/^\'|\'$/g, \'\').replace(/\'\'/g, "\'");\n' +
+        '    const rows = vr.values || [];\n' +
+        '    const head = (rows[0] || []).map(h => String(h).trim());\n' +
+        '    out[name] = rows.slice(1).map((r, i) => {\n' +
+        '      const o = { _row: i + 2 };\n' +
+        '      head.forEach((h, j) => { if (h) o[h] = r[j] === undefined || r[j] === null ? \'\' : r[j]; });\n' +
+        '      return o;\n' +
+        '    }).filter(o => Object.keys(o).some(k => k !== \'_row\' && o[k] !== \'\'));\n' +
+        '  }\n' +
+        '  return out;\n' +
+        '}\n' +
+        'const settingsOf = rows => Object.fromEntries((rows || []).filter(r => r.key).map(r => [String(r.key).trim(), r.value === undefined ? \'\' : r.value]));\n' +
+        'function sheetRow(o) {\n' +
+        '  const r = {};\n' +
+        '  for (const [k, v] of Object.entries(o)) if (k !== \'_row\') r[k] = v === null || v === undefined ? \'\' : (typeof v === \'object\' ? JSON.stringify(v) : v);\n' +
+        '  return r;\n' +
+        '}\n' +
+        '// OpenAI result (Responses API or the OpenAI node\'s simplified output) → the JSON object, or null\n' +
+        'function aiJson(res) {\n' +
+        '  if (!res || res.error) return null;\n' +
+        '  const msg = (res.output || []).find(o => o && Array.isArray(o.content));\n' +
+        '  const part = msg && (msg.content || []).find(c => c && (c.type === \'output_text\' || c.text !== undefined));\n' +
+        '  let t = part ? part.text : null;\n' +
+        '  if (typeof t === \'string\') { try { t = JSON.parse(t); } catch (e) { t = null; } }\n' +
+        '  return t && typeof t === \'object\' ? t : null;\n' +
+        '}\n' +
+        '\n' +
+        'const baseUrl = s => String(s.base_url || \'http://localhost:5678\').replace(/\\/$/, \'\');\n' +
+        'const dashboardUrl = s => baseUrl(s) + \'/webhook/radar/dashboard?key=\' + encodeURIComponent(s.dashboard_key || \'\');\n' +
+        'function button(url, label) {\n' +
+        '  return \'<p style="margin:22px 0;text-align:left"><a href="\' + esc(url) + \'" style="display:inline-block;background:#e4572e;color:#ffffff;text-decoration:none;font-weight:600;padding:12px 22px;border-radius:10px">\' + esc(label) + \'</a></p>\';\n' +
+        '}\n' +
+        'function emailHtml(s, paragraphs, extraHtml) {\n' +
+        '  const p = paragraphs.filter(Boolean).map(t => \'<p style="margin:0 0 14px;text-align:left">\' + t + \'</p>\').join(\'\');\n' +
+        '  return \'<div style="font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.55;color:#1c2430;max-width:620px;text-align:left">\'\n' +
+        '    + \'<div style="font-weight:700;font-size:13px;letter-spacing:1px;text-transform:uppercase;color:#e4572e;margin:0 0 18px">\' + esc(s.company || \'Cobble & Spoke\') + \' · Competitor Radar</div>\'\n' +
+        '    + p + (extraHtml || \'\') + \'</div>\';\n' +
+        '}\n' +
+        'function pageHtml(title, bodyHtml) {\n' +
+        '  return \'<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>\' + esc(title) + \'</title>\'\n' +
+        '    + \'<style>body{margin:0;background:#f3f4f6;font:16px/1.55 -apple-system,"Segoe UI",Helvetica,Arial,sans-serif;color:#1c2430}.card{max-width:520px;margin:48px auto;background:#fff;border-radius:16px;padding:30px;box-shadow:0 8px 28px rgba(0,0,0,.06)}h1{font-size:22px;margin:0 0 10px}</style></head><body><div class="card"><h1>\' + esc(title) + \'</h1>\' + bodyHtml + \'</div></body></html>\';\n' +
+        '}\n' +
+        'function emptyPlan(s) { return { mode: s.mode === \'live\' ? \'live\' : \'test\', appends: { Changes: [], Prices: [], Runs: [], Matches: [], Watchlist: [] }, updates: { Watchlist: [], Changes: [] }, emails: [], result: { ok: true } }; }\n' +
+        'const emailItem = (to, subject, html, kind, links) => ({ to, subject, html, kind, links: (links || []).join(\' \') });\n' +
+        '\n' +
+        '// Latest price of every product a rival still sells: rows from each page\'s most recent snapshot only\n' +
+        '// (a bike dropped from the page disappears instead of keeping its old price)\n' +
+        'function currentPrices(rows) {\n' +
+        '  const lastCheck = {};\n' +
+        '  for (const p of rows || []) if (!lastCheck[p.page_id] || String(p.checked_at) > lastCheck[p.page_id]) lastCheck[p.page_id] = String(p.checked_at);\n' +
+        '  const out = {};\n' +
+        '  for (const p of rows || []) if (String(p.checked_at) === lastCheck[p.page_id]) out[p.competitor + \'|\' + p.product] = p;\n' +
+        '  return out;\n' +
+        '}\n' +
+        '\n' +
+        'const KIND_LABEL = { price_drop: \'Price cut\', price_rise: \'Price rise\', new_product: \'New product\', removed_product: \'Product gone\', out_of_stock: \'Out of stock\', back_in_stock: \'Back in stock\', promotion: \'Promotion\', hiring: \'Hiring\', news: \'News\', messaging: \'Messaging\', layout_warning: \'Check page\', fetch_failed: \'Page down\', other: \'Change\' };\n' +
+        '// ---- end lib-cs.js ----\n' +
+        '// ---- lib-radar-dash.js: everything the radar dashboard shows ----\n' +
+        'function radarData(T, s) {\n' +
+        '  const num = v => v === \'\' || v === null || v === undefined || isNaN(Number(v)) ? v : Number(v);\n' +
+        '  const watch = (T.Watchlist || []).map(w => { const o = Object.assign({}, w); delete o.last_items_json; delete o.last_text; delete o._row; o.fail_count = Number(o.fail_count) || 0; return o; });\n' +
+        '  const competitors = [...new Set(watch.map(w => w.competitor))];\n' +
+        '  return {\n' +
+        '    key: s.dashboard_key, now: nowIso(),\n' +
+        '    settings: { company: s.company || \'Cobble & Spoke\', mode: s.mode === \'live\' ? \'live\' : \'test\', alert_threshold: Number(s.alert_threshold) || 4 },\n' +
+        '    competitors,\n' +
+        '    ours: (T[\'Our Products\'] || []).map(p => ({ sku: p.sku, name: p.name, category: p.category, price: Number(p.price) })),\n' +
+        '    matches: (T.Matches || []).filter(m => m.our_sku).map(m => ({ competitor: m.competitor, competitor_product: m.competitor_product, our_sku: m.our_sku, confidence: m.confidence, matched_by: m.matched_by })),\n' +
+        '    prices: (() => { const cur = currentPrices(T.Prices); return (T.Prices || []).map(p => ({ checked_at: String(p.checked_at), competitor: p.competitor, product: p.product, price: Number(p.price), in_stock: p.in_stock, current: cur[p.competitor + \'|\' + p.product] === p })); })(),\n' +
+        '    changes: (T.Changes || []).map(c => ({ change_id: c.change_id, detected_at: String(c.detected_at), competitor: c.competitor, page_type: c.page_type, kind: c.kind, item: c.item, before: num(c.before), after: num(c.after), delta_pct: num(c.delta_pct), our_sku: c.our_sku, our_price: num(c.our_price), significance: Number(c.significance) || 1, headline: c.headline, why_it_matters: c.why_it_matters, suggested_action: c.suggested_action, status: c.status })),\n' +
+        '    runs: (T.Runs || []).slice().sort((a, b) => String(a.started_at) < String(b.started_at) ? 1 : -1).slice(0, 30).map(r => ({ run_id: r.run_id, started_at: String(r.started_at), pages: Number(r.pages), changes: Number(r.changes), alerts: Number(r.alerts), ai_calls: Number(r.ai_calls), ms: Number(r.ms) })),\n' +
+        '    watchlist: watch\n' +
+        '  };\n' +
+        '}\n' +
+        '// ---- end lib-radar-dash.js ----\n' +
+        'const PAGE =\n' +
+        '"<!doctype html>\\n<html lang=\\"en\\">\\n<head>\\n<meta charset=\\"utf-8\\">\\n<meta name=\\"viewport\\" content=\\"width=device-width, initial-scale=1\\">\\n<meta name=\\"robots\\" content=\\"noindex\\">\\n<title>Competitor Radar · Cobble & Spoke</title>\\n<link href=\\"https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap\\" rel=\\"stylesheet\\">\\n<script src=\\"https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js\\"></script>\\n<style>\\n:root{--navy:#14213d;--navy2:#1d2d50;--orange:#e4572e;--orange2:#ff7a45;--ink:#1c2430;--body:#475467;--muted:#7a8496;--line:#e6e8ee;--bg:#f4f5f8;--card:#fff;--red:#d1382a;--redbg:#fdecea;--amber:#b7791f;--amberbg:#fff5e1;--green:#2f7d4f;--greenbg:#e7f5ec;--blue:#2f6690;--bluebg:#e8f1f8}\\n*{box-sizing:border-box}\\nhtml,body{margin:0}\\nbody{background:var(--bg);color:var(--ink);font:14px/1.5 Inter,-apple-system,\\"Segoe UI\\",Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}\\nbutton{font:inherit}\\n.top{background:var(--navy);color:#fff}\\n.top .in{max-width:1480px;margin:0 auto;padding:14px 24px;display:flex;align-items:center;gap:16px}\\n.logo{display:flex;align-items:center;gap:11px}\\n.logo b{font-size:17px;letter-spacing:.2px}\\n.logo span{color:#9fb0d0;font-size:13px;border-left:1px solid #34456b;padding-left:11px}\\n.sp{flex:1}\\n.last{color:#b9c6e0;font-size:13px}\\n.pill{font-size:11px;font-weight:800;letter-spacing:.7px;padding:4px 10px;border-radius:99px;background:#ffd166;color:#4a3500}\\n.pill.live{background:#9be3b4;color:#0f3d22}\\n.btn{border:0;border-radius:10px;padding:9px 14px;font-weight:700;cursor:pointer}\\n.btn.o{background:var(--orange);color:#fff}\\n.btn.o:hover{background:#cf4a23}\\n.btn.g{background:#fff;border:1.5px solid var(--line);color:var(--ink)}\\n.btn[disabled]{opacity:.6;cursor:wait}\\n.page{max-width:1480px;margin:0 auto;padding:22px 24px 40px}\\n.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:20px}\\n.kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px}\\n.kpi .k{font-size:12px;font-weight:600;color:var(--muted)}\\n.kpi .v{font-size:26px;font-weight:800;letter-spacing:-.6px}\\n.kpi .v small{font-size:14px;color:var(--muted);font-weight:600;letter-spacing:0}\\n.kpi .s{font-size:12.5px;color:var(--muted)}\\n.grid{display:grid;grid-template-columns:minmax(0,1fr) 600px;gap:20px;align-items:start}\\n.card{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:0 6px 22px rgba(20,33,61,.05)}\\n.card h2{font-size:16px;margin:0;font-weight:800;letter-spacing:-.2px}\\n.ch{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:16px 18px 0}\\n.chips{display:flex;flex-wrap:wrap;gap:6px;padding:12px 18px 6px}\\n.chip{border:1.5px solid var(--line);background:#fff;border-radius:99px;padding:5px 11px;font-size:12.5px;font-weight:600;color:var(--body);cursor:pointer}\\n.chip.on{border-color:var(--navy);background:var(--navy);color:#fff}\\n.chip .n{opacity:.7;margin-left:4px}\\n.feed{padding:6px 12px 12px;display:grid;gap:10px}\\n.item{border:1px solid var(--line);border-radius:14px;padding:14px 16px;display:grid;grid-template-columns:52px 1fr;gap:12px;position:relative}\\n.item.seen{opacity:.62}\\n.sig{width:52px;height:52px;border-radius:12px;display:grid;place-items:center;font-weight:800;font-size:20px;line-height:1}\\n.sig small{display:block;font-size:9.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;margin-top:2px}\\n.s5{background:var(--red);color:#fff}.s4{background:var(--orange);color:#fff}.s3{background:var(--amberbg);color:var(--amber)}.s2,.s1{background:#eef0f4;color:var(--muted)}\\n.meta{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:12px;color:var(--muted);margin-bottom:3px}\\n.tag{font-weight:700;color:var(--navy)}\\n.kind{background:#eef0f4;border-radius:6px;padding:1px 7px;font-weight:600;color:var(--body)}\\n.hl{font-weight:700;font-size:15px;line-height:1.35}\\n.why{color:var(--body);margin-top:4px}\\n.next{margin-top:6px;font-size:13px}\\n.next b{color:var(--orange)}\\n.ba{display:inline-flex;gap:6px;align-items:center;font-size:12.5px;margin-top:8px;background:#f6f7fa;border-radius:8px;padding:3px 9px;color:var(--body)}\\n.ba .was{text-decoration:line-through;color:var(--muted)}\\n.ba .now{font-weight:700;color:var(--ink)}\\n.seenbtn{position:absolute;top:12px;right:12px;border:0;background:none;color:var(--muted);cursor:pointer;font-size:12px;font-weight:600}\\n.seenbtn:hover{color:var(--ink)}\\n.empty{padding:30px;text-align:center;color:var(--muted)}\\ntable.pos{width:100%;border-collapse:collapse;margin-top:10px}\\ntable.pos th{font-size:11.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);text-align:right;padding:8px 10px;border-bottom:1px solid var(--line);font-weight:700}\\ntable.pos th:first-child,table.pos td:first-child{text-align:left}\\ntable.pos td{padding:9px 10px;border-bottom:1px solid #f0f1f5;text-align:right;white-space:nowrap}\\ntable.pos tr.row{cursor:pointer}\\ntable.pos tr.row:hover td{background:#fafbfd}\\ntable.pos tr.sel td{background:#fff4ee}\\n.ours{font-weight:700}\\n.ours small{display:block;color:var(--muted);font-weight:500;font-size:12px}\\n.cell b{display:block;font-size:13.5px}\\n.cell span{font-size:11.5px;font-weight:700}\\n.cheaper{color:var(--red)}.dearer{color:var(--green)}.same{color:var(--muted)}\\n.na{color:#c3c8d2}\\n.oos{font-size:10.5px;color:var(--muted);font-weight:600}\\n.chartbox{padding:6px 18px 18px;height:300px}\\n.health{margin-top:20px}\\ntable.wl{width:100%;border-collapse:collapse;margin:8px 0 0}\\ntable.wl th{font-size:11.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);text-align:left;padding:8px 18px;border-bottom:1px solid var(--line)}\\ntable.wl td{padding:9px 18px;border-bottom:1px solid #f0f1f5;font-size:13px}\\ntable.wl td.url{color:var(--muted);max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}\\n.st{display:inline-block;font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:99px}\\n.st.ok{background:var(--greenbg);color:var(--green)}.st.warn{background:var(--amberbg);color:var(--amber)}.st.bad{background:var(--redbg);color:var(--red)}.st.new{background:var(--bluebg);color:var(--blue)}\\n.m{font-size:11.5px;font-weight:700;color:var(--body);background:#eef0f4;border-radius:6px;padding:1px 7px}\\n.m.ai{background:#efe9fb;color:#5b3fa0}\\nform.add{display:flex;gap:8px;padding:14px 18px 18px;flex-wrap:wrap}\\nform.add input,form.add select{border:1.5px solid var(--line);border-radius:9px;padding:8px 10px;font:13.5px Inter,sans-serif}\\nform.add input[name=url]{flex:1;min-width:260px}\\n.toast{position:fixed;right:24px;bottom:24px;background:var(--ink);color:#fff;padding:12px 16px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.2);font-size:13.5px;z-index:9;max-width:440px}\\n.toast.err{background:var(--red)}\\n@media (max-width:1200px){.kpis{grid-template-columns:repeat(3,1fr)}.grid{grid-template-columns:1fr}}\\n@media (max-width:640px){.kpis{grid-template-columns:repeat(2,1fr)}.last{display:none}.page{padding:14px}}\\n</style>\\n</head>\\n<body>\\n<div class=\\"top\\"><div class=\\"in\\">\\n  <div class=\\"logo\\"><svg width=\\"30\\" height=\\"30\\" viewBox=\\"0 0 32 32\\" aria-hidden=\\"true\\"><circle cx=\\"16\\" cy=\\"16\\" r=\\"14\\" fill=\\"none\\" stroke=\\"#3a4d78\\" stroke-width=\\"2\\"/><circle cx=\\"16\\" cy=\\"16\\" r=\\"8.5\\" fill=\\"none\\" stroke=\\"#3a4d78\\" stroke-width=\\"2\\"/><path d=\\"M16 16 L27 9\\" stroke=\\"#ff7a45\\" stroke-width=\\"2.6\\" stroke-linecap=\\"round\\"/><circle cx=\\"16\\" cy=\\"16\\" r=\\"2.6\\" fill=\\"#ff7a45\\"/><circle cx=\\"22.5\\" cy=\\"7.5\\" r=\\"2\\" fill=\\"#ffd166\\"/></svg><b>Competitor Radar</b><span id=\\"co\\">Cobble &amp; Spoke</span></div>\\n  <div class=\\"sp\\"></div>\\n  <span class=\\"last\\" id=\\"last\\"></span>\\n  <span class=\\"pill\\" id=\\"mode\\"></span>\\n  <button class=\\"btn o\\" id=\\"checkNow\\">Check now</button>\\n</div></div>\\n<div class=\\"page\\">\\n  <section class=\\"kpis\\" id=\\"kpis\\"></section>\\n  <div class=\\"grid\\">\\n    <section class=\\"card\\">\\n      <div class=\\"ch\\"><h2>What changed</h2><button class=\\"btn g\\" id=\\"allSeen\\" style=\\"padding:6px 11px;font-size:12.5px\\">Mark all as seen</button></div>\\n      <div class=\\"chips\\" id=\\"chips\\"></div>\\n      <div class=\\"feed\\" id=\\"feed\\"></div>\\n    </section>\\n    <div>\\n      <section class=\\"card\\">\\n        <div class=\\"ch\\"><h2>Where we stand on price</h2><span style=\\"font-size:12px;color:var(--muted)\\">Rival\'s matched bike vs ours</span></div>\\n        <div style=\\"padding:0 8px 8px\\"><table class=\\"pos\\" id=\\"pos\\"></table></div>\\n      </section>\\n      <section class=\\"card\\" style=\\"margin-top:20px\\">\\n        <div class=\\"ch\\"><h2 id=\\"chartTitle\\">Price history</h2></div>\\n        <div class=\\"chartbox\\"><canvas id=\\"chart\\"></canvas></div>\\n      </section>\\n    </div>\\n  </div>\\n  <section class=\\"card health\\">\\n    <div class=\\"ch\\"><h2>Pages we watch</h2><span style=\\"font-size:12px;color:var(--muted)\\" id=\\"runsInfo\\"></span></div>\\n    <table class=\\"wl\\" id=\\"wl\\"></table>\\n    <form class=\\"add\\" id=\\"addForm\\">\\n      <input name=\\"competitor\\" placeholder=\\"Competitor\\" required>\\n      <select name=\\"page_type\\"><option value=\\"products\\">Products and prices</option><option value=\\"home\\">Home page</option><option value=\\"careers\\">Careers</option><option value=\\"news\\">News or blog</option></select>\\n      <input name=\\"url\\" type=\\"url\\" placeholder=\\"https://competitor.example/ebikes\\" required>\\n      <button class=\\"btn o\\" type=\\"submit\\">Watch this page</button>\\n    </form>\\n  </section>\\n</div>\\n<script>\\nvar D = /*__DATA__*/null;\\n(function () {\\n  if (!D) return;\\n  var $ = function (id) { return document.getElementById(id); };\\n  var gbp = function (n) { return n === \'\' || n == null ? \'\' : \'£\' + Number(n).toLocaleString(\'en-GB\', { maximumFractionDigits: 0 }); };\\n  var esc = function (s) { return String(s == null ? \'\' : s).replace(/[&<>\\"]/g, function (c) { return { \'&\': \'&amp;\', \'<\': \'&lt;\', \'>\': \'&gt;\', \'\\"\': \'&quot;\' }[c]; }); };\\n  var NOW = new Date(D.now);\\n  var state = { filter: \'all\', sku: null };\\n  var KIND = { price_drop: \'Price cut\', price_rise: \'Price rise\', new_product: \'New product\', removed_product: \'Product gone\', out_of_stock: \'Out of stock\', back_in_stock: \'Back in stock\', promotion: \'Promotion\', hiring: \'Hiring\', news: \'News\', messaging: \'Messaging\', layout_warning: \'Check page\', fetch_failed: \'Page down\', other: \'Change\' };\\n  var SIG = { 5: \'Urgent\', 4: \'High\', 3: \'Note\', 2: \'Minor\', 1: \'Noise\' };\\n  var FILTERS = [[\'all\', \'All\', function () { return true; }], [\'alerts\', \'Alerts\', function (c) { return c.significance >= D.settings.alert_threshold; }], [\'prices\', \'Prices\', function (c) { return /price/.test(c.kind); }], [\'products\', \'Products and stock\', function (c) { return /product|stock/.test(c.kind); }], [\'promo\', \'Promotions\', function (c) { return c.kind === \'promotion\' || c.kind === \'messaging\'; }], [\'news\', \'Hiring and news\', function (c) { return c.kind === \'hiring\' || c.kind === \'news\'; }], [\'issues\', \'Page issues\', function (c) { return c.kind === \'layout_warning\' || c.kind === \'fetch_failed\'; }]];\\n  function ago(iso) { if (!iso) return \'never\'; var m = Math.round((NOW - new Date(iso)) / 6e4); if (m < 1) return \'just now\'; if (m < 60) return m + \' min ago\'; var h = Math.round(m / 60); if (h < 24) return h + \' h ago\'; var d = Math.round(h / 24); return d === 1 ? \'yesterday\' : d + \' days ago\'; }\\n  function dshort(iso) { return new Date(iso).toLocaleDateString(\'en-GB\', { day: \'numeric\', month: \'short\' }); }\\n\\n  // Latest price for each competitor product, and the history\\n  function latest() {\\n    var o = {};\\n    D.prices.forEach(function (p) { if (p.current) o[p.competitor + \'|\' + p.product] = p; });\\n    return o;\\n  }\\n  function rivalFor(sku, competitor, last) {\\n    var ms = D.matches.filter(function (m) { return m.our_sku === sku && m.competitor === competitor; });\\n    var best = null;\\n    // Most confident match first (high, medium, low), then the closest in price\\n    var rank = { high: 0, medium: 1, low: 2 }, bestRank = 9;\\n    ms.forEach(function (m) { var p = last[m.competitor + \'|\' + m.competitor_product]; if (!p) return; var r = rank[m.confidence] === undefined ? 1 : rank[m.confidence]; if (!best || r < bestRank || (r === bestRank && Math.abs(p.price - ourPrice(sku)) < Math.abs(best.price - ourPrice(sku)))) { best = p; bestRank = r; } });\\n    return best;\\n  }\\n  function ourPrice(sku) { var p = D.ours.find(function (x) { return x.sku === sku; }); return p ? Number(p.price) : 0; }\\n\\n  function kpis() {\\n    var week = D.changes.filter(function (c) { return (NOW - new Date(c.detected_at)) / 864e5 <= 7.5; });\\n    var alerts = week.filter(function (c) { return c.significance >= D.settings.alert_threshold; });\\n    var moves = week.filter(function (c) { return /price/.test(c.kind); });\\n    var cuts = moves.filter(function (c) { return c.kind === \'price_drop\'; }).length;\\n    var last = latest(), under = 0;\\n    D.ours.forEach(function (o) { if (D.competitors.some(function (c) { var r = rivalFor(o.sku, c, last); return r && r.price < Number(o.price); })) under++; });\\n    var healthy = D.watchlist.filter(function (w) { return !/fail|warn/.test(w.last_status); }).length;\\n    var aiWeek = D.runs.filter(function (r) { return (NOW - new Date(r.started_at)) / 864e5 <= 7.5; }).reduce(function (a, r) { return a + Number(r.ai_calls || 0); }, 0);\\n    var t = [[\'Changes this week\', week.length, alerts.length + \' important enough to alert\'], [\'Price moves\', moves.length, cuts + \' cuts, \' + (moves.length - cuts) + \' rises\'], [\'Rivals cheaper than us\', under + \' <small>of \' + D.ours.length + \' bikes</small>\', \'on their closest match\'], [\'Pages healthy\', healthy + \' <small>of \' + D.watchlist.length + \'</small>\', D.watchlist.length - healthy ? (D.watchlist.length - healthy) + \' need a look\' : \'all reading fine\'], [\'AI calls this week\', aiWeek, \'only when a page changed\']];\\n    $(\'kpis\').innerHTML = t.map(function (x) { return \'<div class=\\"kpi\\"><div class=\\"k\\">\' + x[0] + \'</div><div class=\\"v\\">\' + x[1] + \'</div><div class=\\"s\\">\' + x[2] + \'</div></div>\'; }).join(\'\');\\n  }\\n\\n  function feed() {\\n    $(\'chips\').innerHTML = FILTERS.map(function (f) { return \'<button class=\\"chip\' + (f[0] === state.filter ? \' on\' : \'\') + \'\\" data-f=\\"\' + f[0] + \'\\">\' + f[1] + \'<span class=\\"n\\">\' + D.changes.filter(f[2]).length + \'</span></button>\'; }).join(\'\');\\n    var f = FILTERS.find(function (x) { return x[0] === state.filter; })[2];\\n    var rows = D.changes.filter(f).sort(function (a, b) { return a.detected_at === b.detected_at ? b.significance - a.significance : (a.detected_at < b.detected_at ? 1 : -1); });\\n    $(\'feed\').innerHTML = rows.length ? rows.slice(0, 60).map(function (c) {\\n      var ba = \'\';\\n      if (/price/.test(c.kind)) ba = \'<span class=\\"ba\\"><span class=\\"was\\">\' + gbp(c.before) + \'</span>→<span class=\\"now\\">\' + gbp(c.after) + \'</span>\' + (c.delta_pct ? \' (\' + (c.delta_pct > 0 ? \'+\' : \'\') + c.delta_pct + \'%)\' : \'\') + (c.our_price ? \' · ours \' + gbp(c.our_price) : \'\') + \'</span>\';\\n      else if (c.kind === \'new_product\') ba = \'<span class=\\"ba\\">New at <span class=\\"now\\">\' + gbp(c.after) + \'</span>\' + (c.our_price ? \' · ours \' + gbp(c.our_price) : \'\') + \'</span>\';\\n      var s = Math.max(1, Math.min(5, c.significance));\\n      return \'<div class=\\"item\' + (c.status === \'seen\' ? \' seen\' : \'\') + \'\\"><div class=\\"sig s\' + s + \'\\">\' + s + \'<small>\' + SIG[s].split(\' \')[0] + \'</small></div><div><div class=\\"meta\\"><span class=\\"tag\\">\' + esc(c.competitor) + \'</span><span class=\\"kind\\">\' + esc(KIND[c.kind] || c.kind) + \'</span><span>\' + dshort(c.detected_at) + \'</span></div><div class=\\"hl\\">\' + esc(c.headline) + \'</div>\' + (c.why_it_matters ? \'<div class=\\"why\\">\' + esc(c.why_it_matters) + \'</div>\' : \'\') + (c.suggested_action && !/^no action/i.test(c.suggested_action) ? \'<div class=\\"next\\"><b>Next step:</b> \' + esc(c.suggested_action) + \'</div>\' : \'\') + ba + \'</div>\' + (c.status === \'seen\' ? \'\' : \'<button class=\\"seenbtn\\" data-seen=\\"\' + c.change_id + \'\\">Mark seen</button>\') + \'</div>\';\\n    }).join(\'\') : \'<div class=\\"empty\\">Nothing here. The radar will add changes after the next check.</div>\';\\n  }\\n\\n  function position() {\\n    var last = latest();\\n    var h = \'<tr><th>Our bike</th>\' + D.competitors.map(function (c) { return \'<th>\' + esc(c) + \'</th>\'; }).join(\'\') + \'</tr>\';\\n    D.ours.forEach(function (o) {\\n      if (!state.sku) state.sku = o.sku;\\n      h += \'<tr class=\\"row\' + (state.sku === o.sku ? \' sel\' : \'\') + \'\\" data-sku=\\"\' + o.sku + \'\\"><td class=\\"ours\\">\' + esc(o.name) + \'<small>\' + gbp(o.price) + \'</small></td>\' + D.competitors.map(function (c) {\\n        var r = rivalFor(o.sku, c, last);\\n        if (!r) return \'<td class=\\"na\\">–</td>\';\\n        var d = r.price - Number(o.price), pct = Math.round(d / Number(o.price) * 100);\\n        return \'<td class=\\"cell\\"><b>\' + gbp(r.price) + (r.in_stock === \'no\' ? \' <span class=\\"oos\\">sold out</span>\' : \'\') + \'</b><span class=\\"\' + (d < 0 ? \'cheaper\' : (d > 0 ? \'dearer\' : \'same\')) + \'\\">\' + (d === 0 ? \'same\' : (d < 0 ? \'−\' : \'+\') + gbp(Math.abs(d)) + \' (\' + (pct > 0 ? \'+\' : \'\') + pct + \'%)\') + \'</span></td>\';\\n      }).join(\'\') + \'</tr>\';\\n    });\\n    $(\'pos\').innerHTML = h;\\n  }\\n\\n  var chart = null;\\n  function drawChart() {\\n    var o = D.ours.find(function (x) { return x.sku === state.sku; }); if (!o || !window.Chart) return;\\n    $(\'chartTitle\').textContent = \'Price history: \' + o.name + \' vs rivals\';\\n    var ms = D.matches.filter(function (m) { return m.our_sku === o.sku; });\\n    var dates = Array.from(new Set(D.prices.map(function (p) { return p.checked_at.slice(0, 10); }))).sort();\\n    if (!dates.length) dates = [D.now.slice(0, 10)];\\n    var colors = [\'#e4572e\', \'#2f6690\', \'#7a4fbf\', \'#2f7d4f\', \'#b7791f\', \'#d1382a\'];\\n    var sets = [{ label: \'Ours: \' + o.name, data: dates.map(function () { return Number(o.price); }), borderColor: \'#14213d\', borderWidth: 3, borderDash: [6, 4], pointRadius: 0, stepped: true }];\\n    ms.forEach(function (m, i) {\\n      var hist = D.prices.filter(function (p) { return p.competitor === m.competitor && p.product === m.competitor_product; });\\n      if (!hist.length) return;\\n      var lastV = null;\\n      var data = dates.map(function (d) { var x = hist.filter(function (p) { return p.checked_at.slice(0, 10) <= d; }).sort(function (a, b) { return a.checked_at < b.checked_at ? -1 : 1; }).pop(); lastV = x ? x.price : lastV; return lastV; });\\n      sets.push({ label: m.competitor + \': \' + m.competitor_product, data: data, borderColor: colors[i % colors.length], backgroundColor: colors[i % colors.length], borderWidth: 2, pointRadius: 3, stepped: true, spanGaps: true });\\n    });\\n    Chart.defaults.font.family = \'Inter, -apple-system, Helvetica, Arial, sans-serif\';\\n    Chart.defaults.color = \'#7a8496\';\\n    if (chart) chart.destroy();\\n    chart = new Chart($(\'chart\'), { type: \'line\', data: { labels: dates.map(function (d) { return dshort(d + \'T12:00:00\'); }), datasets: sets }, options: { maintainAspectRatio: false, animation: false, plugins: { legend: { position: \'bottom\', labels: { boxWidth: 12, font: { family: \'Inter\', size: 11 } } }, tooltip: { callbacks: { label: function (c) { return c.dataset.label + \': \' + gbp(c.parsed.y); } } } }, scales: { y: { ticks: { callback: function (v) { return gbp(v); }, font: { family: \'Inter\', size: 11 } }, grid: { color: \'#eef0f4\' } }, x: { grid: { display: false }, ticks: { font: { family: \'Inter\', size: 11 } } } } } });\\n  }\\n\\n  function watchlist() {\\n    var h = \'<tr><th>Page</th><th>Competitor</th><th>Read by</th><th>Last checked</th><th>Status</th><th>URL</th></tr>\';\\n    h += D.watchlist.map(function (w) {\\n      var s = String(w.last_status || \'new\'), cls = /fail/.test(s) ? \'bad\' : (/warn/.test(s) ? \'warn\' : (s === \'new\' || !w.last_checked ? \'new\' : \'ok\'));\\n      var label = cls === \'bad\' ? \'Failing (\' + w.fail_count + \'×)\' : (cls === \'warn\' ? \'Check page\' : (cls === \'new\' ? \'Not checked yet\' : (s === \'baseline\' ? \'First snapshot\' : (s === \'unchanged\' ? \'No change\' : \'Changed\'))));\\n      var m = w.last_method === \'ai\' ? \'<span class=\\"m ai\\">AI reader</span>\' : (w.last_method === \'json-ld\' ? \'<span class=\\"m\\">Structured data</span>\' : \'<span class=\\"m\\">Text</span>\');\\n      return \'<tr><td><b>\' + esc({ products: \'Products and prices\', home: \'Home page\', careers: \'Careers\', news: \'News\' }[w.page_type] || w.page_type) + \'</b></td><td>\' + esc(w.competitor) + \'</td><td>\' + (w.last_checked ? m : \'\') + \'</td><td>\' + ago(w.last_checked) + \'</td><td><span class=\\"st \' + cls + \'\\">\' + label + \'</span></td><td class=\\"url\\" title=\\"\' + esc(w.url) + \'\\">\' + esc(w.url.replace(/^https?:\\\\/\\\\//, \'\')) + \'</td></tr>\';\\n    }).join(\'\');\\n    $(\'wl\').innerHTML = h;\\n    var r = D.runs[0];\\n    $(\'runsInfo\').textContent = r ? \'Last check: \' + r.pages + \' pages, \' + r.changes + \' changes, \' + Math.round(r.ms / 1000) + \' s\' : \'\';\\n    $(\'last\').textContent = r ? \'Checked \' + ago(r.started_at) : \'Not checked yet\';\\n  }\\n\\n  function toast(t, err) { var d = document.createElement(\'div\'); d.className = \'toast\' + (err ? \' err\' : \'\'); d.textContent = t; document.body.appendChild(d); setTimeout(function () { d.remove(); }, 4500); }\\n  function act(body, btn, done) {\\n    if (btn) btn.disabled = true;\\n    fetch(\'action\', { method: \'POST\', headers: { \'Content-Type\': \'application/json\' }, body: JSON.stringify(Object.assign({ key: D.key }, body)) })\\n      .then(function (r) { return r.json(); })\\n      .then(function (r) { if (btn) btn.disabled = false; if (!r.ok) { toast(r.message || \'That didn\\\\\'t work.\', true); return; } if (r.data) D = Object.assign(D, r.data); NOW = new Date(D.now); render(); toast(r.message || \'Done\'); if (done) done(); })\\n      .catch(function () { if (btn) btn.disabled = false; toast(\'Could not reach n8n.\', true); });\\n  }\\n  function render() { kpis(); feed(); position(); drawChart(); watchlist(); }\\n  document.addEventListener(\'click\', function (e) {\\n    var f = e.target.closest(\'[data-f]\'); if (f) { state.filter = f.getAttribute(\'data-f\'); feed(); return; }\\n    var s = e.target.closest(\'[data-seen]\'); if (s) { act({ action: \'seen\', change_ids: [s.getAttribute(\'data-seen\')] }); return; }\\n    var r = e.target.closest(\'tr[data-sku]\'); if (r) { state.sku = r.getAttribute(\'data-sku\'); position(); drawChart(); }\\n  });\\n  $(\'allSeen\').onclick = function () { var ids = D.changes.filter(function (c) { return c.status !== \'seen\'; }).map(function (c) { return c.change_id; }); if (ids.length) act({ action: \'seen\', change_ids: ids }, $(\'allSeen\')); };\\n  $(\'checkNow\').onclick = function () { var b = $(\'checkNow\'); b.textContent = \'Checking…\'; act({ action: \'check_now\' }, b, function () { b.textContent = \'Check now\'; }); setTimeout(function () { b.textContent = \'Check now\'; }, 120000); };\\n  $(\'addForm\').onsubmit = function (e) { e.preventDefault(); var fd = new FormData(e.target); act({ action: \'add_page\', competitor: fd.get(\'competitor\'), page_type: fd.get(\'page_type\'), url: fd.get(\'url\') }, e.target.querySelector(\'button\'), function () { e.target.reset(); }); };\\n  $(\'co\').textContent = D.settings.company;\\n  $(\'mode\').textContent = D.settings.mode === \'live\' ? \'LIVE\' : \'TEST MODE\';\\n  if (D.settings.mode === \'live\') $(\'mode\').classList.add(\'live\');\\n  render();\\n})();\\n</script>\\n</body>\\n</html>\\n"\n' +
+        ';\n' +
+        'const query = $(\'Dashboard Request\').first().json.query || {};\n' +
+        'const T = tablesOf($(\'Load All\').first().json);\n' +
+        'const s = settingsOf(T.Settings);\n' +
+        'if (!s.dashboard_key || String(query.key || \'\') !== String(s.dashboard_key)) return [{ json: { code: 403, html: pageHtml(\'Wrong link\', \'<p>This dashboard link is not valid. Use the link with the key from the Settings tab.</p>\') } }];\n' +
+        'return [{ json: { code: 200, html: PAGE.replace(\'/*__DATA__*/null\', JSON.stringify(radarData(T, s)).replace(/</g, \'\\\\u003c\')) } }];\n'
+  } },
+  output: [{ code: 200, html: '<html></html>' }]
+});
+
+const sendPage = node({
+  type: 'n8n-nodes-base.respondToWebhook',
+  version: 1.5,
+  config: { name: 'Send Page', position: [860, 300], parameters: { respondWith: 'text', responseBody: expr('{{ $json.html }}'), options: { responseCode: expr('{{ $json.code }}'), responseHeaders: HTML_HEADERS } } }
+});
+
+const actionHook = trigger({
+  type: 'n8n-nodes-base.webhook',
+  version: 2.1,
+  config: { name: 'Dashboard Action', position: [200, 640], parameters: { httpMethod: 'POST', path: 'radar/action', responseMode: 'responseNode', options: { allowedOrigins: '*' } } },
+  output: [{ body: { key: 'k', action: 'seen', change_ids: ['CH-1'] } }]
+});
+
+const loadAction = node({
+  type: 'n8n-nodes-base.httpRequest',
+  version: 4.4,
+  config: {
+    name: 'Load All (Action)',
+    position: [420, 640],
+    retryOnFail: true, maxTries: 3, waitBetweenTries: 2000,
+    parameters: { method: 'GET', url: LOAD_URL, authentication: 'predefinedCredentialType', nodeCredentialType: 'googleSheetsOAuth2Api', options: {} },
+    credentials: SHEETS_CRED
+  },
+  output: [{ valueRanges: [] }]
+});
+
+const planAction = node({
+  type: 'n8n-nodes-base.code',
+  version: 2,
+  config: { name: 'Plan Action', position: [640, 640], parameters: { mode: 'runOnceForAllItems', language: 'javaScript', jsCode:
+        '// Dashboard buttons: mark changes as seen, watch a new page, or check everything now.\n' +
+        '// ---- lib-cs.js (included by build.py): shared helpers for the Competitor Radar workflows ----\n' +
+        'const TZ = \'Europe/London\';\n' +
+        'const esc = s => String(s === null || s === undefined ? \'\' : s).replace(/&/g, \'&amp;\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\').replace(/"/g, \'&quot;\');\n' +
+        'const parseJson = (s, d) => { try { return typeof s === \'string\' ? (s.trim() ? JSON.parse(s) : d) : (s === null || s === undefined ? d : s); } catch (e) { return d; } };\n' +
+        'const nowDt = () => DateTime.now().setZone(TZ);\n' +
+        'const toDt = iso => DateTime.fromISO(String(iso), { zone: TZ });\n' +
+        'const isoOf = dt => dt.set({ millisecond: 0 }).toISO({ suppressMilliseconds: true });\n' +
+        'const nowIso = () => isoOf(nowDt());\n' +
+        'const newId = (p, n) => p + Array.from({ length: n || 8 }, () => \'ABCDEFGHJKLMNPQRSTUVWXYZ23456789\'[Math.floor(Math.random() * 32)]).join(\'\');\n' +
+        'const newToken = n => Array.from({ length: n || 24 }, () => \'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789\'[Math.floor(Math.random() * 56)]).join(\'\');\n' +
+        'const gbp = n => n === null || n === undefined || n === \'\' ? \'\' : \'£\' + Number(n).toLocaleString(\'en-GB\', { minimumFractionDigits: 0, maximumFractionDigits: 2 });\n' +
+        'const day = iso => iso ? toDt(iso).toFormat(\'d LLL yyyy\') : \'\';\n' +
+        'const truthy = v => v === true || /^(true|yes|1|y)$/i.test(String(v).trim());\n' +
+        'const COLUMNS = {"Settings": ["key", "value", "note"], "Watchlist": ["page_id", "competitor", "page_type", "url", "active", "last_checked", "last_status", "last_hash", "last_method", "fail_count", "last_items_json", "last_text", "note"], "Our Products": ["sku", "name", "category", "price", "battery_wh", "range_km", "motor", "url"], "Matches": ["competitor", "competitor_product", "our_sku", "confidence", "matched_by", "matched_at"], "Prices": ["checked_at", "competitor", "product", "price", "was_price", "in_stock", "page_id", "our_sku"], "Changes": ["change_id", "detected_at", "run_id", "competitor", "page_id", "page_type", "kind", "item", "before", "after", "delta_pct", "our_sku", "our_price", "significance", "headline", "why_it_matters", "suggested_action", "alerted", "status"], "Runs": ["run_id", "started_at", "finished_at", "trigger", "pages", "unchanged", "changed", "failed", "changes", "alerts", "ai_calls", "ms"], "Outbox": ["at", "to", "subject", "kind", "links", "html"]};\n' +
+        '// Product names compared without case, punctuation or the competitor\'s own name\n' +
+        'const normName = (name, competitor) => String(name || \'\').toLowerCase().replace(String(competitor || \'\').toLowerCase(), \'\').replace(/[^a-z0-9]+/g, \' \').trim();\n' +
+        '\n' +
+        'function tablesOf(res) {\n' +
+        '  const out = {};\n' +
+        '  for (const vr of (res && res.valueRanges) || []) {\n' +
+        '    const name = String(vr.range || \'\').split(\'!\')[0].replace(/^\'|\'$/g, \'\').replace(/\'\'/g, "\'");\n' +
+        '    const rows = vr.values || [];\n' +
+        '    const head = (rows[0] || []).map(h => String(h).trim());\n' +
+        '    out[name] = rows.slice(1).map((r, i) => {\n' +
+        '      const o = { _row: i + 2 };\n' +
+        '      head.forEach((h, j) => { if (h) o[h] = r[j] === undefined || r[j] === null ? \'\' : r[j]; });\n' +
+        '      return o;\n' +
+        '    }).filter(o => Object.keys(o).some(k => k !== \'_row\' && o[k] !== \'\'));\n' +
+        '  }\n' +
+        '  return out;\n' +
+        '}\n' +
+        'const settingsOf = rows => Object.fromEntries((rows || []).filter(r => r.key).map(r => [String(r.key).trim(), r.value === undefined ? \'\' : r.value]));\n' +
+        'function sheetRow(o) {\n' +
+        '  const r = {};\n' +
+        '  for (const [k, v] of Object.entries(o)) if (k !== \'_row\') r[k] = v === null || v === undefined ? \'\' : (typeof v === \'object\' ? JSON.stringify(v) : v);\n' +
+        '  return r;\n' +
+        '}\n' +
+        '// OpenAI result (Responses API or the OpenAI node\'s simplified output) → the JSON object, or null\n' +
+        'function aiJson(res) {\n' +
+        '  if (!res || res.error) return null;\n' +
+        '  const msg = (res.output || []).find(o => o && Array.isArray(o.content));\n' +
+        '  const part = msg && (msg.content || []).find(c => c && (c.type === \'output_text\' || c.text !== undefined));\n' +
+        '  let t = part ? part.text : null;\n' +
+        '  if (typeof t === \'string\') { try { t = JSON.parse(t); } catch (e) { t = null; } }\n' +
+        '  return t && typeof t === \'object\' ? t : null;\n' +
+        '}\n' +
+        '\n' +
+        'const baseUrl = s => String(s.base_url || \'http://localhost:5678\').replace(/\\/$/, \'\');\n' +
+        'const dashboardUrl = s => baseUrl(s) + \'/webhook/radar/dashboard?key=\' + encodeURIComponent(s.dashboard_key || \'\');\n' +
+        'function button(url, label) {\n' +
+        '  return \'<p style="margin:22px 0;text-align:left"><a href="\' + esc(url) + \'" style="display:inline-block;background:#e4572e;color:#ffffff;text-decoration:none;font-weight:600;padding:12px 22px;border-radius:10px">\' + esc(label) + \'</a></p>\';\n' +
+        '}\n' +
+        'function emailHtml(s, paragraphs, extraHtml) {\n' +
+        '  const p = paragraphs.filter(Boolean).map(t => \'<p style="margin:0 0 14px;text-align:left">\' + t + \'</p>\').join(\'\');\n' +
+        '  return \'<div style="font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.55;color:#1c2430;max-width:620px;text-align:left">\'\n' +
+        '    + \'<div style="font-weight:700;font-size:13px;letter-spacing:1px;text-transform:uppercase;color:#e4572e;margin:0 0 18px">\' + esc(s.company || \'Cobble & Spoke\') + \' · Competitor Radar</div>\'\n' +
+        '    + p + (extraHtml || \'\') + \'</div>\';\n' +
+        '}\n' +
+        'function pageHtml(title, bodyHtml) {\n' +
+        '  return \'<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>\' + esc(title) + \'</title>\'\n' +
+        '    + \'<style>body{margin:0;background:#f3f4f6;font:16px/1.55 -apple-system,"Segoe UI",Helvetica,Arial,sans-serif;color:#1c2430}.card{max-width:520px;margin:48px auto;background:#fff;border-radius:16px;padding:30px;box-shadow:0 8px 28px rgba(0,0,0,.06)}h1{font-size:22px;margin:0 0 10px}</style></head><body><div class="card"><h1>\' + esc(title) + \'</h1>\' + bodyHtml + \'</div></body></html>\';\n' +
+        '}\n' +
+        'function emptyPlan(s) { return { mode: s.mode === \'live\' ? \'live\' : \'test\', appends: { Changes: [], Prices: [], Runs: [], Matches: [], Watchlist: [] }, updates: { Watchlist: [], Changes: [] }, emails: [], result: { ok: true } }; }\n' +
+        'const emailItem = (to, subject, html, kind, links) => ({ to, subject, html, kind, links: (links || []).join(\' \') });\n' +
+        '\n' +
+        '// Latest price of every product a rival still sells: rows from each page\'s most recent snapshot only\n' +
+        '// (a bike dropped from the page disappears instead of keeping its old price)\n' +
+        'function currentPrices(rows) {\n' +
+        '  const lastCheck = {};\n' +
+        '  for (const p of rows || []) if (!lastCheck[p.page_id] || String(p.checked_at) > lastCheck[p.page_id]) lastCheck[p.page_id] = String(p.checked_at);\n' +
+        '  const out = {};\n' +
+        '  for (const p of rows || []) if (String(p.checked_at) === lastCheck[p.page_id]) out[p.competitor + \'|\' + p.product] = p;\n' +
+        '  return out;\n' +
+        '}\n' +
+        '\n' +
+        'const KIND_LABEL = { price_drop: \'Price cut\', price_rise: \'Price rise\', new_product: \'New product\', removed_product: \'Product gone\', out_of_stock: \'Out of stock\', back_in_stock: \'Back in stock\', promotion: \'Promotion\', hiring: \'Hiring\', news: \'News\', messaging: \'Messaging\', layout_warning: \'Check page\', fetch_failed: \'Page down\', other: \'Change\' };\n' +
+        '// ---- end lib-cs.js ----\n' +
+        'const body = $(\'Dashboard Action\').first().json.body || {};\n' +
+        'const T = tablesOf($(\'Load All (Action)\').first().json);\n' +
+        'const s = settingsOf(T.Settings);\n' +
+        'const no = (message, code) => [{ json: { ok: false, code: code || 400, message } }];\n' +
+        'if (!s.dashboard_key || String(body.key || \'\') !== String(s.dashboard_key)) return no(\'Not allowed.\', 403);\n' +
+        'const plan = emptyPlan(s);\n' +
+        'if (body.action === \'check_now\') return [{ json: { ok: true, route: \'run\', plan } }];\n' +
+        'if (body.action === \'seen\') {\n' +
+        '  const ids = new Set((T.Changes || []).map(c => c.change_id));\n' +
+        '  const want = (Array.isArray(body.change_ids) ? body.change_ids : []).map(String).filter(id => ids.has(id)).slice(0, 500);\n' +
+        '  if (!want.length) return no(\'Nothing to mark.\');\n' +
+        '  plan.updates.Changes = want.map(id => ({ change_id: id, status: \'seen\' }));\n' +
+        '  plan.result = { ok: true, message: want.length === 1 ? \'Marked as seen\' : want.length + \' changes marked as seen\' };\n' +
+        '} else if (body.action === \'add_page\') {\n' +
+        '  const url = String(body.url || \'\').trim(), competitor = String(body.competitor || \'\').trim().slice(0, 60), type = String(body.page_type || \'\');\n' +
+        '  if (!/^https?:\\/\\/[^\\s]+\\.[^\\s]+/.test(url)) return no(\'That URL doesn\\\'t look right.\');\n' +
+        '  if (!competitor) return no(\'Add the competitor\\\'s name.\');\n' +
+        '  if (![\'products\', \'home\', \'careers\', \'news\'].includes(type)) return no(\'Pick a page type.\');\n' +
+        '  if ((T.Watchlist || []).some(w => String(w.url).replace(/\\/$/, \'\') === url.replace(/\\/$/, \'\'))) return no(\'That page is already on the watchlist.\');\n' +
+        '  const page_id = competitor.split(/\\s+/).map(w => w[0]).join(\'\').toUpperCase().slice(0, 3) + \'-\' + type.toUpperCase().slice(0, 4) + \'-\' + newId(\'\', 3);\n' +
+        '  plan.appends.Watchlist.push({ page_id, competitor, page_type: type, url, active: \'yes\', last_status: \'new\', fail_count: 0, note: \'Added from the dashboard \' + day(nowIso()) });\n' +
+        '  plan.result = { ok: true, message: \'Watching \' + competitor + \' (\' + type + \'). The first check takes a snapshot.\' };\n' +
+        '} else return no(\'Unknown action.\');\n' +
+        'return [{ json: { ok: true, route: \'save\', plan } }];\n'
+  } },
+  output: [{ ok: true, route: 'save', plan: { result: { ok: true, message: 'Done' } } }]
+});
+
+const allowed = ifElse({ version: 2.2, config: { name: 'Allowed?', position: [860, 640], parameters: { conditions: IS_OK } } });
+
+const isRun = ifElse({
+  version: 2.2,
+  config: {
+    name: 'Check Now?',
+    position: [1080, 560],
+    parameters: { conditions: { options: { caseSensitive: true, leftValue: '', typeValidation: 'strict' }, conditions: [{ leftValue: expr('{{ $json.route }}'), operator: { type: 'string', operation: 'equals' }, rightValue: 'run' }], combinator: 'and' } }
+  }
+});
+
+const runChecks = node({
+  type: 'n8n-nodes-base.executeWorkflow',
+  version: 1.3,
+  config: { name: 'Run Checks', position: [1300, 480], parameters: { source: 'database', workflowId: RUN_WF, mode: 'once', options: { waitForSubWorkflow: true } } }
+});
+
+const save = node({
+  type: 'n8n-nodes-base.executeWorkflow',
+  version: 1.3,
+  config: { name: 'Save Changes', position: [1300, 640], parameters: { source: 'database', workflowId: SAVE_WF, mode: 'once', options: { waitForSubWorkflow: true } } }
+});
+
+const loadAfter = node({
+  type: 'n8n-nodes-base.httpRequest',
+  version: 4.4,
+  config: {
+    name: 'Load All (After)',
+    position: [1520, 560],
+    executeOnce: true,
+    retryOnFail: true, maxTries: 3, waitBetweenTries: 2000,
+    parameters: { method: 'GET', url: LOAD_URL, authentication: 'predefinedCredentialType', nodeCredentialType: 'googleSheetsOAuth2Api', options: {} },
+    credentials: SHEETS_CRED
+  },
+  output: [{ valueRanges: [] }]
+});
+
+const result = node({
+  type: 'n8n-nodes-base.code',
+  version: 2,
+  config: { name: 'Action Result', position: [1740, 560], parameters: { mode: 'runOnceForAllItems', language: 'javaScript', jsCode:
+        '// Fresh data for the dashboard after the action.\n' +
+        '// ---- lib-cs.js (included by build.py): shared helpers for the Competitor Radar workflows ----\n' +
+        'const TZ = \'Europe/London\';\n' +
+        'const esc = s => String(s === null || s === undefined ? \'\' : s).replace(/&/g, \'&amp;\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\').replace(/"/g, \'&quot;\');\n' +
+        'const parseJson = (s, d) => { try { return typeof s === \'string\' ? (s.trim() ? JSON.parse(s) : d) : (s === null || s === undefined ? d : s); } catch (e) { return d; } };\n' +
+        'const nowDt = () => DateTime.now().setZone(TZ);\n' +
+        'const toDt = iso => DateTime.fromISO(String(iso), { zone: TZ });\n' +
+        'const isoOf = dt => dt.set({ millisecond: 0 }).toISO({ suppressMilliseconds: true });\n' +
+        'const nowIso = () => isoOf(nowDt());\n' +
+        'const newId = (p, n) => p + Array.from({ length: n || 8 }, () => \'ABCDEFGHJKLMNPQRSTUVWXYZ23456789\'[Math.floor(Math.random() * 32)]).join(\'\');\n' +
+        'const newToken = n => Array.from({ length: n || 24 }, () => \'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789\'[Math.floor(Math.random() * 56)]).join(\'\');\n' +
+        'const gbp = n => n === null || n === undefined || n === \'\' ? \'\' : \'£\' + Number(n).toLocaleString(\'en-GB\', { minimumFractionDigits: 0, maximumFractionDigits: 2 });\n' +
+        'const day = iso => iso ? toDt(iso).toFormat(\'d LLL yyyy\') : \'\';\n' +
+        'const truthy = v => v === true || /^(true|yes|1|y)$/i.test(String(v).trim());\n' +
+        'const COLUMNS = {"Settings": ["key", "value", "note"], "Watchlist": ["page_id", "competitor", "page_type", "url", "active", "last_checked", "last_status", "last_hash", "last_method", "fail_count", "last_items_json", "last_text", "note"], "Our Products": ["sku", "name", "category", "price", "battery_wh", "range_km", "motor", "url"], "Matches": ["competitor", "competitor_product", "our_sku", "confidence", "matched_by", "matched_at"], "Prices": ["checked_at", "competitor", "product", "price", "was_price", "in_stock", "page_id", "our_sku"], "Changes": ["change_id", "detected_at", "run_id", "competitor", "page_id", "page_type", "kind", "item", "before", "after", "delta_pct", "our_sku", "our_price", "significance", "headline", "why_it_matters", "suggested_action", "alerted", "status"], "Runs": ["run_id", "started_at", "finished_at", "trigger", "pages", "unchanged", "changed", "failed", "changes", "alerts", "ai_calls", "ms"], "Outbox": ["at", "to", "subject", "kind", "links", "html"]};\n' +
+        '// Product names compared without case, punctuation or the competitor\'s own name\n' +
+        'const normName = (name, competitor) => String(name || \'\').toLowerCase().replace(String(competitor || \'\').toLowerCase(), \'\').replace(/[^a-z0-9]+/g, \' \').trim();\n' +
+        '\n' +
+        'function tablesOf(res) {\n' +
+        '  const out = {};\n' +
+        '  for (const vr of (res && res.valueRanges) || []) {\n' +
+        '    const name = String(vr.range || \'\').split(\'!\')[0].replace(/^\'|\'$/g, \'\').replace(/\'\'/g, "\'");\n' +
+        '    const rows = vr.values || [];\n' +
+        '    const head = (rows[0] || []).map(h => String(h).trim());\n' +
+        '    out[name] = rows.slice(1).map((r, i) => {\n' +
+        '      const o = { _row: i + 2 };\n' +
+        '      head.forEach((h, j) => { if (h) o[h] = r[j] === undefined || r[j] === null ? \'\' : r[j]; });\n' +
+        '      return o;\n' +
+        '    }).filter(o => Object.keys(o).some(k => k !== \'_row\' && o[k] !== \'\'));\n' +
+        '  }\n' +
+        '  return out;\n' +
+        '}\n' +
+        'const settingsOf = rows => Object.fromEntries((rows || []).filter(r => r.key).map(r => [String(r.key).trim(), r.value === undefined ? \'\' : r.value]));\n' +
+        'function sheetRow(o) {\n' +
+        '  const r = {};\n' +
+        '  for (const [k, v] of Object.entries(o)) if (k !== \'_row\') r[k] = v === null || v === undefined ? \'\' : (typeof v === \'object\' ? JSON.stringify(v) : v);\n' +
+        '  return r;\n' +
+        '}\n' +
+        '// OpenAI result (Responses API or the OpenAI node\'s simplified output) → the JSON object, or null\n' +
+        'function aiJson(res) {\n' +
+        '  if (!res || res.error) return null;\n' +
+        '  const msg = (res.output || []).find(o => o && Array.isArray(o.content));\n' +
+        '  const part = msg && (msg.content || []).find(c => c && (c.type === \'output_text\' || c.text !== undefined));\n' +
+        '  let t = part ? part.text : null;\n' +
+        '  if (typeof t === \'string\') { try { t = JSON.parse(t); } catch (e) { t = null; } }\n' +
+        '  return t && typeof t === \'object\' ? t : null;\n' +
+        '}\n' +
+        '\n' +
+        'const baseUrl = s => String(s.base_url || \'http://localhost:5678\').replace(/\\/$/, \'\');\n' +
+        'const dashboardUrl = s => baseUrl(s) + \'/webhook/radar/dashboard?key=\' + encodeURIComponent(s.dashboard_key || \'\');\n' +
+        'function button(url, label) {\n' +
+        '  return \'<p style="margin:22px 0;text-align:left"><a href="\' + esc(url) + \'" style="display:inline-block;background:#e4572e;color:#ffffff;text-decoration:none;font-weight:600;padding:12px 22px;border-radius:10px">\' + esc(label) + \'</a></p>\';\n' +
+        '}\n' +
+        'function emailHtml(s, paragraphs, extraHtml) {\n' +
+        '  const p = paragraphs.filter(Boolean).map(t => \'<p style="margin:0 0 14px;text-align:left">\' + t + \'</p>\').join(\'\');\n' +
+        '  return \'<div style="font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.55;color:#1c2430;max-width:620px;text-align:left">\'\n' +
+        '    + \'<div style="font-weight:700;font-size:13px;letter-spacing:1px;text-transform:uppercase;color:#e4572e;margin:0 0 18px">\' + esc(s.company || \'Cobble & Spoke\') + \' · Competitor Radar</div>\'\n' +
+        '    + p + (extraHtml || \'\') + \'</div>\';\n' +
+        '}\n' +
+        'function pageHtml(title, bodyHtml) {\n' +
+        '  return \'<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>\' + esc(title) + \'</title>\'\n' +
+        '    + \'<style>body{margin:0;background:#f3f4f6;font:16px/1.55 -apple-system,"Segoe UI",Helvetica,Arial,sans-serif;color:#1c2430}.card{max-width:520px;margin:48px auto;background:#fff;border-radius:16px;padding:30px;box-shadow:0 8px 28px rgba(0,0,0,.06)}h1{font-size:22px;margin:0 0 10px}</style></head><body><div class="card"><h1>\' + esc(title) + \'</h1>\' + bodyHtml + \'</div></body></html>\';\n' +
+        '}\n' +
+        'function emptyPlan(s) { return { mode: s.mode === \'live\' ? \'live\' : \'test\', appends: { Changes: [], Prices: [], Runs: [], Matches: [], Watchlist: [] }, updates: { Watchlist: [], Changes: [] }, emails: [], result: { ok: true } }; }\n' +
+        'const emailItem = (to, subject, html, kind, links) => ({ to, subject, html, kind, links: (links || []).join(\' \') });\n' +
+        '\n' +
+        '// Latest price of every product a rival still sells: rows from each page\'s most recent snapshot only\n' +
+        '// (a bike dropped from the page disappears instead of keeping its old price)\n' +
+        'function currentPrices(rows) {\n' +
+        '  const lastCheck = {};\n' +
+        '  for (const p of rows || []) if (!lastCheck[p.page_id] || String(p.checked_at) > lastCheck[p.page_id]) lastCheck[p.page_id] = String(p.checked_at);\n' +
+        '  const out = {};\n' +
+        '  for (const p of rows || []) if (String(p.checked_at) === lastCheck[p.page_id]) out[p.competitor + \'|\' + p.product] = p;\n' +
+        '  return out;\n' +
+        '}\n' +
+        '\n' +
+        'const KIND_LABEL = { price_drop: \'Price cut\', price_rise: \'Price rise\', new_product: \'New product\', removed_product: \'Product gone\', out_of_stock: \'Out of stock\', back_in_stock: \'Back in stock\', promotion: \'Promotion\', hiring: \'Hiring\', news: \'News\', messaging: \'Messaging\', layout_warning: \'Check page\', fetch_failed: \'Page down\', other: \'Change\' };\n' +
+        '// ---- end lib-cs.js ----\n' +
+        '// ---- lib-radar-dash.js: everything the radar dashboard shows ----\n' +
+        'function radarData(T, s) {\n' +
+        '  const num = v => v === \'\' || v === null || v === undefined || isNaN(Number(v)) ? v : Number(v);\n' +
+        '  const watch = (T.Watchlist || []).map(w => { const o = Object.assign({}, w); delete o.last_items_json; delete o.last_text; delete o._row; o.fail_count = Number(o.fail_count) || 0; return o; });\n' +
+        '  const competitors = [...new Set(watch.map(w => w.competitor))];\n' +
+        '  return {\n' +
+        '    key: s.dashboard_key, now: nowIso(),\n' +
+        '    settings: { company: s.company || \'Cobble & Spoke\', mode: s.mode === \'live\' ? \'live\' : \'test\', alert_threshold: Number(s.alert_threshold) || 4 },\n' +
+        '    competitors,\n' +
+        '    ours: (T[\'Our Products\'] || []).map(p => ({ sku: p.sku, name: p.name, category: p.category, price: Number(p.price) })),\n' +
+        '    matches: (T.Matches || []).filter(m => m.our_sku).map(m => ({ competitor: m.competitor, competitor_product: m.competitor_product, our_sku: m.our_sku, confidence: m.confidence, matched_by: m.matched_by })),\n' +
+        '    prices: (() => { const cur = currentPrices(T.Prices); return (T.Prices || []).map(p => ({ checked_at: String(p.checked_at), competitor: p.competitor, product: p.product, price: Number(p.price), in_stock: p.in_stock, current: cur[p.competitor + \'|\' + p.product] === p })); })(),\n' +
+        '    changes: (T.Changes || []).map(c => ({ change_id: c.change_id, detected_at: String(c.detected_at), competitor: c.competitor, page_type: c.page_type, kind: c.kind, item: c.item, before: num(c.before), after: num(c.after), delta_pct: num(c.delta_pct), our_sku: c.our_sku, our_price: num(c.our_price), significance: Number(c.significance) || 1, headline: c.headline, why_it_matters: c.why_it_matters, suggested_action: c.suggested_action, status: c.status })),\n' +
+        '    runs: (T.Runs || []).slice().sort((a, b) => String(a.started_at) < String(b.started_at) ? 1 : -1).slice(0, 30).map(r => ({ run_id: r.run_id, started_at: String(r.started_at), pages: Number(r.pages), changes: Number(r.changes), alerts: Number(r.alerts), ai_calls: Number(r.ai_calls), ms: Number(r.ms) })),\n' +
+        '    watchlist: watch\n' +
+        '  };\n' +
+        '}\n' +
+        '// ---- end lib-radar-dash.js ----\n' +
+        'const T = tablesOf($(\'Load All (After)\').first().json);\n' +
+        'const s = settingsOf(T.Settings);\n' +
+        'let message = $(\'Plan Action\').first().json.plan.result.message;\n' +
+        'if ($(\'Run Checks\').isExecuted) {\n' +
+        '  const r = $(\'Run Checks\').first().json;\n' +
+        '  message = \'Checked \' + r.pages + \' pages: \' + (r.changes ? r.changes + \' change\' + (r.changes === 1 ? \'\' : \'s\') + (r.alerts ? \', \' + r.alerts + \' alert\' + (r.alerts === 1 ? \'\' : \'s\') + \' sent\' : \'\') : \'nothing new\') + \'.\';\n' +
+        '}\n' +
+        'return [{ json: { ok: true, message, data: radarData(T, s) } }];\n'
+  } },
+  output: [{ ok: true, message: 'Done', data: {} }]
+});
+
+const sendResult = node({
+  type: 'n8n-nodes-base.respondToWebhook',
+  version: 1.5,
+  config: { name: 'Send Result', position: [1960, 560], parameters: { respondWith: 'json', responseBody: expr('{{ $json }}'), options: {} } }
+});
+
+const refuse = node({
+  type: 'n8n-nodes-base.respondToWebhook',
+  version: 1.5,
+  config: { name: 'Refuse', position: [1080, 780], parameters: { respondWith: 'json', responseBody: expr('{{ { ok: false, message: $json.message } }}'), options: { responseCode: expr('{{ $json.code }}') } } }
+});
+
+// Test inbox
+const inboxHook = trigger({
+  type: 'n8n-nodes-base.webhook',
+  version: 2.1,
+  config: { name: 'Inbox Request', position: [200, 1000], parameters: { httpMethod: 'GET', path: 'radar/outbox', responseMode: 'responseNode', options: {} } },
+  output: [{ query: { key: 'k' } }]
+});
+
+const loadOutbox = node({
+  type: 'n8n-nodes-base.httpRequest',
+  version: 4.4,
+  config: {
+    name: 'Load Outbox',
+    position: [420, 1000],
+    retryOnFail: true, maxTries: 3, waitBetweenTries: 2000,
+    parameters: { method: 'GET', url: 'https://sheets.googleapis.com/v4/spreadsheets/1TyTgZFE87WFKQzOTdusFeov6m27SAixpu-Xiz7DHD7g/values:batchGet?ranges=Settings&ranges=Outbox&valueRenderOption=UNFORMATTED_VALUE', authentication: 'predefinedCredentialType', nodeCredentialType: 'googleSheetsOAuth2Api', options: {} },
+    credentials: SHEETS_CRED
+  },
+  output: [{ valueRanges: [] }]
+});
+
+const buildInbox = node({
+  type: 'n8n-nodes-base.code',
+  version: 2,
+  config: { name: 'Build Inbox', position: [640, 1000], parameters: { mode: 'runOnceForAllItems', language: 'javaScript', jsCode:
+        '// Test mode keeps emails in the Outbox tab instead of sending them; this page shows them like an inbox\n' +
+        '// (newest first). Same key as the dashboard.\n' +
+        '// ---- lib-cs.js (included by build.py): shared helpers for the Competitor Radar workflows ----\n' +
+        'const TZ = \'Europe/London\';\n' +
+        'const esc = s => String(s === null || s === undefined ? \'\' : s).replace(/&/g, \'&amp;\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\').replace(/"/g, \'&quot;\');\n' +
+        'const parseJson = (s, d) => { try { return typeof s === \'string\' ? (s.trim() ? JSON.parse(s) : d) : (s === null || s === undefined ? d : s); } catch (e) { return d; } };\n' +
+        'const nowDt = () => DateTime.now().setZone(TZ);\n' +
+        'const toDt = iso => DateTime.fromISO(String(iso), { zone: TZ });\n' +
+        'const isoOf = dt => dt.set({ millisecond: 0 }).toISO({ suppressMilliseconds: true });\n' +
+        'const nowIso = () => isoOf(nowDt());\n' +
+        'const newId = (p, n) => p + Array.from({ length: n || 8 }, () => \'ABCDEFGHJKLMNPQRSTUVWXYZ23456789\'[Math.floor(Math.random() * 32)]).join(\'\');\n' +
+        'const newToken = n => Array.from({ length: n || 24 }, () => \'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789\'[Math.floor(Math.random() * 56)]).join(\'\');\n' +
+        'const gbp = n => n === null || n === undefined || n === \'\' ? \'\' : \'£\' + Number(n).toLocaleString(\'en-GB\', { minimumFractionDigits: 0, maximumFractionDigits: 2 });\n' +
+        'const day = iso => iso ? toDt(iso).toFormat(\'d LLL yyyy\') : \'\';\n' +
+        'const truthy = v => v === true || /^(true|yes|1|y)$/i.test(String(v).trim());\n' +
+        'const COLUMNS = {"Settings": ["key", "value", "note"], "Watchlist": ["page_id", "competitor", "page_type", "url", "active", "last_checked", "last_status", "last_hash", "last_method", "fail_count", "last_items_json", "last_text", "note"], "Our Products": ["sku", "name", "category", "price", "battery_wh", "range_km", "motor", "url"], "Matches": ["competitor", "competitor_product", "our_sku", "confidence", "matched_by", "matched_at"], "Prices": ["checked_at", "competitor", "product", "price", "was_price", "in_stock", "page_id", "our_sku"], "Changes": ["change_id", "detected_at", "run_id", "competitor", "page_id", "page_type", "kind", "item", "before", "after", "delta_pct", "our_sku", "our_price", "significance", "headline", "why_it_matters", "suggested_action", "alerted", "status"], "Runs": ["run_id", "started_at", "finished_at", "trigger", "pages", "unchanged", "changed", "failed", "changes", "alerts", "ai_calls", "ms"], "Outbox": ["at", "to", "subject", "kind", "links", "html"]};\n' +
+        '// Product names compared without case, punctuation or the competitor\'s own name\n' +
+        'const normName = (name, competitor) => String(name || \'\').toLowerCase().replace(String(competitor || \'\').toLowerCase(), \'\').replace(/[^a-z0-9]+/g, \' \').trim();\n' +
+        '\n' +
+        'function tablesOf(res) {\n' +
+        '  const out = {};\n' +
+        '  for (const vr of (res && res.valueRanges) || []) {\n' +
+        '    const name = String(vr.range || \'\').split(\'!\')[0].replace(/^\'|\'$/g, \'\').replace(/\'\'/g, "\'");\n' +
+        '    const rows = vr.values || [];\n' +
+        '    const head = (rows[0] || []).map(h => String(h).trim());\n' +
+        '    out[name] = rows.slice(1).map((r, i) => {\n' +
+        '      const o = { _row: i + 2 };\n' +
+        '      head.forEach((h, j) => { if (h) o[h] = r[j] === undefined || r[j] === null ? \'\' : r[j]; });\n' +
+        '      return o;\n' +
+        '    }).filter(o => Object.keys(o).some(k => k !== \'_row\' && o[k] !== \'\'));\n' +
+        '  }\n' +
+        '  return out;\n' +
+        '}\n' +
+        'const settingsOf = rows => Object.fromEntries((rows || []).filter(r => r.key).map(r => [String(r.key).trim(), r.value === undefined ? \'\' : r.value]));\n' +
+        'function sheetRow(o) {\n' +
+        '  const r = {};\n' +
+        '  for (const [k, v] of Object.entries(o)) if (k !== \'_row\') r[k] = v === null || v === undefined ? \'\' : (typeof v === \'object\' ? JSON.stringify(v) : v);\n' +
+        '  return r;\n' +
+        '}\n' +
+        '// OpenAI result (Responses API or the OpenAI node\'s simplified output) → the JSON object, or null\n' +
+        'function aiJson(res) {\n' +
+        '  if (!res || res.error) return null;\n' +
+        '  const msg = (res.output || []).find(o => o && Array.isArray(o.content));\n' +
+        '  const part = msg && (msg.content || []).find(c => c && (c.type === \'output_text\' || c.text !== undefined));\n' +
+        '  let t = part ? part.text : null;\n' +
+        '  if (typeof t === \'string\') { try { t = JSON.parse(t); } catch (e) { t = null; } }\n' +
+        '  return t && typeof t === \'object\' ? t : null;\n' +
+        '}\n' +
+        '\n' +
+        'const baseUrl = s => String(s.base_url || \'http://localhost:5678\').replace(/\\/$/, \'\');\n' +
+        'const dashboardUrl = s => baseUrl(s) + \'/webhook/radar/dashboard?key=\' + encodeURIComponent(s.dashboard_key || \'\');\n' +
+        'function button(url, label) {\n' +
+        '  return \'<p style="margin:22px 0;text-align:left"><a href="\' + esc(url) + \'" style="display:inline-block;background:#e4572e;color:#ffffff;text-decoration:none;font-weight:600;padding:12px 22px;border-radius:10px">\' + esc(label) + \'</a></p>\';\n' +
+        '}\n' +
+        'function emailHtml(s, paragraphs, extraHtml) {\n' +
+        '  const p = paragraphs.filter(Boolean).map(t => \'<p style="margin:0 0 14px;text-align:left">\' + t + \'</p>\').join(\'\');\n' +
+        '  return \'<div style="font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.55;color:#1c2430;max-width:620px;text-align:left">\'\n' +
+        '    + \'<div style="font-weight:700;font-size:13px;letter-spacing:1px;text-transform:uppercase;color:#e4572e;margin:0 0 18px">\' + esc(s.company || \'Cobble & Spoke\') + \' · Competitor Radar</div>\'\n' +
+        '    + p + (extraHtml || \'\') + \'</div>\';\n' +
+        '}\n' +
+        'function pageHtml(title, bodyHtml) {\n' +
+        '  return \'<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>\' + esc(title) + \'</title>\'\n' +
+        '    + \'<style>body{margin:0;background:#f3f4f6;font:16px/1.55 -apple-system,"Segoe UI",Helvetica,Arial,sans-serif;color:#1c2430}.card{max-width:520px;margin:48px auto;background:#fff;border-radius:16px;padding:30px;box-shadow:0 8px 28px rgba(0,0,0,.06)}h1{font-size:22px;margin:0 0 10px}</style></head><body><div class="card"><h1>\' + esc(title) + \'</h1>\' + bodyHtml + \'</div></body></html>\';\n' +
+        '}\n' +
+        'function emptyPlan(s) { return { mode: s.mode === \'live\' ? \'live\' : \'test\', appends: { Changes: [], Prices: [], Runs: [], Matches: [], Watchlist: [] }, updates: { Watchlist: [], Changes: [] }, emails: [], result: { ok: true } }; }\n' +
+        'const emailItem = (to, subject, html, kind, links) => ({ to, subject, html, kind, links: (links || []).join(\' \') });\n' +
+        '\n' +
+        '// Latest price of every product a rival still sells: rows from each page\'s most recent snapshot only\n' +
+        '// (a bike dropped from the page disappears instead of keeping its old price)\n' +
+        'function currentPrices(rows) {\n' +
+        '  const lastCheck = {};\n' +
+        '  for (const p of rows || []) if (!lastCheck[p.page_id] || String(p.checked_at) > lastCheck[p.page_id]) lastCheck[p.page_id] = String(p.checked_at);\n' +
+        '  const out = {};\n' +
+        '  for (const p of rows || []) if (String(p.checked_at) === lastCheck[p.page_id]) out[p.competitor + \'|\' + p.product] = p;\n' +
+        '  return out;\n' +
+        '}\n' +
+        '\n' +
+        'const KIND_LABEL = { price_drop: \'Price cut\', price_rise: \'Price rise\', new_product: \'New product\', removed_product: \'Product gone\', out_of_stock: \'Out of stock\', back_in_stock: \'Back in stock\', promotion: \'Promotion\', hiring: \'Hiring\', news: \'News\', messaging: \'Messaging\', layout_warning: \'Check page\', fetch_failed: \'Page down\', other: \'Change\' };\n' +
+        '// ---- end lib-cs.js ----\n' +
+        'const PAGE =\n' +
+        '"<!doctype html>\\n<html lang=\\"en\\">\\n<head>\\n<meta charset=\\"utf-8\\">\\n<meta name=\\"viewport\\" content=\\"width=device-width, initial-scale=1\\">\\n<meta name=\\"robots\\" content=\\"noindex\\">\\n<title>Test inbox</title>\\n<style>\\n*{box-sizing:border-box}\\nbody{margin:0;background:#eef0f3;font:14px/1.5 -apple-system,\\"Segoe UI\\",Helvetica,Arial,sans-serif;color:#1c2430}\\n.bar{background:#1c2430;color:#fff;padding:12px 20px;display:flex;align-items:center;gap:12px;font-weight:600}\\n.bar span{font-weight:400;color:#aab3c2;font-size:13px}\\n.wrap{display:grid;grid-template-columns:380px 1fr;height:calc(100vh - 46px)}\\n.list{overflow:auto;border-right:1px solid #d9dde4;background:#f7f8fa}\\n.m{padding:12px 16px;border-bottom:1px solid #e3e6eb;cursor:pointer}\\n.m:hover{background:#fff}\\n.m.on{background:#fff;box-shadow:inset 3px 0 0 #3b82f6}\\n.m .s{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}\\n.m .t{font-size:12.5px;color:#6b7686;display:flex;justify-content:space-between;gap:8px}\\n.k{font-size:11px;font-weight:600;background:#e6eaf0;border-radius:6px;padding:1px 7px;color:#4a5566}\\n.view{overflow:auto;padding:24px}\\n.mail{max-width:760px;margin:0 auto;background:#fff;border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,.08);overflow:hidden}\\n.head{padding:18px 24px;border-bottom:1px solid #eceff3}\\n.head h1{font-size:19px;margin:0 0 10px}\\n.head .r{font-size:13px;color:#5b6676;margin:2px 0}\\n.head .r b{color:#1c2430;font-weight:600;display:inline-block;width:52px}\\n.body{padding:26px 28px 34px}\\n.empty{padding:40px;text-align:center;color:#6b7686}\\n@media (max-width:800px){.wrap{grid-template-columns:1fr;height:auto}.list{max-height:40vh}}\\n</style>\\n</head>\\n<body>\\n<div class=\\"bar\\">Test inbox <span id=\\"sub\\"></span></div>\\n<div class=\\"wrap\\"><div class=\\"list\\" id=\\"list\\"></div><div class=\\"view\\" id=\\"view\\"></div></div>\\n<script>\\nvar D = /*__DATA__*/null;\\n(function () {\\n  if (!D) return;\\n  var $ = function (id) { return document.getElementById(id); };\\n  var esc = function (s) { return String(s == null ? \'\' : s).replace(/[&<>\\"]/g, function (c) { return { \'&\': \'&amp;\', \'<\': \'&lt;\', \'>\': \'&gt;\', \'\\"\': \'&quot;\' }[c]; }); };\\n  var when = function (iso) { return iso ? new Date(iso).toLocaleString(\'en-GB\', { day: \'numeric\', month: \'short\', hour: \'2-digit\', minute: \'2-digit\' }) : \'\'; };\\n  $(\'sub\').textContent = D.company + \' · \' + D.mails.length + \' emails that test mode kept instead of sending\';\\n  var sel = Math.min(D.selected || 0, D.mails.length - 1);\\n  function show() {\\n    $(\'list\').innerHTML = D.mails.length ? D.mails.map(function (m, i) { return \'<div class=\\"m\' + (i === sel ? \' on\' : \'\') + \'\\" data-i=\\"\' + i + \'\\"><div class=\\"s\\">\' + esc(m.subject) + \'</div><div class=\\"t\\"><span>\' + esc(m.to) + \'</span><span>\' + when(m.at) + \'</span></div><span class=\\"k\\">\' + esc(m.kind) + \'</span></div>\'; }).join(\'\') : \'<div class=\\"empty\\">No emails yet.</div>\';\\n    var m = D.mails[sel];\\n    $(\'view\').innerHTML = m ? \'<div class=\\"mail\\"><div class=\\"head\\"><h1>\' + esc(m.subject) + \'</h1><div class=\\"r\\"><b>From</b>\' + esc(D.from) + \'</div><div class=\\"r\\"><b>To</b>\' + esc(m.to) + \'</div><div class=\\"r\\"><b>Date</b>\' + when(m.at) + \'</div></div><div class=\\"body\\">\' + m.html + \'</div></div>\' : \'\';\\n  }\\n  document.addEventListener(\'click\', function (e) { var r = e.target.closest(\'[data-i]\'); if (r) { sel = +r.getAttribute(\'data-i\'); show(); } });\\n  show();\\n})();\\n</script>\\n</body>\\n</html>\\n"\n' +
+        ';\n' +
+        'const query = $(\'Inbox Request\').first().json.query || {};\n' +
+        'const T = tablesOf($(\'Load Outbox\').first().json);\n' +
+        'const s = settingsOf(T.Settings);\n' +
+        'if (!s.dashboard_key || String(query.key || \'\') !== String(s.dashboard_key)) return [{ json: { code: 403, html: pageHtml(\'Wrong link\', \'<p>This link is not valid.</p>\') } }];\n' +
+        'const mails = (T.Outbox || []).slice().reverse().map(m => ({ at: m.at, to: m.to, subject: m.subject, kind: m.kind, html: String(m.html || \'\') }));\n' +
+        'const data = { company: s.company, from: \'Competitor Radar <radar@cobblespoke.example>\', selected: Number(query.i) || 0, mails };\n' +
+        'return [{ json: { code: 200, html: PAGE.replace(\'/*__DATA__*/null\', JSON.stringify(data).replace(/</g, \'\\\\u003c\')) } }];\n'
+  } },
+  output: [{ code: 200, html: '<html></html>' }]
+});
+
+const sendInbox = node({
+  type: 'n8n-nodes-base.respondToWebhook',
+  version: 1.5,
+  config: { name: 'Send Inbox', position: [860, 1000], parameters: { respondWith: 'text', responseBody: expr('{{ $json.html }}'), options: { responseCode: expr('{{ $json.code }}'), responseHeaders: HTML_HEADERS } } }
+});
+
+const note = sticky(
+  '## Radar 3: Dashboard\nThe team\'s page (`/webhook/radar/dashboard?key=…`, key in the **Settings** tab): this week\'s numbers, the change feed rated 1 to 5 with why it matters and what to do, a price table of our bikes against each rival\'s closest match, price history charts, and the health of every watched page (and whether it\'s read from structured data or by the AI). **Inbox Request** shows the test-mode Outbox as an inbox. Buttons post to **Dashboard Action**: mark as seen, watch a new page, or check everything now (runs **Radar 1**).',
+  [], { position: [160, 0], width: 1380, height: 180, color: 7 }
+);
+
+export default workflow('radar-dashboard', 'Radar 3: Dashboard')
+  .add(pageHook)
+  .to(loadAll)
+  .to(buildPage)
+  .to(sendPage)
+  .add(actionHook)
+  .to(loadAction)
+  .to(planAction)
+  .to(allowed
+    .onTrue(isRun
+      .onTrue(runChecks.to(loadAfter))
+      .onFalse(save.to(loadAfter)))
+    .onFalse(refuse))
+  .add(loadAfter)
+  .to(result)
+  .to(sendResult)
+  .add(inboxHook)
+  .to(loadOutbox)
+  .to(buildInbox)
+  .to(sendInbox)
+  .add(note);

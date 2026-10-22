@@ -1,0 +1,10 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["correctness", "grounded", "reason"],
+  "properties": {
+    "correctness": { "type": "integer", "enum": [1, 2, 3, 4, 5] },
+    "grounded": { "type": "integer", "enum": [1, 2, 3, 4, 5] },
+    "reason": { "type": "string" }
+  }
+}

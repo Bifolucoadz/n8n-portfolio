@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Copperline Service Desk</title>
+<script>
+  // Apply a saved theme before first paint so the page never flashes the wrong one.
+  try { const t = localStorage.getItem('copperline-theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch {}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=IBM+Plex+Mono:wght@400;500&family=Instrument+Sans:wdth,wght@75..100,400..700&display=swap" rel="stylesheet">
+<link href="chat/app.css" rel="stylesheet">
+</head>
+<body>
+<div class="app" data-empty="true">
+
+  <aside class="side" id="side" aria-label="Shop details">
+    <div class="side-brand">
+      <span class="mark" aria-hidden="true">C</span>
+      <div><strong>Copperline</strong><span>Auto Repair · Allston</span></div>
+    </div>
+
+    <button type="button" class="btn-new" data-new-chat>
+      <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+      New conversation
+    </button>
+
+    <section class="side-card">
+      <p class="status" data-status><i></i><span>Checking hours</span></p>
+      <dl class="hours">
+        <div data-days="1,2,3,4,5"><dt>Mon to Fri</dt><dd>7:30 am – 6:00 pm</dd></div>
+        <div data-days="6"><dt>Saturday</dt><dd>8:00 am – 2:00 pm</dd></div>
+        <div data-days="0"><dt>Sunday</dt><dd>Closed</dd></div>
+      </dl>
+      <p class="addr">
+        <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 10c0 5-5.54 10.19-7.4 11.8a1 1 0 0 1-1.2 0C9.54 20.19 4 15 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg>
+        <span>84 Foundry Lane, Allston, MA 02134<br><small>Free parking out front</small></span>
+      </p>
+    </section>
+
+    <section class="side-card refs" id="refs-card" hidden>
+      <h2 class="side-h">In this chat</h2>
+      <ul id="refs"></ul>
+    </section>
+
+    <div class="side-calls">
+      <a class="call" href="tel:+16175550142">
+        <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+        <span><strong>Call the shop</strong><small>(617) 555-0142</small></span>
+      </a>
+      <a class="call call-danger" href="tel:+16175550199">
+        <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18v-6a5 5 0 1 1 10 0v6"/><path d="M5 21a1 1 0 0 1-1-1v-1a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v1a1 1 0 0 1-1 1z"/><path d="M21 12h1M18.5 4.5 18 5M2 12h1M12 2v1M4.93 4.93l.71.71"/></svg>
+        <span><strong>24/7 tow line</strong><small>(617) 555-0199</small></span>
+      </a>
+    </div>
+
+    <p class="side-foot">Demo of a fictional shop, built with n8n.<br><a href="index.html">Visit the shop website</a></p>
+  </aside>
+  <div class="scrim" data-close-drawer></div>
+
+  <main class="main">
+    <header class="topbar">
+      <button type="button" class="icon-btn menu-btn" id="menu" aria-label="Show shop details" aria-controls="side" aria-expanded="false">
+        <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10"/></svg>
+      </button>
+      <div class="tb-id">
+        <span class="avatar" aria-hidden="true">C</span>
+        <div>
+          <strong>Copperline Assistant</strong>
+          <span class="tb-sub"><i></i>Online · usually replies in seconds</span>
+        </div>
+      </div>
+      <div class="tb-actions">
+        <button type="button" class="icon-btn" id="theme" aria-label="Switch to dark theme" title="Switch theme"></button>
+        <button type="button" class="icon-btn" data-new-chat aria-label="Start a new conversation" title="New conversation">
+          <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.38 3.62a1 1 0 0 1 3 3L7.37 18.64a2 2 0 0 1-.86.5l-2.87.84a.5.5 0 0 1-.62-.62l.84-2.87a2 2 0 0 1 .5-.86z"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <div class="scroller" id="scroller">
+      <div class="col">
+        <section class="welcome" id="welcome" aria-labelledby="greet">
+          <div class="welcome-top">
+            <span class="emblem" id="emblem"></span>
+            <div>
+              <p class="eyebrow">Copperline service desk</p>
+              <p class="status" data-status><i></i><span>Checking hours</span></p>
+            </div>
+          </div>
+          <h1 id="greet"><span data-greeting>Hello.</span> <span class="h1-soft">What can we do for your car?</span></h1>
+          <p class="lede">Ask about prices and hours, or book a drop-off. I answer from Copperline's own info, any time of day.</p>
+
+          <div class="starters">
+            <button type="button" class="starter" data-say="I'd like to book my car in.">
+              <span class="starter-icon"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></svg></span>
+              <span class="starter-title">Book a drop-off</span>
+              <span class="starter-text">See open times and lock one in</span>
+            </button>
+            <button type="button" class="starter" data-say="How much is a full synthetic oil change?">
+              <span class="starter-icon"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.59 2.59A2 2 0 0 0 11.17 2H4a2 2 0 0 0-2 2v7.17a2 2 0 0 0 .59 1.42l8.7 8.7a2.43 2.43 0 0 0 3.42 0l6.58-6.58a2.43 2.43 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r="1.2"/></svg></span>
+              <span class="starter-title">Check a price</span>
+              <span class="starter-text">Oil change, brakes, inspection</span>
+            </button>
+            <button type="button" class="starter" data-say="My check-engine light is on. What should I do?">
+              <span class="starter-icon"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94z"/></svg></span>
+              <span class="starter-title">Something's not right</span>
+              <span class="starter-text">Warning lights, noises, leaks</span>
+            </button>
+            <button type="button" class="starter starter-danger" data-say="I don't think my car is safe to drive.">
+              <span class="starter-icon"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4M12 17h.01"/></svg></span>
+              <span class="starter-title">My car feels unsafe</span>
+              <span class="starter-text">Brakes, smoke, overheating</span>
+            </button>
+          </div>
+
+          <div class="try">
+            <span class="try-label">Or try</span>
+            <button type="button" class="chip" data-say="Do you work on electric cars and hybrids?">🔌 EVs and hybrids</button>
+            <button type="button" class="chip" data-say="Do you have loaner cars?">🚗 Loaner cars</button>
+            <button type="button" class="chip" data-say="What does your warranty cover?">🛡️ Warranty</button>
+            <button type="button" class="chip" data-say="When are you open this weekend?">🕗 Weekend hours</button>
+          </div>
+        </section>
+
+        <div class="thread" id="thread" role="log" aria-live="polite" aria-label="Conversation"></div>
+      </div>
+    </div>
+
+    <footer class="dock">
+      <div class="col dock-col">
+        <button type="button" class="jump" id="jump" hidden>
+          <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>
+          New reply
+        </button>
+        <div class="ac" id="ac" role="listbox" aria-label="Emoji suggestions" hidden></div>
+        <form class="composer" id="composer" novalidate>
+          <textarea id="input" rows="1" maxlength="1000" placeholder="Ask about prices, hours or a booking…" aria-label="Message" autocomplete="off"></textarea>
+          <div class="composer-bar">
+            <button type="button" class="tool" id="emoji-btn" aria-label="Add emoji" aria-haspopup="dialog" aria-expanded="false" title="Emoji">
+              <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><path d="M9 9h.01M15 9h.01"/></svg>
+            </button>
+            <span class="hint">Type <kbd>:</kbd> for emoji · <kbd>Enter</kbd> to send · <kbd>Shift</kbd> + <kbd>Enter</kbd> for a new line</span>
+            <span class="count" id="count" hidden></span>
+            <button type="submit" class="send" id="send" aria-label="Send message" disabled>
+              <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg>
+            </button>
+          </div>
+        </form>
+        <p class="disclaimer">AI assistant for a fictional demo shop. It can make mistakes. If your car is unsafe, call the tow line or 911.</p>
+      </div>
+    </footer>
+  </main>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+  window.COPPERLINE = {
+    // On this Mac the page talks to n8n directly; on Vercel it goes through the /api/chat proxy (see api/chat.js).
+    webhookUrl: /^(localhost|127\.0\.0\.1)$/.test(location.hostname)
+      ? 'http://localhost:5678/webhook/1bd58ed4-607a-469c-b6e7-60d9691a4aef/chat'
+      : '/api/chat',
+    storageKey: 'copperline-desk',
+    sessionPrefix: '',
+    botName: 'Copperline',
+    phone: '(617) 555-0142',
+    towLine: '(617) 555-0199',
+    timezone: 'America/New_York',
+    hours: [null, ['07:30', '18:00'], ['07:30', '18:00'], ['07:30', '18:00'], ['07:30', '18:00'], ['07:30', '18:00'], ['08:00', '14:00']],
+    requestTimeoutMs: 60000
+  };
+</script>
+<script src="chat/emoji.js"></script>
+<script src="chat/app.js"></script>
+</body>
+</html>

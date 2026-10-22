@@ -1,0 +1,210 @@
+{
+  "id": "bmsCreateSheet06",
+  "name": "Brindle 6: Create Spreadsheet",
+  "description": "Business MCP server (project 13): run once to create the Google Sheet the MCP tools read and write.",
+  "nodes": [
+    {
+      "id": "b2bb6cff-9ca5-49f9-97cc-1d6a2229908d",
+      "name": "Run Once",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        200,
+        300
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "c74e1eb5-2f2f-4202-ac70-387839fea3e6",
+      "name": "Sheet Layout",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        420,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// The tabs, in order, with frozen header rows (from workflows/tables.json).\nconst COLUMNS = {\"Settings\": [\"key\", \"value\", \"note\"], \"Team\": [\"person_id\", \"name\", \"role\", \"team\", \"email\", \"is_manager\", \"weekly_hours\", \"cost_rate\", \"bill_rate\", \"active\"], \"Clients\": [\"client_id\", \"name\", \"sector\", \"contact\", \"contact_email\", \"account_lead\", \"retainer_hours\", \"retainer_fee\", \"status\", \"since\"], \"Projects\": [\"project_id\", \"client_id\", \"name\", \"type\", \"billing\", \"status\", \"lead\", \"start\", \"due\", \"budget_hours\", \"fee\"], \"Tasks\": [\"task_id\", \"project_id\", \"title\", \"assignee\", \"status\", \"priority\", \"due\", \"created_at\", \"updated_at\"], \"Time\": [\"entry_id\", \"date\", \"person\", \"project_id\", \"task_id\", \"hours\", \"billable\", \"note\", \"logged_at\", \"source\", \"invoice_id\"], \"Invoices\": [\"invoice_id\", \"client_id\", \"project_id\", \"period\", \"issue_date\", \"due_date\", \"amount\", \"vat\", \"status\", \"paid_date\", \"lines_json\"], \"Audit\": [\"at\", \"server\", \"tool\", \"args_json\", \"ok\", \"summary\", \"ms\"]};\nconst colours = { 'Settings': [0.45, 0.5, 0.55], 'Team': [0.36, 0.25, 0.63], 'Clients': [0.12, 0.3, 0.5], 'Projects': [0.18, 0.49, 0.31], 'Tasks': [0.72, 0.47, 0.12], 'Time': [0.82, 0.22, 0.16], 'Invoices': [0.1, 0.1, 0.1], 'Audit': [0.6, 0.6, 0.6] };\nreturn [{ json: {\n  body: {\n    properties: { title: 'Brindle Studio: business data (demo)', locale: 'en_GB', timeZone: 'Europe/London' },\n    sheets: Object.keys(COLUMNS).map((title, i) => ({ properties: { sheetId: i + 1, title, index: i, gridProperties: { frozenRowCount: 1, columnCount: Math.max(COLUMNS[title].length, 10) }, tabColor: { red: colours[title][0], green: colours[title][1], blue: colours[title][2] } } }))\n  },\n  headers: { valueInputOption: 'RAW', data: Object.entries(COLUMNS).map(([t, cols]) => ({ range: \"'\" + t + \"'!A1\", values: [cols] })) },\n  format: { requests: Object.keys(COLUMNS).map((t, i) => ({ repeatCell: { range: { sheetId: i + 1, startRowIndex: 0, endRowIndex: 1 }, cell: { userEnteredFormat: { textFormat: { bold: true }, backgroundColor: { red: 0.93, green: 0.95, blue: 0.93 } } }, fields: 'userEnteredFormat(textFormat,backgroundColor)' } })) }\n} }];\n"
+      }
+    },
+    {
+      "id": "f1ad5d0d-8e79-46d4-a957-b95e697da126",
+      "name": "Create Spreadsheet",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        640,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://sheets.googleapis.com/v4/spreadsheets?fields=spreadsheetId,spreadsheetUrl",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "D8rKxzgMrJwmFZoQ",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "id": "aee2f774-1307-4691-af0e-f3b2adcac130",
+      "name": "Write Headers",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        860,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://sheets.googleapis.com/v4/spreadsheets/{{ $json.spreadsheetId }}/values:batchUpdate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Sheet Layout').first().json.headers) }}",
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "D8rKxzgMrJwmFZoQ",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "id": "c110526f-3474-4a3e-8edf-e8f2906271ff",
+      "name": "Bold Header Rows",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1080,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://sheets.googleapis.com/v4/spreadsheets/{{ $('Create Spreadsheet').first().json.spreadsheetId }}:batchUpdate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Sheet Layout').first().json.format) }}",
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "D8rKxzgMrJwmFZoQ",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "id": "a7d6d655-48b0-4d24-b4ff-05d1c6da53cd",
+      "name": "Spreadsheet Link",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1300,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const c = $('Create Spreadsheet').first().json;\nreturn [{ json: { spreadsheetId: c.spreadsheetId, url: c.spreadsheetUrl, next: 'Put the ID in workflows/config.json (SHEET_ID), rebuild and deploy, then run Brindle 5: Reset Demo.' } }];"
+      }
+    },
+    {
+      "id": "7924589d-72e6-4535-b41d-7de3f0e0ffe0",
+      "name": "Sticky Note 7924589d",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        160,
+        80
+      ],
+      "parameters": {
+        "content": "## Brindle 6: Create Spreadsheet\nRun once when setting up. Creates the Google Sheet the MCP servers read and write (Settings, Team, Clients, Projects, Tasks, Time, Invoices, Audit) with bold, frozen header rows. A real studio would point the tools at its own sheet, or swap Load Data for its project-management and accounting APIs; the tools stay the same.",
+        "color": 7,
+        "width": 1160,
+        "height": 150
+      }
+    }
+  ],
+  "connections": {
+    "Run Once": {
+      "main": [
+        [
+          {
+            "node": "Sheet Layout",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sheet Layout": {
+      "main": [
+        [
+          {
+            "node": "Create Spreadsheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Spreadsheet": {
+      "main": [
+        [
+          {
+            "node": "Write Headers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Headers": {
+      "main": [
+        [
+          {
+            "node": "Bold Header Rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bold Header Rows": {
+      "main": [
+        [
+          {
+            "node": "Spreadsheet Link",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "timezone": "Europe/London",
+    "callerPolicy": "workflowsFromSameOwner"
+  }
+}

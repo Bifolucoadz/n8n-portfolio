@@ -1,0 +1,7 @@
+{
+  "type": "object", "additionalProperties": false, "required": ["reviews"],
+  "properties": { "reviews": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["review_id", "topics", "sentiment", "issue"],
+    "properties": { "review_id": { "type": "string" },
+      "topics": { "type": "array", "items": { "type": "string", "enum": ["shipping speed", "packaging damage", "taste and quality", "brewing instructions", "price and value", "customer service", "product description", "gift experience"] } },
+      "sentiment": { "type": "string", "enum": ["positive", "mixed", "negative"] }, "issue": { "type": "string" } } } } }
+}

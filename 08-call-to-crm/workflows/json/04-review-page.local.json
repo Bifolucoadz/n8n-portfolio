@@ -1,0 +1,819 @@
+{
+  "id": "tdwReviewPage004",
+  "name": "Tidewater 4: Review Page",
+  "description": "Call to CRM (project 8): the rep's review page for a processed call, and the endpoint that applies approved changes and sends the follow-up email.",
+  "nodes": [
+    {
+      "id": "35c1e1ab-e2ec-4320-98a7-91a91f996f46",
+      "name": "Review Link",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        200,
+        300
+      ],
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "tidewater/review",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "webhookId": "f4afffd5-8e56-415c-a143-6c421cc2919d"
+    },
+    {
+      "id": "f7101fee-7ecd-443e-ba16-7eec66d7c4e4",
+      "name": "Read Settings",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        420,
+        300
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "IFuurjqqfST0GLCi",
+          "cachedResultName": "Tidewater Settings"
+        },
+        "returnAll": true
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "0e4dfd5a-883c-4b91-b396-ef45efc34052",
+      "name": "Read Call",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        640,
+        300
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "0hHsTxLEuk6Su6C7",
+          "cachedResultName": "Tidewater Calls"
+        },
+        "returnAll": true,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "call_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Review Link').first().json.query.call || 'none' }}"
+            }
+          ]
+        }
+      },
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "id": "79f4e17a-49aa-416b-b536-c9556dc36e17",
+      "name": "Check Link",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// The review link must carry the call's private token.\n// ---- lib-tdw.js (included by build.py): shared helpers for the Tidewater workflows ----\nconst TZ = 'America/New_York';\nconst esc = s => String(s === null || s === undefined ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');\nconst settingsOf = items => Object.fromEntries(items.map(i => i.json).filter(r => r && r.key).map(r => [r.key, r.value]));\nconst parseJson = (s, d) => { try { return typeof s === 'string' ? JSON.parse(s) : (s === null || s === undefined ? d : s); } catch (e) { return d; } };\nconst nowIso = () => DateTime.now().setZone(TZ).toISO();\nconst newId = (prefix, n) => prefix + Array.from({ length: n || 5 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 32)]).join('');\nconst newToken = n => Array.from({ length: n || 24 }, () => 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 56)]).join('');\nconst dollars = n => '$' + Math.round(Number(n) || 0).toLocaleString('en-US');\nconst day = d => /^\\d{4}-\\d{2}-\\d{2}$/.test(String(d)) ? DateTime.fromISO(d, { zone: TZ }).toFormat('ccc, LLL d') : String(d || '');\nconst mmss = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');\n\n// HubSpot's default sales pipeline.\nconst STAGES = [\n  ['appointmentscheduled', 'Appointment scheduled', 'A first meeting is booked.'],\n  ['qualifiedtobuy', 'Qualified to buy', 'Need, rough budget, decision process and timeline are understood.'],\n  ['presentationscheduled', 'Presentation scheduled', 'A demo or presentation is booked or has been given.'],\n  ['decisionmakerboughtin', 'Decision maker bought-in', 'The person who signs has seen it and supports it.'],\n  ['contractsent', 'Contract sent', 'A proposal or contract has been sent.'],\n  ['closedwon', 'Closed won', 'Signed.'],\n  ['closedlost', 'Closed lost', 'The prospect said no.']\n];\nconst stageIndex = id => STAGES.findIndex(s => s[0] === id);\nconst stageLabel = id => (STAGES.find(s => s[0] === id) || [id, id])[1];\n\n// OpenAI node (Responses API) output: the JSON object from the first output_text part, or null.\nfunction aiJson(res) {\n  if (!res || res.error) return null;\n  const msg = (res.output || []).find(o => o && o.type === 'message');\n  const part = msg && (msg.content || []).find(c => c && c.type === 'output_text');\n  let t = part ? part.text : null;\n  if (typeof t === 'string') { try { t = JSON.parse(t); } catch (e) { t = null; } }\n  return t && typeof t === 'object' ? t : null;\n}\n\n// Is this quote really in the transcript? (case, punctuation and spacing ignored)\nconst norm = s => String(s || '').toLowerCase().replace(/[’']/g, \"'\").replace(/[^a-z0-9' ]+/g, ' ').replace(/\\s+/g, ' ').trim();\nconst quoteFound = (quote, transcriptNorm) => { const q = norm(quote); return q.length >= 6 && transcriptNorm.includes(q); };\n\nfunction emailHtml(company, paragraphs, extraHtml) {\n  const p = paragraphs.map(t => '<p style=\"margin:0 0 14px;text-align:left\">' + t + '</p>').join('');\n  return '<div style=\"font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.55;color:#1f2933;max-width:560px;text-align:left\">'\n    + '<div style=\"font-weight:700;font-size:13px;letter-spacing:1px;text-transform:uppercase;color:#1d4ed8;margin:0 0 18px\">' + esc(company) + '</div>'\n    + p + (extraHtml || '') + '</div>';\n}\nconst plainToHtml = t => String(t || '').split(/\\n{2,}/).map(p => '<p style=\"margin:0 0 14px;text-align:left\">' + esc(p).replace(/\\n/g, '<br>') + '</p>').join('');\n// n8n shows a form's completion HTML as the whole page, so it needs its own styling.\nfunction formPage(title, inner) {\n  return '<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>' + esc(title) + '</title>'\n    + '<style>body{margin:0;background:#eef2fb;font:15px/1.55 -apple-system,\"Segoe UI\",Helvetica,Arial,sans-serif;color:#0f1b3d}'\n    + '.card{max-width:760px;margin:40px auto;background:#fff;border:1px solid #d9e1f2;border-radius:16px;padding:30px 32px;box-shadow:0 8px 24px rgba(15,27,61,.06)}'\n    + '.brand{font-size:12px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#1d4ed8;margin-bottom:16px}</style></head>'\n    + '<body><div class=\"card\"><div class=\"brand\">Tidewater Software · Call autopilot</div>' + inner + '</div></body></html>';\n}\n// ---- end lib-tdw.js ----\nconst q = $('Review Link').first().json.query || {};\nconst c = $('Read Call').all().map(i => i.json).find(r => r.call_id === q.call) || null;\nconst ok = !!c && !!q.t && q.t === c.token;\nreturn [{ json: { ok, action: 'get_deal', deal_id: c ? c.deal_id : '' } }];\n"
+      }
+    },
+    {
+      "id": "58e4cf54-8b6b-4b8b-a1e2-6408ec2896eb",
+      "name": "Link OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1080,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.ok }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "7b6094c3-2884-4cdf-a153-f477752a49b7",
+      "name": "Get Deal",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        1300,
+        200
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "tdwCrmAdapter003",
+          "cachedResultName": "Tidewater 3: CRM"
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    },
+    {
+      "id": "6d82f1fb-7132-47f2-9c03-690c9a4b2b54",
+      "name": "Build Page",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1520,
+        200
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Fills the review page with the call, its analysis and the deal as it is now.\n// ---- lib-tdw.js (included by build.py): shared helpers for the Tidewater workflows ----\nconst TZ = 'America/New_York';\nconst esc = s => String(s === null || s === undefined ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');\nconst settingsOf = items => Object.fromEntries(items.map(i => i.json).filter(r => r && r.key).map(r => [r.key, r.value]));\nconst parseJson = (s, d) => { try { return typeof s === 'string' ? JSON.parse(s) : (s === null || s === undefined ? d : s); } catch (e) { return d; } };\nconst nowIso = () => DateTime.now().setZone(TZ).toISO();\nconst newId = (prefix, n) => prefix + Array.from({ length: n || 5 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 32)]).join('');\nconst newToken = n => Array.from({ length: n || 24 }, () => 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 56)]).join('');\nconst dollars = n => '$' + Math.round(Number(n) || 0).toLocaleString('en-US');\nconst day = d => /^\\d{4}-\\d{2}-\\d{2}$/.test(String(d)) ? DateTime.fromISO(d, { zone: TZ }).toFormat('ccc, LLL d') : String(d || '');\nconst mmss = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');\n\n// HubSpot's default sales pipeline.\nconst STAGES = [\n  ['appointmentscheduled', 'Appointment scheduled', 'A first meeting is booked.'],\n  ['qualifiedtobuy', 'Qualified to buy', 'Need, rough budget, decision process and timeline are understood.'],\n  ['presentationscheduled', 'Presentation scheduled', 'A demo or presentation is booked or has been given.'],\n  ['decisionmakerboughtin', 'Decision maker bought-in', 'The person who signs has seen it and supports it.'],\n  ['contractsent', 'Contract sent', 'A proposal or contract has been sent.'],\n  ['closedwon', 'Closed won', 'Signed.'],\n  ['closedlost', 'Closed lost', 'The prospect said no.']\n];\nconst stageIndex = id => STAGES.findIndex(s => s[0] === id);\nconst stageLabel = id => (STAGES.find(s => s[0] === id) || [id, id])[1];\n\n// OpenAI node (Responses API) output: the JSON object from the first output_text part, or null.\nfunction aiJson(res) {\n  if (!res || res.error) return null;\n  const msg = (res.output || []).find(o => o && o.type === 'message');\n  const part = msg && (msg.content || []).find(c => c && c.type === 'output_text');\n  let t = part ? part.text : null;\n  if (typeof t === 'string') { try { t = JSON.parse(t); } catch (e) { t = null; } }\n  return t && typeof t === 'object' ? t : null;\n}\n\n// Is this quote really in the transcript? (case, punctuation and spacing ignored)\nconst norm = s => String(s || '').toLowerCase().replace(/[’']/g, \"'\").replace(/[^a-z0-9' ]+/g, ' ').replace(/\\s+/g, ' ').trim();\nconst quoteFound = (quote, transcriptNorm) => { const q = norm(quote); return q.length >= 6 && transcriptNorm.includes(q); };\n\nfunction emailHtml(company, paragraphs, extraHtml) {\n  const p = paragraphs.map(t => '<p style=\"margin:0 0 14px;text-align:left\">' + t + '</p>').join('');\n  return '<div style=\"font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.55;color:#1f2933;max-width:560px;text-align:left\">'\n    + '<div style=\"font-weight:700;font-size:13px;letter-spacing:1px;text-transform:uppercase;color:#1d4ed8;margin:0 0 18px\">' + esc(company) + '</div>'\n    + p + (extraHtml || '') + '</div>';\n}\nconst plainToHtml = t => String(t || '').split(/\\n{2,}/).map(p => '<p style=\"margin:0 0 14px;text-align:left\">' + esc(p).replace(/\\n/g, '<br>') + '</p>').join('');\n// n8n shows a form's completion HTML as the whole page, so it needs its own styling.\nfunction formPage(title, inner) {\n  return '<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>' + esc(title) + '</title>'\n    + '<style>body{margin:0;background:#eef2fb;font:15px/1.55 -apple-system,\"Segoe UI\",Helvetica,Arial,sans-serif;color:#0f1b3d}'\n    + '.card{max-width:760px;margin:40px auto;background:#fff;border:1px solid #d9e1f2;border-radius:16px;padding:30px 32px;box-shadow:0 8px 24px rgba(15,27,61,.06)}'\n    + '.brand{font-size:12px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#1d4ed8;margin-bottom:16px}</style></head>'\n    + '<body><div class=\"card\"><div class=\"brand\">Tidewater Software · Call autopilot</div>' + inner + '</div></body></html>';\n}\n// ---- end lib-tdw.js ----\nconst s = settingsOf($('Read Settings').all());\nconst q = $('Review Link').first().json.query || {};\nconst c = $('Read Call').all().map(i => i.json).find(r => r.call_id === q.call);\nconst crm = $('Get Deal').first().json || {};\nconst TEMPLATE =\n\"<!doctype html>\\n<html lang=\\\"en\\\">\\n<head>\\n<meta charset=\\\"utf-8\\\">\\n<meta name=\\\"viewport\\\" content=\\\"width=device-width, initial-scale=1\\\">\\n<title>Call review · Tidewater Software</title>\\n<link rel=\\\"preconnect\\\" href=\\\"https://fonts.googleapis.com\\\">\\n<link href=\\\"https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap\\\" rel=\\\"stylesheet\\\">\\n<style>\\n:root {\\n  --bg: #f2f5fb; --panel: #fff; --line: #e1e7f2; --ink: #0f1b3d; --ink-2: #3b4a6b; --ink-3: #6b7a99; --brand: #1d4ed8; --brand-2: #e8efff;\\n  --green: #0f8a5f; --green-bg: #e5f5ec; --amber: #b45309; --amber-bg: #fdf3e2; --red: #c0352b; --red-bg: #fdecea; --grey-bg: #eef1f7;\\n  --us: #1d4ed8; --them: #0f8a5f; --radius: 14px; --shadow: 0 1px 2px rgba(15,27,61,.05), 0 8px 24px rgba(15,27,61,.06);\\n}\\n* { box-sizing: border-box; }\\nhtml, body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 Inter, -apple-system, \\\"Segoe UI\\\", Helvetica, Arial, sans-serif; }\\nbutton, input, textarea { font: inherit; }\\n.top { display: flex; align-items: center; justify-content: space-between; padding: 14px 26px; background: var(--panel); border-bottom: 1px solid var(--line); }\\n.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; }\\n.logo { width: 30px; height: 30px; border-radius: 9px; background: var(--brand); color: #fff; display: grid; place-items: center; }\\n.brand small { display: block; font-weight: 500; color: var(--ink-3); font-size: 12px; }\\n.pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }\\n.pill.test { background: var(--amber-bg); color: var(--amber); }\\n.pill.stage { background: var(--brand-2); color: var(--brand); }\\n.pill.pos { background: var(--green-bg); color: var(--green); } .pill.neu { background: var(--grey-bg); color: var(--ink-2); } .pill.neg { background: var(--red-bg); color: var(--red); }\\n.wrap { max-width: 1320px; margin: 0 auto; padding: 24px 26px 60px; }\\n.head h1 { margin: 0; font-size: 23px; letter-spacing: -.4px; }\\n.meta { display: flex; gap: 10px 18px; flex-wrap: wrap; align-items: center; color: var(--ink-3); margin: 8px 0 0; font-size: 13px; }\\n.meta b { color: var(--ink-2); font-weight: 600; }\\n.talk { display: flex; align-items: center; gap: 8px; }\\n.bar { width: 160px; height: 8px; border-radius: 999px; background: var(--them); overflow: hidden; }\\n.bar i { display: block; height: 100%; background: var(--us); }\\n.grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 18px; margin-top: 20px; align-items: start; }\\n.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; box-shadow: var(--shadow); margin-bottom: 18px; }\\n.card h2 { margin: 0 0 12px; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--ink-3); font-weight: 600; display: flex; justify-content: space-between; align-items: center; }\\n.summary { font-size: 15px; color: var(--ink-2); margin: 0; }\\n.list { list-style: none; margin: 0; padding: 0; }\\n.list li { display: grid; grid-template-columns: 24px 1fr; gap: 10px; padding: 9px 0; border-top: 1px solid var(--line); }\\n.list li:first-child { border-top: 0; padding-top: 2px; }\\n.ok { width: 22px; height: 22px; border-radius: 50%; background: var(--green-bg); color: var(--green); display: grid; place-items: center; font-size: 12px; font-weight: 700; }\\n.sub { color: var(--ink-3); font-size: 12.5px; margin-top: 2px; }\\n.sub q { font-style: italic; color: var(--ink-2); }\\n.chg { display: grid; grid-template-columns: 24px 1fr; gap: 10px; padding: 11px 0; border-top: 1px solid var(--line); cursor: pointer; }\\n.chg:first-of-type { border-top: 0; padding-top: 2px; }\\n.chg input { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--brand); }\\n.arrow { color: var(--ink-3); margin: 0 4px; }\\n.why { color: var(--amber); font-size: 12.5px; margin-top: 2px; }\\n.email label { display: block; font-size: 12px; color: var(--ink-3); font-weight: 600; margin: 10px 0 4px; }\\n.email input, .email textarea { width: 100%; border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; color: var(--ink); background: #fbfcff; }\\n.email textarea { min-height: 260px; resize: vertical; line-height: 1.55; }\\n.email input:focus, .email textarea:focus { outline: 2px solid rgba(29,78,216,.2); border-color: var(--brand); }\\n.to { color: var(--ink-2); font-weight: 500; }\\n.actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }\\n.btn { border-radius: 10px; padding: 10px 16px; font-weight: 600; border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; }\\n.btn.primary { background: var(--brand); border-color: var(--brand); color: #fff; }\\n.btn.ghost { color: var(--ink-3); }\\n.btn:disabled { opacity: .45; cursor: not-allowed; }\\n.banner { border-radius: 12px; padding: 12px 14px; margin-bottom: 16px; font-weight: 500; }\\n.banner.done { background: var(--green-bg); color: var(--green); }\\n.banner.info { background: var(--grey-bg); color: var(--ink-2); }\\n.bant { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }\\n.b { border: 1px solid var(--line); border-radius: 12px; padding: 11px 12px; }\\n.b .k { display: flex; justify-content: space-between; align-items: center; font-weight: 600; margin-bottom: 4px; }\\n.b .d { color: var(--ink-2); font-size: 13px; }\\n.st-known { background: var(--green-bg); color: var(--green); } .st-partial { background: var(--amber-bg); color: var(--amber); } .st-unknown { background: var(--grey-bg); color: var(--ink-3); }\\nul.plain { margin: 0; padding-left: 18px; color: var(--ink-2); } ul.plain li { margin: 4px 0; }\\n.tag { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; padding: 1px 7px; border-radius: 999px; margin-left: 6px; }\\n.tag.open { background: var(--amber-bg); color: var(--amber); } .tag.resolved { background: var(--green-bg); color: var(--green); }\\ndetails summary { cursor: pointer; font-weight: 600; color: var(--brand); list-style: none; }\\n.turn { padding: 8px 0; border-top: 1px dashed var(--line); font-size: 13.5px; }\\n.turn .ts { color: var(--ink-3); font-variant-numeric: tabular-nums; font-size: 12px; padding-top: 2px; }\\n.turn .who { font-weight: 600; font-size: 12.5px; }\\n.who.us { color: var(--us); } .who.them { color: var(--them); }\\n.plaintext { white-space: pre-wrap; color: var(--ink-2); font-size: 13.5px; }\\n@media (max-width: 980px) { .grid { grid-template-columns: 1fr; } .bant { grid-template-columns: 1fr; } }\\n</style>\\n</head>\\n<body>\\n<div class=\\\"top\\\">\\n  <div class=\\\"brand\\\"><div class=\\\"logo\\\">T</div><div>Tidewater Software<small>Call review</small></div></div>\\n  <div id=\\\"mode\\\"></div>\\n</div>\\n<div class=\\\"wrap\\\">\\n  <div class=\\\"head\\\" id=\\\"head\\\"></div>\\n  <div class=\\\"grid\\\">\\n    <div id=\\\"left\\\"></div>\\n    <div id=\\\"right\\\"></div>\\n  </div>\\n</div>\\n<script>\\nconst DATA = /*__DATA__*/null;\\nconst esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\\\"/g, '&quot;');\\nconst day = d => /^\\\\d{4}-\\\\d{2}-\\\\d{2}$/.test(String(d)) ? new Date(d + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' }) : String(d || '');\\nconst $ = id => document.getElementById(id);\\nconst a = DATA.analysis, applied = DATA.applied, pending = DATA.pending.filter(p => p.field !== 'email');\\nconst STATUS = { pending_review: '', sent: 'Follow-up sent and the CRM is up to date.', approved: 'Changes approved; no email was sent.', discarded: 'Discarded. Nothing else was changed.' };\\nconst sideOf = Object.fromEntries((a.speakers || []).map(s => [s.name, s.side]));\\nconst mmss = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');\\nconst quote = q => q ? '<q>' + esc(String(q).replace(/^[\\\"“”'\\\\s]+|[\\\"“”'\\\\s.]+$/g, '')) + '</q>' : '';\\n\\nfunction head() {\\n  const d = DATA.deal;\\n  const sent = { positive: ['pos', 'Positive call'], neutral: ['neu', 'Neutral call'], negative: ['neg', 'Negative call'] }[a.sentiment] || ['neu', ''];\\n  const talk = a.talk_us !== null && a.talk_us !== undefined ? '<span class=\\\"talk\\\">Talk time <span class=\\\"bar\\\"><i style=\\\"width:' + a.talk_us + '%\\\"></i></span> <b>' + a.talk_us + '%</b> rep · <b>' + (100 - a.talk_us) + '%</b> prospect</span>' : '';\\n  $('head').innerHTML = '<h1>' + esc(d.name) + '</h1><div class=\\\"meta\\\"><span>' + esc(DATA.company) + '</span><span class=\\\"pill stage\\\">' + esc(DATA.stage_label) + '</span>'\\n    + (d.amount ? '<span><b>$' + Number(d.amount).toLocaleString('en-US') + '</b></span>' : '') + '<span>Call ' + esc(DATA.when) + ' · <b>' + mmss(DATA.duration_s) + '</b> · ' + esc(DATA.rep) + '</span>'\\n    + '<span class=\\\"pill ' + sent[0] + '\\\">' + sent[1] + '</span>' + talk + '</div>';\\n  $('mode').innerHTML = DATA.mode === 'live' ? '' : '<span class=\\\"pill test\\\" title=\\\"Emails go to the Outbox table and the CRM is the demo tables\\\">Test mode</span>';\\n}\\nfunction left() {\\n  const done = ['<li><div class=\\\"ok\\\">✓</div><div>Call note added to the deal<div class=\\\"sub\\\">Summary, BANT, objections, competitors, next steps and risks</div></div></li>']\\n    .concat(applied.changes.map(c => '<li><div class=\\\"ok\\\">✓</div><div>' + esc(c.label) + ': ' + esc(c.from) + '<span class=\\\"arrow\\\">→</span><b>' + esc(c.to) + '</b>' + (c.quote ? '<div class=\\\"sub\\\">' + quote(c.quote) + '</div>' : '') + '</div></li>'))\\n    .concat(applied.tasks.map(t => '<li><div class=\\\"ok\\\">✓</div><div>Task: ' + esc(t.title) + '<div class=\\\"sub\\\">Due ' + esc(day(t.due)) + ' · ' + esc(t.owner) + '</div></div></li>'));\\n  const open = DATA.status === 'pending_review';\\n  const chg = pending.map(p => '<label class=\\\"chg\\\"><input type=\\\"checkbox\\\" data-id=\\\"' + p.id + '\\\" checked' + (open ? '' : ' disabled') + '><div>' + esc(p.label) + ': ' + esc(p.from) + '<span class=\\\"arrow\\\">→</span><b>' + esc(p.to) + '</b>'\\n    + '<div class=\\\"why\\\">' + esc(p.why) + '</div>' + (p.quote ? '<div class=\\\"sub\\\">' + quote(p.quote) + (p.verified ? '' : ' · not found in the transcript') + '</div>' : '') + '</div></label>').join('');\\n  $('left').innerHTML = (STATUS[DATA.status] ? '<div class=\\\"banner ' + (DATA.status === 'discarded' ? 'info' : 'done') + '\\\">' + STATUS[DATA.status] + '</div>' : '')\\n    + '<div class=\\\"card\\\"><h2>Summary</h2><p class=\\\"summary\\\">' + esc(a.summary) + '</p></div>'\\n    + '<div class=\\\"card\\\"><h2>Done in the CRM</h2><ul class=\\\"list\\\">' + done.join('') + '</ul></div>'\\n    + (pending.length ? '<div class=\\\"card\\\"><h2>Needs your OK <span>' + pending.length + '</span></h2>' + chg + '</div>' : '')\\n    + '<div class=\\\"card email\\\"><h2>Follow-up email</h2><div class=\\\"to\\\">To ' + esc(DATA.email_to_name) + ' &lt;' + esc(DATA.email_to) + '&gt;</div>'\\n    + '<label for=\\\"subject\\\">Subject</label><input id=\\\"subject\\\" value=\\\"' + esc(DATA.email_subject) + '\\\"' + (open ? '' : ' disabled') + '>'\\n    + '<label for=\\\"body\\\">Message</label><textarea id=\\\"body\\\"' + (open ? '' : ' disabled') + '>' + esc(DATA.email_body) + '</textarea>'\\n    + '<div class=\\\"actions\\\"><button class=\\\"btn primary\\\" id=\\\"send\\\"' + (open ? '' : ' disabled') + '>Approve and send</button><button class=\\\"btn\\\" id=\\\"approve\\\"' + (open ? '' : ' disabled') + '>Approve changes only</button><button class=\\\"btn ghost\\\" id=\\\"discard\\\"' + (open ? '' : ' disabled') + '>Discard</button></div></div>';\\n  if (open) { $('send').onclick = () => submit('send'); $('approve').onclick = () => submit('approve'); $('discard').onclick = () => submit('discard'); }\\n}\\nfunction right() {\\n  const b = a.bant || {};\\n  const tile = (k, v) => '<div class=\\\"b\\\"><div class=\\\"k\\\">' + k + '<span class=\\\"pill st-' + (v ? v.status : 'unknown') + '\\\">' + esc(v ? v.status : 'unknown') + '</span></div><div class=\\\"d\\\">' + esc(v ? v.detail : '') + '</div></div>';\\n  const theirs = (a.next_steps || []).filter(n => n.side === 'them');\\n  const turns = (DATA.transcript.turns || []).map(t => '<div class=\\\"turn\\\"><div><div class=\\\"who ' + (sideOf[t.speaker] || (t.speaker === DATA.rep ? 'us' : 'them')) + '\\\">' + esc(t.speaker) + '</div>' + esc(t.text) + '</div></div>').join('');\\n  $('right').innerHTML = '<div class=\\\"card\\\"><h2>BANT</h2><div class=\\\"bant\\\">' + tile('Budget', b.budget) + tile('Authority', b.authority) + tile('Need', b.need) + tile('Timeline', b.timeline) + '</div></div>'\\n    + '<div class=\\\"card\\\"><h2>Objections</h2>' + ((a.objections || []).length ? '<ul class=\\\"plain\\\">' + a.objections.map(o => '<li>' + esc(o.objection) + '<span class=\\\"tag ' + o.status + '\\\">' + o.status + '</span><div class=\\\"sub\\\">' + esc(o.response) + '</div></li>').join('') + '</ul>' : '<span class=\\\"sub\\\">None raised.</span>') + '</div>'\\n    + '<div class=\\\"card\\\"><h2>Risks and competitors</h2><ul class=\\\"plain\\\">' + (a.risks || []).map(r => '<li>' + esc(r) + '</li>').join('') + (a.competitors || []).map(c => '<li><b>' + esc(c.name) + '</b>: ' + esc(c.context) + '</li>').join('') + '</ul></div>'\\n    + (theirs.length ? '<div class=\\\"card\\\"><h2>Waiting on them</h2><ul class=\\\"plain\\\">' + theirs.map(n => '<li>' + esc(n.action) + ' <span class=\\\"sub\\\">(' + esc(n.owner) + (n.due ? ', ' + esc(day(n.due)) : '') + ')</span></li>').join('') + '</ul></div>' : '')\\n    + '<div class=\\\"card\\\"><details><summary>Transcript' + (DATA.transcript.labelled ? '' : ' (no speaker labels)') + '</summary>' + (turns || '<div class=\\\"plaintext\\\">' + esc(DATA.transcript.text) + '</div>') + '</details></div>';\\n}\\nasync function submit(action) {\\n  ['send', 'approve', 'discard'].forEach(id => $(id).disabled = true);\\n  const approve = [...document.querySelectorAll('.chg input:checked')].map(i => i.dataset.id);\\n  try {\\n    const res = await fetch('review', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ call_id: DATA.call_id, token: DATA.token, action, approve, subject: $('subject').value, body: $('body').value }) });\\n    const out = await res.json();\\n    if (!res.ok || !out.ok) throw new Error(out.message || 'That didn\\\\'t work.');\\n    DATA.status = out.status;\\n    left();\\n  } catch (e) { alert(e.message); ['send', 'approve', 'discard'].forEach(id => $(id).disabled = false); }\\n}\\nhead(); left(); right();\\n</script>\\n</body>\\n</html>\\n\"\n;\nconst contact = (crm.contacts || []).find(p => p.email === c.email_to) || {};\nconst data = {\n  mode: s.mode, call_id: c.call_id, token: c.token, status: c.status, rep: c.rep, duration_s: c.duration_s,\n  when: DateTime.fromISO(c.created_at).setZone(TZ).toFormat('ccc d LLL, h:mm a'),\n  deal: crm.deal || {}, company: (crm.company || {}).name || '', stage_label: stageLabel((crm.deal || {}).stage),\n  analysis: parseJson(c.analysis_json, {}), applied: parseJson(c.applied_json, { changes: [], tasks: [] }), pending: parseJson(c.pending_json, []),\n  transcript: parseJson(c.transcript_json, { segments: [] }),\n  email_to: c.email_to, email_to_name: contact.name || '', email_subject: c.email_subject, email_body: c.email_body\n};\nreturn [{ json: { code: 200, html: TEMPLATE.replace('/*__DATA__*/null', JSON.stringify(data).replace(/</g, '\\\\u003c')) } }];\n"
+      }
+    },
+    {
+      "id": "67fd5646-5c87-46ac-8da9-d0cccc3d9008",
+      "name": "Send Page",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1740,
+        300
+      ],
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.html }}",
+        "options": {
+          "responseCode": "={{ $json.code }}",
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/html; charset=utf-8"
+              },
+              {
+                "name": "Cache-Control",
+                "value": "no-store"
+              },
+              {
+                "name": "X-Robots-Tag",
+                "value": "noindex"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "2c4b5be5-8259-45bd-8337-7b93a6985198",
+      "name": "Not Found",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1300,
+        420
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Wrong or old link.\nreturn [{ json: { code: 404, html: '<!doctype html><meta charset=\"utf-8\"><title>Not found</title><p style=\"font-family:sans-serif;padding:40px\">This review link isn\\'t valid.</p>' } }];\n"
+      }
+    },
+    {
+      "id": "6dcc6f82-fa4b-4552-ae54-9251d112a82f",
+      "name": "Review Submit",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        200,
+        700
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "tidewater/review",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "webhookId": "505b6a5f-7073-42ec-a8e8-f2ccd55b79bb"
+    },
+    {
+      "id": "3ff1b5e0-b685-45db-afdf-532a57be5898",
+      "name": "Read Settings (Submit)",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        420,
+        700
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "IFuurjqqfST0GLCi",
+          "cachedResultName": "Tidewater Settings"
+        },
+        "returnAll": true
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "04d0ced0-1473-4e31-a972-d6423fa5b8c8",
+      "name": "Read Call (Submit)",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        640,
+        700
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "0hHsTxLEuk6Su6C7",
+          "cachedResultName": "Tidewater Calls"
+        },
+        "returnAll": true,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "call_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Review Submit').first().json.body.call_id || 'none' }}"
+            }
+          ]
+        }
+      },
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "id": "a218d5a9-a325-4b6a-87ca-cf2e522df9d0",
+      "name": "Plan",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        700
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// What the rep decided: which waiting changes to apply, and whether to send the (possibly edited) email.\n// The token must match and the call must still be waiting for review.\n// ---- lib-tdw.js (included by build.py): shared helpers for the Tidewater workflows ----\nconst TZ = 'America/New_York';\nconst esc = s => String(s === null || s === undefined ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');\nconst settingsOf = items => Object.fromEntries(items.map(i => i.json).filter(r => r && r.key).map(r => [r.key, r.value]));\nconst parseJson = (s, d) => { try { return typeof s === 'string' ? JSON.parse(s) : (s === null || s === undefined ? d : s); } catch (e) { return d; } };\nconst nowIso = () => DateTime.now().setZone(TZ).toISO();\nconst newId = (prefix, n) => prefix + Array.from({ length: n || 5 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 32)]).join('');\nconst newToken = n => Array.from({ length: n || 24 }, () => 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 56)]).join('');\nconst dollars = n => '$' + Math.round(Number(n) || 0).toLocaleString('en-US');\nconst day = d => /^\\d{4}-\\d{2}-\\d{2}$/.test(String(d)) ? DateTime.fromISO(d, { zone: TZ }).toFormat('ccc, LLL d') : String(d || '');\nconst mmss = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');\n\n// HubSpot's default sales pipeline.\nconst STAGES = [\n  ['appointmentscheduled', 'Appointment scheduled', 'A first meeting is booked.'],\n  ['qualifiedtobuy', 'Qualified to buy', 'Need, rough budget, decision process and timeline are understood.'],\n  ['presentationscheduled', 'Presentation scheduled', 'A demo or presentation is booked or has been given.'],\n  ['decisionmakerboughtin', 'Decision maker bought-in', 'The person who signs has seen it and supports it.'],\n  ['contractsent', 'Contract sent', 'A proposal or contract has been sent.'],\n  ['closedwon', 'Closed won', 'Signed.'],\n  ['closedlost', 'Closed lost', 'The prospect said no.']\n];\nconst stageIndex = id => STAGES.findIndex(s => s[0] === id);\nconst stageLabel = id => (STAGES.find(s => s[0] === id) || [id, id])[1];\n\n// OpenAI node (Responses API) output: the JSON object from the first output_text part, or null.\nfunction aiJson(res) {\n  if (!res || res.error) return null;\n  const msg = (res.output || []).find(o => o && o.type === 'message');\n  const part = msg && (msg.content || []).find(c => c && c.type === 'output_text');\n  let t = part ? part.text : null;\n  if (typeof t === 'string') { try { t = JSON.parse(t); } catch (e) { t = null; } }\n  return t && typeof t === 'object' ? t : null;\n}\n\n// Is this quote really in the transcript? (case, punctuation and spacing ignored)\nconst norm = s => String(s || '').toLowerCase().replace(/[’']/g, \"'\").replace(/[^a-z0-9' ]+/g, ' ').replace(/\\s+/g, ' ').trim();\nconst quoteFound = (quote, transcriptNorm) => { const q = norm(quote); return q.length >= 6 && transcriptNorm.includes(q); };\n\nfunction emailHtml(company, paragraphs, extraHtml) {\n  const p = paragraphs.map(t => '<p style=\"margin:0 0 14px;text-align:left\">' + t + '</p>').join('');\n  return '<div style=\"font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.55;color:#1f2933;max-width:560px;text-align:left\">'\n    + '<div style=\"font-weight:700;font-size:13px;letter-spacing:1px;text-transform:uppercase;color:#1d4ed8;margin:0 0 18px\">' + esc(company) + '</div>'\n    + p + (extraHtml || '') + '</div>';\n}\nconst plainToHtml = t => String(t || '').split(/\\n{2,}/).map(p => '<p style=\"margin:0 0 14px;text-align:left\">' + esc(p).replace(/\\n/g, '<br>') + '</p>').join('');\n// n8n shows a form's completion HTML as the whole page, so it needs its own styling.\nfunction formPage(title, inner) {\n  return '<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>' + esc(title) + '</title>'\n    + '<style>body{margin:0;background:#eef2fb;font:15px/1.55 -apple-system,\"Segoe UI\",Helvetica,Arial,sans-serif;color:#0f1b3d}'\n    + '.card{max-width:760px;margin:40px auto;background:#fff;border:1px solid #d9e1f2;border-radius:16px;padding:30px 32px;box-shadow:0 8px 24px rgba(15,27,61,.06)}'\n    + '.brand{font-size:12px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#1d4ed8;margin-bottom:16px}</style></head>'\n    + '<body><div class=\"card\"><div class=\"brand\">Tidewater Software · Call autopilot</div>' + inner + '</div></body></html>';\n}\n// ---- end lib-tdw.js ----\nconst b = $('Review Submit').first().json.body || {};\nconst c = $('Read Call (Submit)').all().map(i => i.json).find(r => r.call_id === b.call_id) || null;\nconst s = settingsOf($('Read Settings (Submit)').all());\nif (!c || !b.token || b.token !== c.token) return [{ json: { ok: false, code: 403, message: 'Not allowed.' } }];\nif (c.status !== 'pending_review') return [{ json: { ok: false, code: 409, message: 'This call was already reviewed.' } }];\nconst action = ['send', 'approve', 'discard'].includes(b.action) ? b.action : 'approve';\nconst pending = parseJson(c.pending_json, []);\nconst chosen = action === 'discard' ? [] : pending.filter(p => p.field !== 'email' && [].concat(b.approve || []).includes(p.id));\nconst fields = {};\nfor (const p of chosen) fields[p.field] = p.value;\nconst subject = String(b.subject || c.email_subject).slice(0, 200);\nconst body = String(b.body || c.email_body).slice(0, 5000);\nconst ops = [];\nif (Object.keys(fields).length) ops.push({ action: 'update_deal', deal_id: c.deal_id, fields });\nif (action === 'send') ops.push({ action: 'add_note', deal_id: c.deal_id, kind: 'email', title: 'Follow-up email sent: ' + subject, body, owner: c.rep, source: 'call-autopilot' });\nconst applied = parseJson(c.applied_json, { changes: [], tasks: [] });\napplied.changes = applied.changes.concat(chosen.map(p => ({ ...p, approved_by: c.rep })));\nconst status = action === 'send' ? 'sent' : action === 'approve' ? 'approved' : 'discarded';\nreturn [{ json: {\n  ok: true, code: 200, call_id: c.call_id, status, ops,\n  email: action === 'send' && c.email_to ? { to: c.email_to, subject, html: plainToHtml(body), kind: 'follow_up', call_id: c.call_id } : null,\n  row: { applied_json: JSON.stringify(applied), pending_json: JSON.stringify(pending.filter(p => !chosen.includes(p))), email_subject: subject, email_body: body, status, reviewed_at: nowIso() },\n  message: status === 'sent' ? 'Sent, and the CRM is up to date.' : status === 'approved' ? 'Changes approved.' : 'Discarded.'\n} }];\n"
+      }
+    },
+    {
+      "id": "4e7b83f1-1833-4012-9312-a4d053647fef",
+      "name": "Allowed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1080,
+        700
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.ok }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "8599d8cc-311a-40f6-9555-54283366ec7c",
+      "name": "CRM Updates",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1300,
+        600
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// One CRM write per item (a placeholder when there is nothing to change).\nconst p = $('Plan').first().json;\nreturn (p.ops.length ? p.ops : [{ action: 'none' }]).map(json => ({ json }));\n"
+      }
+    },
+    {
+      "id": "2b580402-9523-4927-97c5-121d0503948e",
+      "name": "Update CRM",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        1520,
+        600
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "tdwCrmAdapter003",
+          "cachedResultName": "Tidewater 3: CRM"
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "id": "7a443363-b97d-4c08-8c05-20689c5dd67c",
+      "name": "Follow-up Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1740,
+        600
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// The follow-up email, if the rep chose to send it.\nconst p = $('Plan').first().json;\nreturn [{ json: p.email || { to: '' } }];\n"
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "5eab9006-8335-49b2-a67b-aba3ff79007b",
+      "name": "Send Email",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        1960,
+        600
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "tdwSendEmail0005",
+          "cachedResultName": "Tidewater 5: Send Email"
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "ab081b70-1c2b-43ea-8f6e-caa6139b3b2a",
+      "name": "Reviewed Row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2180,
+        600
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// The call row after review.\nconst p = $('Plan').first().json;\nreturn [{ json: { call_id: p.call_id, ...p.row } }];\n"
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "50167e0f-e56c-461d-969d-532e743607c0",
+      "name": "Update Call",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2400,
+        600
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "0hHsTxLEuk6Su6C7",
+          "cachedResultName": "Tidewater Calls"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "call_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.call_id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "applied_json": "={{ $json.applied_json }}",
+            "pending_json": "={{ $json.pending_json }}",
+            "email_subject": "={{ $json.email_subject }}",
+            "email_body": "={{ $json.email_body }}",
+            "status": "={{ $json.status }}",
+            "reviewed_at": "={{ $json.reviewed_at }}"
+          },
+          "schema": [
+            {
+              "id": "applied_json",
+              "displayName": "applied_json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "pending_json",
+              "displayName": "pending_json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "email_subject",
+              "displayName": "email_subject",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "email_body",
+              "displayName": "email_body",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "reviewed_at",
+              "displayName": "reviewed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "19bfb0cd-67cc-4b85-816a-eabb9a64da92",
+      "name": "Submit Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2620,
+        700
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// What the page gets back.\nconst p = $('Plan').first().json;\nreturn [{ json: { code: p.code, body: { ok: p.ok, message: p.message, status: p.status || '' } } }];\n"
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "22ece7e9-8452-4200-92c0-a6bbd1b76376",
+      "name": "Send Result",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        2840,
+        700
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.body }}",
+        "options": {
+          "responseCode": "={{ $json.code }}"
+        }
+      }
+    },
+    {
+      "id": "7204803d-9bc2-47f7-b916-8be3da6e41fb",
+      "name": "Sticky Note 7204803d",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        160,
+        -20
+      ],
+      "parameters": {
+        "content": "## Tidewater 4: Review Page\n`GET /webhook/tidewater/review?call=…&t=…` is the rep's page for one call: summary, what already went into the CRM, the changes that wait for an OK (with the quote behind each), BANT, objections, risks, the transcript, and the follow-up email to edit.\n`POST` applies the changes the rep ticked, sends the email (Gmail live, Outbox test), logs it on the deal and closes the review. Each link has a private token, and a call can only be reviewed once.",
+        "color": 5,
+        "width": 1400,
+        "height": 220
+      }
+    }
+  ],
+  "connections": {
+    "Review Link": {
+      "main": [
+        [
+          {
+            "node": "Read Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Settings": {
+      "main": [
+        [
+          {
+            "node": "Read Call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Call": {
+      "main": [
+        [
+          {
+            "node": "Check Link",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Link": {
+      "main": [
+        [
+          {
+            "node": "Link OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Link OK?": {
+      "main": [
+        [
+          {
+            "node": "Get Deal",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Not Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Deal": {
+      "main": [
+        [
+          {
+            "node": "Build Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Page": {
+      "main": [
+        [
+          {
+            "node": "Send Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Not Found": {
+      "main": [
+        [
+          {
+            "node": "Send Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Review Submit": {
+      "main": [
+        [
+          {
+            "node": "Read Settings (Submit)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Settings (Submit)": {
+      "main": [
+        [
+          {
+            "node": "Read Call (Submit)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Call (Submit)": {
+      "main": [
+        [
+          {
+            "node": "Plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Plan": {
+      "main": [
+        [
+          {
+            "node": "Allowed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Allowed?": {
+      "main": [
+        [
+          {
+            "node": "CRM Updates",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Submit Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CRM Updates": {
+      "main": [
+        [
+          {
+            "node": "Update CRM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update CRM": {
+      "main": [
+        [
+          {
+            "node": "Follow-up Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Follow-up Email": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email": {
+      "main": [
+        [
+          {
+            "node": "Reviewed Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reviewed Row": {
+      "main": [
+        [
+          {
+            "node": "Update Call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Call": {
+      "main": [
+        [
+          {
+            "node": "Submit Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Submit Result": {
+      "main": [
+        [
+          {
+            "node": "Send Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "timezone": "America/New_York",
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "iTxd64lDk3gI0bKG"
+  }
+}

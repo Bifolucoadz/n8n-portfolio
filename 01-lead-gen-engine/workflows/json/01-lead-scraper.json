@@ -1,0 +1,916 @@
+[
+  {
+    "updatedAt": "2026-10-01T13:16:05.251Z",
+    "createdAt": "2026-10-01T11:52:01.898Z",
+    "id": "DMu75PRNClFPBqdY",
+    "name": "Lead Engine 1: Lead Scraper",
+    "description": "Form input (business type + city) → Apify Google Maps scrape → drop known places → OpenAI scores fit and writes an opener → append to Google Sheet → email summary.",
+    "active": true,
+    "isArchived": false,
+    "nodes": [
+      {
+        "parameters": {
+          "formTitle": "Find new leads",
+          "formDescription": "Searches Google Maps for one type of business in one area, scores every new place with AI and adds it to the Lead Generation Engine sheet.",
+          "formFields": {
+            "values": [
+              {
+                "fieldLabel": "Business type",
+                "fieldName": "niche",
+                "placeholder": "e.g. dental clinics",
+                "requiredField": true
+              },
+              {
+                "fieldLabel": "City or area",
+                "fieldName": "location",
+                "placeholder": "e.g. Leeds, UK",
+                "requiredField": true
+              },
+              {
+                "fieldLabel": "Max places to scrape (1-100)",
+                "fieldType": "number",
+                "fieldName": "max_places",
+                "defaultValue": "20"
+              }
+            ]
+          },
+          "options": {
+            "appendAttribution": false,
+            "buttonLabel": "Find leads",
+            "path": "lead-search",
+            "respondWithOptions": {
+              "values": {
+                "formSubmittedText": "Search started. New leads will appear in the sheet within a few minutes, and a summary email is on its way."
+              }
+            }
+          }
+        },
+        "id": "b7fb8869-a030-493b-94c9-3f9bacd2eba6",
+        "name": "Lead Search Form",
+        "type": "n8n-nodes-base.formTrigger",
+        "typeVersion": 2.6,
+        "position": [
+          224,
+          304
+        ],
+        "webhookId": "454b34e5-9a8f-4110-8c4b-ae2b8a43db4a"
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "cfg-niche",
+                "name": "NICHE",
+                "value": "={{ String($json.niche ?? $json[\"Business type\"] ?? \"\").trim() }}",
+                "type": "string"
+              },
+              {
+                "id": "cfg-location",
+                "name": "LOCATION",
+                "value": "={{ String($json.location ?? $json[\"City or area\"] ?? \"\").trim() }}",
+                "type": "string"
+              },
+              {
+                "id": "cfg-max",
+                "name": "MAX_PLACES",
+                "value": "={{ Math.min(Math.max(Number($json.max_places ?? $json[\"Max places to scrape (1-100)\"]) || 20, 1), 100) }}",
+                "type": "number"
+              },
+              {
+                "id": "cfg-offer",
+                "name": "OFFER",
+                "value": "I build AI automations for small businesses: instant replies to new enquiries, automatic follow-ups so leads don't go cold, appointment booking, and AI assistants that answer common customer questions around the clock. Built on n8n and usually live within two weeks.",
+                "type": "string"
+              },
+              {
+                "id": "cfg-min-score",
+                "name": "MIN_SCORE",
+                "value": 6,
+                "type": "number"
+              },
+              {
+                "id": "cfg-notify",
+                "name": "NOTIFY_EMAIL",
+                "value": "samuelgurru@gmail.com",
+                "type": "string"
+              },
+              {
+                "id": "cfg-sheet-url",
+                "name": "SHEET_URL",
+                "value": "https://docs.google.com/spreadsheets/d/1515YmG8Ak6Ozdy-Feho_VIYyxr49B4XhGSczavigJ1k/edit",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "ba8b30fd-4a71-4792-aca4-8d97c842fc14",
+        "name": "Config",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          448,
+          304
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://api.apify.com/v2/acts/compass~crawler-google-places/run-sync-get-dataset-items",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ searchStringsArray: [$json.NICHE], locationQuery: $json.LOCATION, maxCrawledPlacesPerSearch: $json.MAX_PLACES, language: \"en\", skipClosedPlaces: true, scrapeContacts: true }) }}",
+          "options": {
+            "timeout": 310000
+          }
+        },
+        "id": "a6a8c84b-c5a3-4b85-82d8-f78b042bb2b4",
+        "name": "Scrape Google Maps (Apify)",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "position": [
+          768,
+          304
+        ],
+        "retryOnFail": true,
+        "maxTries": 3,
+        "waitBetweenTries": 5000,
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "pMeRs9RiRtbTRWt6",
+            "name": "Apify credential"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "documentId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "1515YmG8Ak6Ozdy-Feho_VIYyxr49B4XhGSczavigJ1k"
+          },
+          "sheetName": {
+            "__rl": true,
+            "mode": "list",
+            "value": "gid=0",
+            "cachedResultName": "Leads"
+          },
+          "options": {}
+        },
+        "id": "92c16176-7903-4011-adea-4b4b6e597b52",
+        "name": "Read Existing Leads",
+        "type": "n8n-nodes-base.googleSheets",
+        "typeVersion": 4.7,
+        "position": [
+          992,
+          304
+        ],
+        "executeOnce": true,
+        "retryOnFail": true,
+        "maxTries": 3,
+        "waitBetweenTries": 5000,
+        "alwaysOutputData": true,
+        "credentials": {
+          "googleSheetsOAuth2Api": {
+            "id": "D8rKxzgMrJwmFZoQ",
+            "name": "Google Sheets account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "// Drop places already in the sheet (or repeated in this scrape) and map Apify fields to sheet columns.\nconst known = new Set($input.all().map(i => String(i.json.place_id ?? \"\")).filter(Boolean));\nconst isEmail = e => /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(e);\nconst seen = new Set();\nconst fresh = [];\n\nfor (const { json: p } of $(\"Scrape Google Maps (Apify)\").all()) {\n  const placeId = p.placeId;\n  if (!placeId || known.has(placeId) || seen.has(placeId)) continue;\n  seen.add(placeId);\n  const email = (p.emails ?? []).map(e => String(e).trim().toLowerCase()).find(isEmail) ?? \"\";\n  fresh.push({\n    json: {\n      place_id: placeId,\n      business_name: p.title ?? \"\",\n      category: p.categoryName ?? \"\",\n      address: p.address ?? \"\",\n      city: p.city ?? \"\",\n      phone: p.phone ?? \"\",\n      website: p.website ?? \"\",\n      email,\n      rating: typeof p.totalScore === \"number\" ? p.totalScore : null,\n      reviews: typeof p.reviewsCount === \"number\" ? p.reviewsCount : null,\n      maps_url: p.url ?? \"\",\n    },\n  });\n}\n\nreturn fresh;"
+        },
+        "id": "610d2f87-d4df-49a9-b466-14f54eee4d88",
+        "name": "Keep New Places Only",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1200,
+          304
+        ]
+      },
+      {
+        "parameters": {
+          "promptType": "define",
+          "text": "=Business: {{ $json.business_name }}\nCategory: {{ $json.category || \"unknown\" }}\nArea: {{ $json.city || $json.address || \"unknown\" }}\nGoogle rating: {{ $json.rating ?? \"none\" }} from {{ $json.reviews ?? 0 }} reviews\nWebsite: {{ $json.website || \"none\" }}\nEmail address found: {{ $json.email ? \"yes\" : \"no\" }}\nPhone listed: {{ $json.phone ? \"yes\" : \"no\" }}\n\nThe offer: {{ $(\"Config\").first().json.OFFER }}",
+          "hasOutputParser": true,
+          "messages": {
+            "messageValues": [
+              {
+                "type": "SystemMessagePromptTemplate",
+                "message": "You qualify local businesses as prospects for a freelancer who builds AI automations. Use only the listing data you are given and never invent facts.\n\nlead_score (1-10): how likely this business is to need and pay for the offer. Score higher when the business runs on enquiries and bookings (clinics, salons, trades, agencies, restaurants that take reservations), is busy (many reviews), is active online (has a website) and can be reached by email. Score lower for large chains and franchises with central IT, public bodies and charities, and listings with very few reviews and no website.\n\nscore_reason: one short sentence explaining the score.\n\npersonal_line: one natural sentence, max 25 words, that the freelancer could open a cold email with. Base it on something specific, true and positive from the listing, such as a strong rating, a high number of reviews, the specialty or the neighbourhood. Never mention a rating below 4.0 or a low number of reviews. Do not start with \"I noticed\" or \"I saw\". No flattery cliches and no exclamation marks."
+              }
+            ]
+          },
+          "batching": {
+            "batchSize": 5,
+            "delayBetweenBatches": 0
+          }
+        },
+        "id": "94d031cd-de88-4ac1-b967-ed63402e2da1",
+        "name": "Score Lead with AI",
+        "type": "@n8n/n8n-nodes-langchain.chainLlm",
+        "typeVersion": 1.9,
+        "position": [
+          1504,
+          304
+        ],
+        "retryOnFail": true,
+        "maxTries": 3,
+        "waitBetweenTries": 5000,
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "schemaType": "manual",
+          "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"lead_score\": { \"type\": \"integer\", \"minimum\": 1, \"maximum\": 10, \"description\": \"Fit with the offer, 1 (poor) to 10 (ideal)\" },\n    \"score_reason\": { \"type\": \"string\", \"description\": \"One short sentence explaining the score\" },\n    \"personal_line\": { \"type\": \"string\", \"description\": \"One natural opening sentence for a cold email, max 25 words\" }\n  },\n  \"required\": [\"lead_score\", \"score_reason\", \"personal_line\"]\n}"
+        },
+        "id": "5ad73fce-a476-4d9a-87b3-579db0c076dd",
+        "name": "Score Format",
+        "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+        "typeVersion": 1.3,
+        "position": [
+          1680,
+          544
+        ]
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "row-place_id",
+                "name": "place_id",
+                "value": "={{ $(\"Keep New Places Only\").item.json.place_id }}",
+                "type": "string"
+              },
+              {
+                "id": "row-business_name",
+                "name": "business_name",
+                "value": "={{ $(\"Keep New Places Only\").item.json.business_name }}",
+                "type": "string"
+              },
+              {
+                "id": "row-category",
+                "name": "category",
+                "value": "={{ $(\"Keep New Places Only\").item.json.category }}",
+                "type": "string"
+              },
+              {
+                "id": "row-address",
+                "name": "address",
+                "value": "={{ $(\"Keep New Places Only\").item.json.address }}",
+                "type": "string"
+              },
+              {
+                "id": "row-city",
+                "name": "city",
+                "value": "={{ $(\"Keep New Places Only\").item.json.city }}",
+                "type": "string"
+              },
+              {
+                "id": "row-phone",
+                "name": "phone",
+                "value": "={{ $(\"Keep New Places Only\").item.json.phone }}",
+                "type": "string"
+              },
+              {
+                "id": "row-website",
+                "name": "website",
+                "value": "={{ $(\"Keep New Places Only\").item.json.website }}",
+                "type": "string"
+              },
+              {
+                "id": "row-email",
+                "name": "email",
+                "value": "={{ $(\"Keep New Places Only\").item.json.email }}",
+                "type": "string"
+              },
+              {
+                "id": "row-maps_url",
+                "name": "maps_url",
+                "value": "={{ $(\"Keep New Places Only\").item.json.maps_url }}",
+                "type": "string"
+              },
+              {
+                "id": "row-rating",
+                "name": "rating",
+                "value": "={{ $(\"Keep New Places Only\").item.json.rating }}",
+                "type": "number"
+              },
+              {
+                "id": "row-reviews",
+                "name": "reviews",
+                "value": "={{ $(\"Keep New Places Only\").item.json.reviews }}",
+                "type": "number"
+              },
+              {
+                "id": "row-score",
+                "name": "lead_score",
+                "value": "={{ $json.output?.lead_score ?? null }}",
+                "type": "number"
+              },
+              {
+                "id": "row-reason",
+                "name": "score_reason",
+                "value": "={{ $json.output?.score_reason ?? \"Not scored: the AI step failed, see the execution log\" }}",
+                "type": "string"
+              },
+              {
+                "id": "row-line",
+                "name": "personal_line",
+                "value": "={{ $json.output?.personal_line ?? \"\" }}",
+                "type": "string"
+              },
+              {
+                "id": "row-status",
+                "name": "status",
+                "value": "={{ $(\"Keep New Places Only\").item.json.email ? \"new\" : \"no_email\" }}",
+                "type": "string"
+              },
+              {
+                "id": "row-sent",
+                "name": "emails_sent",
+                "value": 0,
+                "type": "number"
+              },
+              {
+                "id": "row-added",
+                "name": "added_at",
+                "value": "={{ $now.toISO() }}",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {
+            "ignoreConversionErrors": true
+          }
+        },
+        "id": "6e8e407d-2b6f-445e-83a5-ce4f385e253c",
+        "name": "Build Lead Row",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          2048,
+          304
+        ]
+      },
+      {
+        "parameters": {
+          "operation": "append",
+          "documentId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "1515YmG8Ak6Ozdy-Feho_VIYyxr49B4XhGSczavigJ1k"
+          },
+          "sheetName": {
+            "__rl": true,
+            "mode": "list",
+            "value": "gid=0",
+            "cachedResultName": "Leads"
+          },
+          "columns": {
+            "mappingMode": "autoMapInputData",
+            "value": {},
+            "schema": [
+              {
+                "id": "place_id",
+                "displayName": "place_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "business_name",
+                "displayName": "business_name",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "category",
+                "displayName": "category",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "address",
+                "displayName": "address",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "city",
+                "displayName": "city",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "phone",
+                "displayName": "phone",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "website",
+                "displayName": "website",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "email",
+                "displayName": "email",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "rating",
+                "displayName": "rating",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "number",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "reviews",
+                "displayName": "reviews",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "number",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "maps_url",
+                "displayName": "maps_url",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "lead_score",
+                "displayName": "lead_score",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "number",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "score_reason",
+                "displayName": "score_reason",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "personal_line",
+                "displayName": "personal_line",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "status",
+                "displayName": "status",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "emails_sent",
+                "displayName": "emails_sent",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "number",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "last_email_at",
+                "displayName": "last_email_at",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "next_followup_at",
+                "displayName": "next_followup_at",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "thread_id",
+                "displayName": "thread_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "last_message_id",
+                "displayName": "last_message_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "reply_type",
+                "displayName": "reply_type",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "reply_summary",
+                "displayName": "reply_summary",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "replied_at",
+                "displayName": "replied_at",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "added_at",
+                "displayName": "added_at",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              }
+            ]
+          },
+          "options": {
+            "cellFormat": "RAW",
+            "handlingExtraData": "ignoreIt"
+          }
+        },
+        "id": "a7bca587-778c-429c-b502-279d5a9ec7e5",
+        "name": "Save Leads to Sheet",
+        "type": "n8n-nodes-base.googleSheets",
+        "typeVersion": 4.7,
+        "position": [
+          2272,
+          304
+        ],
+        "retryOnFail": true,
+        "maxTries": 3,
+        "waitBetweenTries": 5000,
+        "credentials": {
+          "googleSheetsOAuth2Api": {
+            "id": "D8rKxzgMrJwmFZoQ",
+            "name": "Google Sheets account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "sendTo": "={{ $(\"Config\").first().json.NOTIFY_EMAIL }}",
+          "subject": "=Lead Scraper: {{ $(\"Build Lead Row\").all().length }} new leads for {{ $(\"Config\").first().json.NICHE }} in {{ $(\"Config\").first().json.LOCATION }}",
+          "emailType": "text",
+          "message": "=Run finished at {{ $now.toFormat(\"HH:mm, d LLL yyyy\") }}.\n\nPlaces returned by Google Maps: {{ $(\"Scrape Google Maps (Apify)\").all().length }}\nNew places added to the sheet: {{ $(\"Build Lead Row\").all().length }}\nWith an email address: {{ $(\"Build Lead Row\").all().filter(i => i.json.status === \"new\").length }}\nReady for outreach (email and score {{ $(\"Config\").first().json.MIN_SCORE }}+): {{ $(\"Build Lead Row\").all().filter(i => i.json.status === \"new\" && (i.json.lead_score ?? 0) >= $(\"Config\").first().json.MIN_SCORE).length }}\n\nTop leads:\n{{ $(\"Build Lead Row\").all().map(i => i.json).sort((a, b) => (b.lead_score ?? 0) - (a.lead_score ?? 0)).slice(0, 5).map(l => \"- \" + l.business_name + \" (score \" + (l.lead_score ?? \"n/a\") + \", \" + (l.email || \"no email\") + \")\").join(\"\\n\") }}\n\nOpen the sheet: {{ $(\"Config\").first().json.SHEET_URL }}\n",
+          "options": {
+            "appendAttribution": false
+          }
+        },
+        "id": "74ca55b0-4d0c-4783-9223-9556a4a6f247",
+        "name": "Email Run Summary",
+        "type": "n8n-nodes-base.gmail",
+        "typeVersion": 2.2,
+        "position": [
+          2480,
+          304
+        ],
+        "executeOnce": true,
+        "retryOnFail": true,
+        "maxTries": 3,
+        "waitBetweenTries": 5000,
+        "webhookId": "2763d828-64d9-4239-8fb7-8e3bccb1fc74",
+        "credentials": {
+          "gmailOAuth2": {
+            "id": "9FKWoKxErtgj9Qg7",
+            "name": "Gmail account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "content": "## 1. Search input\nOpen the form (Production URL once the workflow is published), enter a business type and an area, and submit. The form answers straight away; the scrape keeps running in the background.\n\n**Config** holds `OFFER` (keep it the same as in the Outreach workflow), `MIN_SCORE` and `NOTIFY_EMAIL`.",
+          "height": 560,
+          "width": 480,
+          "color": 7
+        },
+        "id": "ee402c82-ecd9-4157-aa21-4da7b105c4a3",
+        "name": "Sticky Note 4fadbfde",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          144,
+          -64
+        ]
+      },
+      {
+        "parameters": {
+          "content": "## 2. Scrape Google Maps\nCalls Apify's Google Maps actor (`compass/crawler-google-places`) with contact scraping on, so each place comes back with any email addresses found on its website.\n\nThe run-sync endpoint waits up to 5 minutes, which covers about 100 places. Places whose `place_id` is already in the sheet are dropped, so re-running a search only adds new businesses.",
+          "height": 560,
+          "width": 700,
+          "color": 4
+        },
+        "id": "9711dd54-f119-49b6-b911-5407e0c47313",
+        "name": "Sticky Note 65d7c45a",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          672,
+          -64
+        ]
+      },
+      {
+        "parameters": {
+          "content": "## 3. Score with AI\nOpenAI GPT-5.4 mini rates each place 1-10 for fit with the offer, says why, and writes a one-line personal opener from the listing.\n\nIf the AI step fails for a place, the place is still saved without a score, so the Apify spend is not wasted. Unscored leads are never emailed.",
+          "height": 780,
+          "width": 520,
+          "color": 6
+        },
+        "id": "eab8a4a8-e506-4c73-aa3a-e614c36f87a5",
+        "name": "Sticky Note 6ce9068d",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          1408,
+          -64
+        ]
+      },
+      {
+        "parameters": {
+          "content": "## 4. Save and report\nEach place is appended to the sheet with `status = new` (email found) or `no_email`. A summary email lists how many were added and the top five by score.",
+          "height": 560,
+          "width": 700,
+          "color": 5
+        },
+        "id": "283c1600-9e0b-4d8f-92ce-9b4f761ca124",
+        "name": "Sticky Note c88613a0",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          1968,
+          -64
+        ]
+      },
+      {
+        "parameters": {
+          "model": {
+            "__rl": true,
+            "mode": "list",
+            "value": "gpt-5.4-mini",
+            "cachedResultName": "gpt-5.4-mini"
+          },
+          "builtInTools": {},
+          "options": {
+            "reasoningEffort": "low"
+          }
+        },
+        "id": "11ef8a36-d66f-4292-9144-cb64065ab37a",
+        "name": "OpenAI GPT-5.4 mini",
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        "typeVersion": 1.3,
+        "position": [
+          1472,
+          544
+        ],
+        "credentials": {
+          "openAiApi": {
+            "id": "GQdth43VUJxkSsw9",
+            "name": "OpenAI account"
+          }
+        }
+      }
+    ],
+    "connections": {
+      "Lead Search Form": {
+        "main": [
+          [
+            {
+              "node": "Config",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Config": {
+        "main": [
+          [
+            {
+              "node": "Scrape Google Maps (Apify)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Scrape Google Maps (Apify)": {
+        "main": [
+          [
+            {
+              "node": "Read Existing Leads",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Read Existing Leads": {
+        "main": [
+          [
+            {
+              "node": "Keep New Places Only",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Keep New Places Only": {
+        "main": [
+          [
+            {
+              "node": "Score Lead with AI",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Score Format": {
+        "ai_outputParser": [
+          [
+            {
+              "node": "Score Lead with AI",
+              "type": "ai_outputParser",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Build Lead Row": {
+        "main": [
+          [
+            {
+              "node": "Save Leads to Sheet",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Save Leads to Sheet": {
+        "main": [
+          [
+            {
+              "node": "Email Run Summary",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Score Lead with AI": {
+        "main": [
+          [
+            {
+              "node": "Build Lead Row",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "OpenAI GPT-5.4 mini": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "Score Lead with AI",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1",
+      "availableInMCP": true,
+      "errorWorkflow": "IMDuCtka4p13GBto",
+      "timezone": "Africa/Lagos",
+      "executionTimeout": 900,
+      "binaryMode": "separate"
+    },
+    "staticData": null,
+    "meta": {
+      "aiBuilderAssisted": true,
+      "builderVariant": "mcp",
+      "templateCredsSetupCompleted": true
+    },
+    "nodeGroups": [],
+    "pinData": {},
+    "versionId": "e59b1e09-eb2e-41e7-8493-39e66204a9e6",
+    "activeVersionId": "e59b1e09-eb2e-41e7-8493-39e66204a9e6",
+    "versionCounter": 8,
+    "triggerCount": 1,
+    "sourceWorkflowId": null,
+    "tags": [
+      {
+        "updatedAt": "2026-10-01T12:00:05.096Z",
+        "createdAt": "2026-10-01T12:00:05.096Z",
+        "id": "Clu8sveTmN7O7jzV",
+        "name": "portfolio"
+      },
+      {
+        "updatedAt": "2026-10-01T12:00:05.094Z",
+        "createdAt": "2026-10-01T12:00:05.094Z",
+        "id": "qjpEykWc9tHuNa2O",
+        "name": "lead-engine"
+      }
+    ],
+    "shared": [
+      {
+        "updatedAt": "2026-10-01T11:52:01.901Z",
+        "createdAt": "2026-10-01T11:52:01.901Z",
+        "role": "workflow:owner",
+        "workflowId": "DMu75PRNClFPBqdY",
+        "projectId": "YsMTtqflyTWc3LOK",
+        "project": {
+          "updatedAt": "2026-07-14T23:35:46.885Z",
+          "createdAt": "2026-07-14T23:33:27.645Z",
+          "id": "YsMTtqflyTWc3LOK",
+          "name": "Samuel Oladele <samuel@carrotcredit.com>",
+          "type": "personal",
+          "icon": null,
+          "description": null,
+          "customTelemetryTags": [],
+          "creatorId": "69fa5aa9-e74e-4425-80ca-8a1dbc6bb1e6"
+        }
+      }
+    ],
+    "versionMetadata": {
+      "name": null,
+      "description": null
+    }
+  }
+]

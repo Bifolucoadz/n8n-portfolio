@@ -1,0 +1,449 @@
+{
+  "id": "ilfWeeklyAnom003",
+  "name": "Ironleaf 3: Weekly Anomalies",
+  "description": "Data analyst (project 7): Monday report. Fixed SQL compares last week with the 8 weeks before for each branch; code flags unusual numbers; GPT-5.4 writes the summary.",
+  "nodes": [
+    {
+      "id": "dc40d486-82e1-43aa-88e6-022333208087",
+      "name": "Mondays 7:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        200,
+        300
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "weeksInterval": 1,
+              "triggerAtDay": [
+                1
+              ],
+              "triggerAtHour": 7,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "c2185d0f-c290-467f-87aa-3dba174835b7",
+      "name": "Read Settings",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        440,
+        400
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "eLHuDVWvuDw7XkhB",
+          "cachedResultName": "Ironleaf Settings"
+        },
+        "returnAll": true
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "ab6ed467-5838-4e95-9fc6-5f7cdeabb361",
+      "name": "Weekly Query",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// The fixed weekly query, as a base64 parameter for the read-only function.\nconst sql =\n\"WITH weeks AS (\\n  SELECT generate_series(date_trunc('week', current_date) - interval '9 weeks', date_trunc('week', current_date) - interval '1 week', interval '1 week')::date AS wk\\n),\\nv AS (\\n  SELECT branch_id, date_trunc('week', checked_in_at)::date AS wk, count(*)::int AS n FROM visits\\n  WHERE checked_in_at >= date_trunc('week', current_date) - interval '9 weeks' AND checked_in_at < date_trunc('week', current_date) GROUP BY 1, 2\\n),\\nj AS (\\n  SELECT branch_id, date_trunc('week', joined_on)::date AS wk, count(*)::int AS n FROM members\\n  WHERE joined_on >= date_trunc('week', current_date) - interval '9 weeks' AND joined_on < date_trunc('week', current_date) GROUP BY 1, 2\\n),\\nc AS (\\n  SELECT branch_id, date_trunc('week', cancelled_on)::date AS wk, count(*)::int AS n FROM members\\n  WHERE cancelled_on >= date_trunc('week', current_date) - interval '9 weeks' AND cancelled_on < date_trunc('week', current_date) GROUP BY 1, 2\\n),\\np AS (\\n  SELECT m.branch_id, date_trunc('week', p.paid_on)::date AS wk, count(*) FILTER (WHERE p.status = 'failed')::int AS failed,\\n    coalesce(round(sum(p.amount) FILTER (WHERE p.status = 'paid'), 2), 0) AS revenue\\n  FROM payments p JOIN members m ON m.id = p.member_id\\n  WHERE p.paid_on >= date_trunc('week', current_date) - interval '9 weeks' AND p.paid_on < date_trunc('week', current_date) GROUP BY 1, 2\\n)\\nSELECT b.name AS branch, w.wk AS week, coalesce(v.n, 0) AS check_ins, coalesce(j.n, 0) AS new_members, coalesce(c.n, 0) AS cancellations,\\n  coalesce(p.failed, 0) AS failed_payments, coalesce(p.revenue, 0) AS revenue\\nFROM branches b CROSS JOIN weeks w\\nLEFT JOIN v ON v.branch_id = b.id AND v.wk = w.wk\\nLEFT JOIN j ON j.branch_id = b.id AND j.wk = w.wk\\nLEFT JOIN c ON c.branch_id = b.id AND c.wk = w.wk\\nLEFT JOIN p ON p.branch_id = b.id AND p.wk = w.wk\\nWHERE w.wk >= b.opened_on - 7\\nORDER BY 1, 2\\n\"\n;\nreturn [{ json: { sql_b64: Buffer.from(sql, 'utf8').toString('base64') } }];\n"
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "f2d6a63a-4c72-4437-8e92-98aac12fe1a5",
+      "name": "Last 9 Weeks",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        880,
+        400
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT ironleaf.run_readonly(convert_from(decode($1, 'base64'), 'UTF8')) AS rows",
+        "options": {
+          "queryReplacement": "={{ $json.sql_b64 }}",
+          "largeNumbersOutput": "numbers"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "ilfPostgresLocal",
+          "name": "Ironleaf Postgres (local)"
+        }
+      }
+    },
+    {
+      "id": "e9212f3a-c56f-4e7f-a186-187da9b4e229",
+      "name": "Flag Changes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Last full week vs the 8 weeks before, per branch and metric (code, not AI). A change is flagged when it\n// is at least `anomaly_z` standard deviations from the average AND at least `anomaly_min_change_pct`\n// away from it, and the numbers aren't tiny.\n// ---- lib-ilf.js (included by build.py): shared helpers for the Ironleaf workflows ----\nconst TZ = 'Europe/London';\nconst esc = s => String(s === null || s === undefined ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');\nconst settingsOf = items => Object.fromEntries(items.map(i => i.json).filter(r => r && r.key).map(r => [r.key, r.value]));\nconst parseJson = (s, d) => { try { return typeof s === 'string' ? JSON.parse(s) : (s === null || s === undefined ? d : s); } catch (e) { return d; } };\nconst clip = (t, n) => { t = String(t || '').trim().replace(/\\.$/, ''); return t.length <= n ? t : t.slice(0, n).replace(/\\s+\\S*$/, '') + '…'; };\nconst nowIso = () => DateTime.now().setZone(TZ).toISO();\nfunction aiJson(res) {\n  if (!res || res.error) return null;\n  const msg = (res.output || []).find(o => o && o.type === 'message');\n  const part = msg && (msg.content || []).find(c => c && c.type === 'output_text');\n  let t = part ? part.text : null;\n  if (typeof t === 'string') { try { t = JSON.parse(t); } catch (e) { t = null; } }\n  return t && typeof t === 'object' ? t : null;\n}\nfunction emailHtml(company, paragraphs, extraHtml) {\n  const p = paragraphs.filter(Boolean).map(t => '<p style=\"margin:0 0 14px;text-align:left\">' + t + '</p>').join('');\n  return '<div style=\"font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.55;color:#1c1f26;max-width:600px;text-align:left\">'\n    + '<div style=\"font-weight:800;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;color:#d9480f;margin:0 0 18px\">' + esc(company) + '</div>'\n    + p + (extraHtml || '') + '</div>';\n}\n// ---- end lib-ilf.js ----\nconst s = settingsOf($('Read Settings').all());\nconst rows = (() => { const r = $input.first().json.rows; return Array.isArray(r) ? r : JSON.parse(r || '[]'); })();\nconst Z = Number(s.anomaly_z || 2), MIN = Number(s.anomaly_min_change_pct || 15);\nconst METRICS = { check_ins: 'check-ins', new_members: 'new members', cancellations: 'cancellations', failed_payments: 'failed payments', revenue: 'revenue (£)' };\nconst weeks = [...new Set(rows.map(r => r.week))].sort();\nconst last = weeks[weeks.length - 1];\nconst flags = [], totals = {};\nfor (const branch of [...new Set(rows.map(r => r.branch))]) {\n  const br = rows.filter(r => r.branch === branch);\n  for (const m of Object.keys(METRICS)) {\n    const now = Number((br.find(r => r.week === last) || {})[m] || 0);\n    const before = br.filter(r => r.week !== last).map(r => Number(r[m]));\n    const mean = before.reduce((a, b) => a + b, 0) / before.length;\n    const sd = Math.sqrt(before.reduce((a, b) => a + (b - mean) ** 2, 0) / before.length) || 1;\n    const z = (now - mean) / Math.max(sd, 1);\n    const pct = mean ? 100 * (now - mean) / mean : 0;\n    totals[m] = totals[m] || { last: 0, usual: 0 };\n    totals[m].last += now; totals[m].usual += mean;\n    if (Math.abs(z) >= Z && Math.abs(pct) >= MIN && (mean >= 3 || now >= 5)) {\n      flags.push({ branch, metric: METRICS[m], last_week: Math.round(now * 100) / 100, usual: Math.round(mean * 10) / 10, change_pct: Math.round(pct), z: Math.round(z * 10) / 10 });\n    }\n  }\n}\nflags.sort((a, b) => Math.abs(b.z) - Math.abs(a.z));\nconst weekLabel = DateTime.fromISO(last).toFormat('d LLL') + ' to ' + DateTime.fromISO(last).plus({ days: 6 }).toFormat('d LLL yyyy');\nconst prompt = 'Last week: ' + weekLabel + '.\\n\\nFlagged changes (last week vs the average of the 8 weeks before):\\n'\n  + (flags.length ? flags.map(f => '- ' + f.branch + ', ' + f.metric + ': ' + f.last_week + ' vs usual ' + f.usual + ' (' + (f.change_pct > 0 ? '+' : '') + f.change_pct + '%, z = ' + f.z + ')').join('\\n') : '- none')\n  + '\\n\\nWhole chain last week vs usual:\\n' + Object.entries(totals).map(([m, t]) => '- ' + METRICS[m] + ': ' + Math.round(t.last) + ' vs ' + Math.round(t.usual)).join('\\n');\nreturn [{ json: { week: last, week_label: weekLabel, flags, totals, prompt } }];\n"
+      }
+    },
+    {
+      "id": "2e776211-4087-46e3-97da-48007c22d776",
+      "name": "Write Summary",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.3,
+      "position": [
+        1320,
+        400
+      ],
+      "parameters": {
+        "resource": "text",
+        "operation": "response",
+        "modelId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "gpt-5.4"
+        },
+        "responses": {
+          "values": [
+            {
+              "type": "text",
+              "role": "user",
+              "content": "={{ $json.prompt }}"
+            }
+          ]
+        },
+        "options": {
+          "instructions": "You write the Monday note for the owner of Ironleaf Fitness, a chain of five gyms.\n\n- headline: one sentence with the most important change last week and its numbers.\n- items: one per flagged change, most important first. what: the change in plain words with last week's number and the usual level (\"Stockport had 203 check-ins, against a usual 368\"). check: one practical thing the owner could check or ask the branch manager. Don't guess the cause; you may say what would explain it.\n- If nothing was flagged, headline says it was a normal week and items is empty.\n- Use only the numbers given.\n",
+          "maxTokens": 2500,
+          "store": false,
+          "reasoning": {
+            "reasoningOptions": {
+              "effort": "low",
+              "summary": "none"
+            }
+          },
+          "textFormat": {
+            "textOptions": {
+              "type": "json_schema",
+              "name": "anomalies",
+              "strict": true,
+              "schema": "{\"type\": \"object\", \"additionalProperties\": false, \"required\": [\"headline\", \"items\"], \"properties\": {\"headline\": {\"type\": \"string\"}, \"items\": {\"type\": \"array\", \"items\": {\"type\": \"object\", \"additionalProperties\": false, \"required\": [\"branch\", \"metric\", \"what\", \"check\"], \"properties\": {\"branch\": {\"type\": \"string\"}, \"metric\": {\"type\": \"string\"}, \"what\": {\"type\": \"string\"}, \"check\": {\"type\": \"string\"}}}}}}\n"
+            }
+          }
+        }
+      },
+      "credentials": {
+        "openAiApi": {
+          "id": "GQdth43VUJxkSsw9",
+          "name": "OpenAI account"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "769b752e-c70b-44d6-bbb2-fbded9f915fc",
+      "name": "Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// The Monday email and the saved report.\n// ---- lib-ilf.js (included by build.py): shared helpers for the Ironleaf workflows ----\nconst TZ = 'Europe/London';\nconst esc = s => String(s === null || s === undefined ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');\nconst settingsOf = items => Object.fromEntries(items.map(i => i.json).filter(r => r && r.key).map(r => [r.key, r.value]));\nconst parseJson = (s, d) => { try { return typeof s === 'string' ? JSON.parse(s) : (s === null || s === undefined ? d : s); } catch (e) { return d; } };\nconst clip = (t, n) => { t = String(t || '').trim().replace(/\\.$/, ''); return t.length <= n ? t : t.slice(0, n).replace(/\\s+\\S*$/, '') + '…'; };\nconst nowIso = () => DateTime.now().setZone(TZ).toISO();\nfunction aiJson(res) {\n  if (!res || res.error) return null;\n  const msg = (res.output || []).find(o => o && o.type === 'message');\n  const part = msg && (msg.content || []).find(c => c && c.type === 'output_text');\n  let t = part ? part.text : null;\n  if (typeof t === 'string') { try { t = JSON.parse(t); } catch (e) { t = null; } }\n  return t && typeof t === 'object' ? t : null;\n}\nfunction emailHtml(company, paragraphs, extraHtml) {\n  const p = paragraphs.filter(Boolean).map(t => '<p style=\"margin:0 0 14px;text-align:left\">' + t + '</p>').join('');\n  return '<div style=\"font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.55;color:#1c1f26;max-width:600px;text-align:left\">'\n    + '<div style=\"font-weight:800;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;color:#d9480f;margin:0 0 18px\">' + esc(company) + '</div>'\n    + p + (extraHtml || '') + '</div>';\n}\n// ---- end lib-ilf.js ----\nconst s = settingsOf($('Read Settings').all());\nconst f = $('Flag Changes').first().json;\nconst x = aiJson($input.first().json) || { headline: f.flags.length ? f.flags.length + ' unusual changes last week.' : 'A normal week.', items: [] };\nconst cell = 'padding:6px 10px;border-bottom:1px solid #eee;text-align:left;font-size:13px';\nconst worse = g => /cancellation|failed/.test(g.metric) ? g.change_pct > 0 : g.change_pct < 0;\nconst rows = f.flags.map(g => '<tr><td style=\"' + cell + '\"><b>' + esc(g.branch) + '</b></td><td style=\"' + cell + '\">' + esc(g.metric) + '</td><td style=\"' + cell + '\">' + g.last_week + '</td><td style=\"' + cell + '\">' + g.usual + '</td><td style=\"' + cell + ';color:' + (worse(g) ? '#c92a2a' : '#2b8a3e') + '\"><b>' + (g.change_pct > 0 ? '+' : '') + g.change_pct + '%</b></td></tr>').join('');\nconst items = x.items.map(i => '<li style=\"margin:0 0 8px\"><b>' + esc(i.branch) + ', ' + esc(i.metric) + ':</b> ' + esc(i.what) + '<br><span style=\"color:#666\">Worth checking: ' + esc(i.check) + '</span></li>').join('');\nconst link = (s.base_url || 'http://localhost:5678') + '/webhook/ironleaf/chat';\nconst html = emailHtml(s.company || 'Ironleaf Fitness', [\n  'Good morning ' + esc((s.owner_name || '').split(' ')[0]) + '. Here\\'s what stood out in the week of ' + esc(f.week_label) + '.',\n  '<b>' + esc(x.headline) + '</b>'\n], (rows ? '<table style=\"border-collapse:collapse;margin:0 0 16px\"><tr>' + ['Branch', 'Metric', 'Last week', 'Usual', 'Change'].map(h => '<th style=\"' + cell + ';color:#999;font-size:12px\">' + h + '</th>').join('') + '</tr>' + rows + '</table>' : '')\n  + (items ? '<ul style=\"padding-left:18px;margin:0 0 16px;text-align:left\">' + items + '</ul>' : '')\n  + '<p style=\"font-size:12px;color:#999;text-align:left\">\"Usual\" is the average of the 8 weeks before. Flagged when at least 2 standard deviations and 15% away from it. <a href=\"' + esc(link) + '\" style=\"color:#d9480f\">Ask the data assistant</a> to dig in.</p>');\nreturn [{ json: {\n  email: { to: s.owner_email, subject: 'Week of ' + f.week_label + ': ' + clip(x.headline, 70), html, kind: 'weekly_anomalies', ref: f.week },\n  report: { kind: 'weekly_anomalies', period: f.week, summary: x.headline, data_json: JSON.stringify({ flags: f.flags, totals: f.totals, items: x.items }), created_at: nowIso() }\n} }];\n"
+      }
+    },
+    {
+      "id": "bb0f4d99-40fb-43b2-a287-1778817b3f92",
+      "name": "Save Report",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1760,
+        400
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "B5yiB01JQHOCKTZ2",
+          "cachedResultName": "Ironleaf Reports"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "kind": "={{ $json.report.kind }}",
+            "period": "={{ $json.report.period }}",
+            "summary": "={{ $json.report.summary }}",
+            "data_json": "={{ $json.report.data_json }}",
+            "created_at": "={{ $json.report.created_at }}"
+          },
+          "schema": [
+            {
+              "id": "kind",
+              "displayName": "kind",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "period",
+              "displayName": "period",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "summary",
+              "displayName": "summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "data_json",
+              "displayName": "data_json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "025adbb0-df62-4e2a-87aa-af87f0a667c5",
+      "name": "Email Item",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1980,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// The report email for Send Email.\nreturn [{ json: $('Report').first().json.email }];\n"
+      }
+    },
+    {
+      "id": "84bde45b-81b2-45b7-aa4c-e984b7ca6d81",
+      "name": "Email the Owner",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        2200,
+        400
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "ilfSendEmail0005",
+          "cachedResultName": "Ironleaf 5: Send Email"
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    },
+    {
+      "id": "4fde511c-3aef-4462-8090-9c1d40cef69a",
+      "name": "Run Now",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        200,
+        500
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "30403616-bf16-41d2-b13a-86a179528515",
+      "name": "Sticky Note 30403616",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        160,
+        60
+      ],
+      "parameters": {
+        "content": "## Ironleaf 3: Weekly Anomalies\nEvery Monday at 7:00. A fixed query (through the same read-only function) gets check-ins, new members, cancellations, failed payments and revenue per branch for the last 9 full weeks. **Flag Changes** (code) compares last week with the 8 weeks before and flags anything at least 2 standard deviations and 15% away from normal. GPT-5.4 writes the headline and what to check, using only those numbers. The report is saved and emailed to the owner.",
+        "color": 5,
+        "width": 1300,
+        "height": 200
+      }
+    }
+  ],
+  "connections": {
+    "Mondays 7:00": {
+      "main": [
+        [
+          {
+            "node": "Read Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Settings": {
+      "main": [
+        [
+          {
+            "node": "Weekly Query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Weekly Query": {
+      "main": [
+        [
+          {
+            "node": "Last 9 Weeks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Last 9 Weeks": {
+      "main": [
+        [
+          {
+            "node": "Flag Changes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Flag Changes": {
+      "main": [
+        [
+          {
+            "node": "Write Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Summary": {
+      "main": [
+        [
+          {
+            "node": "Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Report": {
+      "main": [
+        [
+          {
+            "node": "Save Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Report": {
+      "main": [
+        [
+          {
+            "node": "Email Item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Item": {
+      "main": [
+        [
+          {
+            "node": "Email the Owner",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Now": {
+      "main": [
+        [
+          {
+            "node": "Read Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "timezone": "Europe/London",
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "iTxd64lDk3gI0bKG"
+  }
+}

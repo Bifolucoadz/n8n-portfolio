@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Screening · Northgate Talent</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f3f6f4; --panel: #ffffff; --line: #e3e9e5; --ink: #10231a; --ink-2: #3d4f45; --ink-3: #6b7c72; --brand: #0b6e4f; --brand-2: #e7f4ee;
+  --green: #0f8a5f; --green-bg: #e5f5ec; --amber: #b45309; --amber-bg: #fdf3e2; --red: #c0352b; --red-bg: #fdecea; --grey-bg: #eef1ef; --blue: #2457c5; --blue-bg: #e8effc;
+  --radius: 14px; --shadow: 0 1px 2px rgba(16,35,26,.06), 0 6px 24px rgba(16,35,26,.06);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 Inter, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
+button { font: inherit; cursor: pointer; }
+.top { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 24px; background: var(--panel); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: -.2px; }
+.logo { width: 30px; height: 30px; border-radius: 9px; background: var(--brand); color: #fff; display: grid; place-items: center; font-weight: 700; }
+.brand small { display: block; font-weight: 500; color: var(--ink-3); font-size: 12px; letter-spacing: 0; }
+.top-right { display: flex; align-items: center; gap: 14px; color: var(--ink-3); font-size: 13px; }
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.pill.test { background: var(--amber-bg); color: var(--amber); }
+.pill.live { background: var(--green-bg); color: var(--green); }
+.toggle { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; color: var(--ink-2); font-weight: 500; }
+.toggle input { display: none; }
+.toggle .sw { width: 34px; height: 20px; border-radius: 999px; background: #cfd8d3; position: relative; transition: .15s; }
+.toggle .sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.2); transition: .15s; }
+.toggle input:checked + .sw { background: var(--brand); }
+.toggle input:checked + .sw::after { left: 16px; }
+.layout { display: grid; grid-template-columns: 260px 1fr; min-height: calc(100vh - 59px); }
+.side { border-right: 1px solid var(--line); padding: 20px 14px; background: #f8faf9; }
+.side h3 { margin: 0 10px 10px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--ink-3); }
+.job { width: 100%; text-align: left; border: 0; background: transparent; padding: 10px 12px; border-radius: 10px; margin-bottom: 4px; color: var(--ink); }
+.job:hover { background: var(--grey-bg); }
+.job.on { background: var(--panel); box-shadow: var(--shadow); }
+.job b { display: block; font-weight: 600; }
+.job span { color: var(--ink-3); font-size: 12px; }
+.job .count { float: right; background: var(--brand-2); color: var(--brand); font-weight: 700; font-size: 11px; border-radius: 999px; padding: 1px 8px; margin-top: 2px; }
+.main { padding: 22px 26px 40px; min-width: 0; }
+.head h1 { margin: 0; font-size: 22px; letter-spacing: -.4px; }
+.head p { margin: 4px 0 0; color: var(--ink-3); }
+.stats { display: flex; gap: 10px; flex-wrap: wrap; margin: 16px 0 14px; }
+.stat { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; min-width: 110px; }
+.stat b { display: block; font-size: 20px; letter-spacing: -.4px; }
+.stat span { color: var(--ink-3); font-size: 12px; }
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+.tab { border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 5px 12px; color: var(--ink-2); font-weight: 500; font-size: 13px; }
+.tab.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+.cols { display: grid; grid-template-columns: minmax(300px, 400px) 1fr; gap: 18px; align-items: start; }
+.list { display: flex; flex-direction: column; gap: 10px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; display: grid; grid-template-columns: 52px 1fr; gap: 12px; cursor: pointer; text-align: left; transition: border-color .12s, box-shadow .12s; }
+.card:hover { border-color: #c9d6cf; }
+.card.on { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(11,110,79,.12); }
+.ring { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 15px; position: relative; }
+.ring::before { content: ""; position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(var(--c) calc(var(--p) * 1%), #e8ede9 0); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 5px)); mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 5px)); }
+.card .nm { font-weight: 600; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.card .sm { color: var(--ink-3); font-size: 13px; margin-top: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.band-shortlist { background: var(--green-bg); color: var(--green); }
+.band-review { background: var(--blue-bg); color: var(--blue); }
+.band-unlikely { background: var(--grey-bg); color: var(--ink-2); }
+.band-knockout { background: var(--red-bg); color: var(--red); }
+.st { background: #f3f4f6; color: #475467; }
+.st-invited { background: var(--brand-2); color: var(--brand); }
+.st-interview_booked { background: var(--green); color: #fff; }
+.st-rejected { background: var(--red-bg); color: var(--red); }
+.st-hold { background: var(--amber-bg); color: var(--amber); }
+.flagdot { color: var(--amber); font-size: 12px; font-weight: 600; }
+.detail { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; box-shadow: var(--shadow); position: sticky; top: 80px; }
+.detail h2 { margin: 0; font-size: 20px; letter-spacing: -.3px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.meta { display: flex; gap: 18px; flex-wrap: wrap; color: var(--ink-3); font-size: 13px; margin: 8px 0 14px; }
+.meta b { color: var(--ink-2); font-weight: 600; }
+.flags { display: flex; flex-direction: column; gap: 6px; margin: 0 0 14px; }
+.flag { border-radius: 10px; padding: 9px 12px; font-size: 13px; }
+.flag.stop { background: var(--red-bg); color: var(--red); }
+.flag.warn { background: var(--amber-bg); color: #8a4207; }
+.flag.info { background: var(--grey-bg); color: var(--ink-2); }
+.summary { font-size: 14.5px; color: var(--ink-2); margin: 0 0 16px; }
+.sect { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--ink-3); font-weight: 600; margin: 18px 0 8px; }
+.crit { display: grid; grid-template-columns: 26px 1fr; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line); }
+.crit:first-of-type { border-top: 0; }
+.ico { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; margin-top: 1px; }
+.ico.met { background: var(--green-bg); color: var(--green); }
+.ico.partial { background: var(--amber-bg); color: var(--amber); }
+.ico.not_met { background: var(--red-bg); color: var(--red); }
+.ico.unclear { background: var(--grey-bg); color: var(--ink-3); }
+.crit .t { font-weight: 500; }
+.crit .tag { font-size: 10.5px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: var(--ink-3); margin-left: 6px; }
+.crit .ev { color: var(--ink-3); font-size: 13px; margin-top: 2px; }
+.crit .ev q { color: var(--ink-2); font-style: italic; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+ul.plain { margin: 0; padding-left: 18px; color: var(--ink-2); }
+ul.plain li { margin: 3px 0; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line); }
+.btn { border-radius: 10px; padding: 9px 16px; font-weight: 600; border: 1px solid var(--line); background: var(--panel); color: var(--ink); }
+.btn.primary { background: var(--brand); border-color: var(--brand); color: #fff; }
+.btn.danger { color: var(--red); border-color: #f1c5c0; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn.link { border: 0; color: var(--brand); padding-left: 4px; padding-right: 4px; margin-left: auto; text-decoration: none; display: inline-flex; align-items: center; }
+.slots { margin-top: 12px; color: var(--ink-2); font-size: 13px; }
+.slots li { margin: 2px 0; }
+.timeline { margin: 0; padding: 0; list-style: none; font-size: 12.5px; color: var(--ink-3); }
+.timeline li { padding: 3px 0 3px 14px; position: relative; }
+.timeline li::before { content: ""; position: absolute; left: 0; top: 10px; width: 6px; height: 6px; border-radius: 50%; background: #c3cfc8; }
+.empty { color: var(--ink-3); padding: 40px; text-align: center; background: var(--panel); border: 1px dashed var(--line); border-radius: var(--radius); }
+.toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--ink); color: #fff; padding: 11px 18px; border-radius: 12px; font-weight: 500; opacity: 0; transition: .2s; pointer-events: none; z-index: 10; }
+.toast.show { opacity: 1; transform: translateX(-50%); }
+@media (max-width: 1100px) { .cols { grid-template-columns: 1fr; } .detail { position: static; } }
+@media (max-width: 760px) { .layout { grid-template-columns: 1fr; } .side { border-right: 0; border-bottom: 1px solid var(--line); display: flex; gap: 6px; overflow-x: auto; padding: 10px; } .side h3 { display: none; } .job { min-width: 200px; } .two { grid-template-columns: 1fr; } .top-right .upd { display: none; } }
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="brand"><div class="logo">N</div><div>Northgate Talent<small>Application screening</small></div></div>
+  <div class="top-right">
+    <span class="upd" id="updated"></span>
+    <span id="mode"></span>
+    <label class="toggle" title="Hide names until you decide"><input type="checkbox" id="blind"><span class="sw"></span>Blind review</label>
+  </div>
+</div>
+<div class="layout">
+  <nav class="side"><h3>Open roles</h3><div id="jobs"></div></nav>
+  <main class="main">
+    <div class="head" id="head"></div>
+    <div class="stats" id="stats"></div>
+    <div class="tabs" id="tabs"></div>
+    <div class="cols"><div class="list" id="list"></div><div id="detail"></div></div>
+  </main>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const DATA = /*__DATA__*/null;
+// n8n serves this page sandboxed (no storage), so the blind-review choice is remembered only when storage works.
+const store = { get(k) { try { return window.localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { window.localStorage.setItem(k, v); } catch (e) {} } };
+const state = { job: DATA.job, filter: 'all', selected: DATA.selected || '', blind: store.get('ngt-blind') !== '0' };
+const BAND = { shortlist: 'Shortlist', review: 'Worth a look', unlikely: 'Unlikely fit', knockout: 'Knockout' };
+const BAND_ORDER = { shortlist: 0, review: 1, unlikely: 2, knockout: 3 };
+const BAND_COLOR = { shortlist: '#0f8a5f', review: '#2457c5', unlikely: '#8a9a91', knockout: '#c0352b' };
+const STATUS = { new: 'New', invited: 'Invited', interview_booked: 'Interview booked', rejected: 'Rejected', hold: 'On hold' };
+const ICON = { met: '✓', partial: '◐', not_met: '✕', unclear: '?' };
+const RATING = { met: 'Met', partial: 'Partly', not_met: 'Not met', unclear: 'Not shown' };
+const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const $ = id => document.getElementById(id);
+const fmtDate = iso => { const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); };
+const money = n => n ? '£' + Number(n).toLocaleString('en-GB') : '';
+const displayName = c => state.blind && c.status !== 'invited' && c.status !== 'interview_booked' ? 'Candidate ' + c.candidate_id : c.name;
+const decided = c => c.status !== 'new';
+
+function jobCands(jobId) {
+  return DATA.candidates.filter(c => c.job_id === jobId).sort((a, b) => (BAND_ORDER[a.band] - BAND_ORDER[b.band]) || (b.score - a.score));
+}
+function filtered() {
+  const all = jobCands(state.job);
+  if (state.filter === 'all') return all;
+  if (state.filter === 'decided') return all.filter(decided);
+  return all.filter(c => c.band === state.filter && !decided(c));
+}
+function renderJobs() {
+  $('jobs').innerHTML = DATA.jobs.map(j => {
+    const n = jobCands(j.job_id).filter(c => c.status === 'new').length;
+    return '<button class="job' + (j.job_id === state.job ? ' on' : '') + '" data-job="' + j.job_id + '">' + (n ? '<span class="count">' + n + '</span>' : '')
+      + '<b>' + esc(j.title) + '</b><span>' + esc(j.location) + ' · ' + esc(j.job_id) + '</span></button>';
+  }).join('');
+  document.querySelectorAll('.job').forEach(b => b.onclick = () => { state.job = b.dataset.job; state.filter = 'all'; state.selected = ''; render(); });
+}
+function renderHead() {
+  const j = DATA.jobs.find(x => x.job_id === state.job) || {};
+  $('head').innerHTML = '<h1>' + esc(j.title) + '</h1><p>' + esc(j.client) + ' · ' + esc(j.location) + ' · ' + esc(j.work_mode) + ' · ' + money(j.salary_min) + '–' + money(j.salary_max) + (j.sponsorship ? '' : ' · No visa sponsorship') + '</p>';
+  const all = jobCands(state.job);
+  const count = b => all.filter(c => c.band === b).length;
+  const stats = [[all.length, 'Applications'], [count('shortlist'), 'Shortlist'], [count('review'), 'Worth a look'], [count('unlikely') + count('knockout'), 'Unlikely or knockout'], [all.filter(c => c.status === 'interview_booked').length, 'Interviews booked']];
+  $('stats').innerHTML = stats.map(s => '<div class="stat"><b>' + s[0] + '</b><span>' + s[1] + '</span></div>').join('');
+  const tabs = [['all', 'All'], ['shortlist', 'Shortlist'], ['review', 'Worth a look'], ['unlikely', 'Unlikely'], ['knockout', 'Knockout'], ['decided', 'Decided']];
+  $('tabs').innerHTML = tabs.map(t => '<button class="tab' + (state.filter === t[0] ? ' on' : '') + '" data-f="' + t[0] + '">' + t[1] + '</button>').join('');
+  document.querySelectorAll('.tab').forEach(b => b.onclick = () => { state.filter = b.dataset.f; render(); });
+}
+function ring(c) {
+  const p = c.score < 0 ? 0 : c.score;
+  return '<div class="ring" style="--p:' + p + ';--c:' + BAND_COLOR[c.band] + '">' + (c.score < 0 ? '–' : c.score) + '</div>';
+}
+function renderList() {
+  const rows = filtered();
+  if (!rows.length) { $('list').innerHTML = '<div class="empty">No applications here yet.</div>'; return; }
+  if (!rows.find(c => c.candidate_id === state.selected)) state.selected = rows[0].candidate_id;
+  $('list').innerHTML = rows.map(c => {
+    const warn = c.flags.filter(f => f.level !== 'info').length;
+    return '<button class="card' + (c.candidate_id === state.selected ? ' on' : '') + '" data-c="' + c.candidate_id + '">' + ring(c)
+      + '<div><div class="nm">' + esc(displayName(c)) + ' <span class="pill band-' + c.band + '">' + BAND[c.band] + '</span>'
+      + (c.status !== 'new' ? '<span class="pill st st-' + c.status + '">' + STATUS[c.status] + '</span>' : '')
+      + (warn ? '<span class="flagdot">⚑ ' + warn + '</span>' : '') + '</div>'
+      + '<div class="sm">' + esc(c.summary || 'No summary.') + '</div></div></button>';
+  }).join('');
+  document.querySelectorAll('.card').forEach(b => b.onclick = () => { state.selected = b.dataset.c; renderList(); renderDetail(); });
+}
+function renderDetail() {
+  const c = DATA.candidates.find(x => x.candidate_id === state.selected);
+  if (!c) { $('detail').innerHTML = ''; return; }
+  const j = DATA.jobs.find(x => x.job_id === c.job_id) || {};
+  const s = c.screening || {};
+  const crit = (s.criteria || []).map(k => '<div class="crit"><div class="ico ' + k.rating + '" title="' + RATING[k.rating] + '">' + ICON[k.rating] + '</div><div>'
+    + '<div class="t">' + esc(k.text) + '<span class="tag">' + (k.type === 'must' ? 'Must' : 'Nice') + '</span></div>'
+    + '<div class="ev">' + (k.evidence ? '<q>' + esc(String(k.evidence).replace(/^["“”'\s]+|["“”'\s.]+$/g, '')) + '</q> · ' : '') + esc(k.reason) + '</div></div></div>').join('');
+  const list = a => (a && a.length) ? '<ul class="plain">' + a.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul>' : '<span style="color:var(--ink-3)">None noted.</span>';
+  const salary = c.salary_expectation ? money(c.salary_expectation) + (j.salary_max && c.salary_expectation > j.salary_max ? ' (above range)' : '') : 'Not given';
+  const canInvite = c.band !== 'knockout' && (c.status === 'new' || c.status === 'hold');
+  const canHold = c.status === 'new';
+  const canReject = c.status === 'new' || c.status === 'hold' || c.status === 'invited';
+  const slots = (c.slots || []).length && c.status === 'invited' ? '<div class="slots"><b>Times offered:</b><ul class="plain">' + c.slots.map(t => '<li>' + esc(t.label) + '</li>').join('') + '</ul></div>' : '';
+  const booked = c.status === 'interview_booked' && c.interview_at ? '<div class="flag info" style="margin-top:12px">Interview booked for <b>' + esc(new Date(c.interview_at).toLocaleString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })) + '</b> with ' + esc(j.interviewer) + '.</div>' : '';
+  const events = (DATA.events[c.candidate_id] || []).map(e => '<li>' + esc(fmtDate(e.at)) + ' · ' + esc(e.text) + '</li>').join('');
+  $('detail').innerHTML = '<div class="detail">'
+    + '<h2>' + esc(displayName(c)) + ' <span class="pill band-' + c.band + '">' + BAND[c.band] + (c.score >= 0 ? ' · ' + c.score : '') + '</span>'
+    + (c.status !== 'new' ? '<span class="pill st st-' + c.status + '">' + STATUS[c.status] + '</span>' : '') + '</h2>'
+    + '<div class="meta"><span>Applied <b>' + esc(fmtDate(c.applied_at)) + '</b></span><span>Right to work <b>' + esc(c.right_to_work.replace(', I would need visa sponsorship', ': needs sponsorship')) + '</b></span><span>Notice <b>' + esc(c.notice_period) + '</b></span><span>Salary <b>' + esc(salary) + '</b></span>'
+    + (state.blind ? '' : '<span>' + esc(c.email) + '</span>') + '</div>'
+    + (c.flags.length ? '<div class="flags">' + c.flags.map(f => '<div class="flag ' + f.level + '">' + esc(f.text) + '</div>').join('') + '</div>' : '')
+    + '<p class="summary">' + esc(c.summary) + '</p>'
+    + '<div class="sect">Criteria</div>' + crit
+    + '<div class="two"><div><div class="sect">Strengths</div>' + list(s.strengths) + '</div><div><div class="sect">Gaps</div>' + list(s.gaps) + '</div></div>'
+    + '<div class="sect">Questions to ask</div>' + list(s.interview_questions)
+    + slots + booked
+    + '<div class="actions">'
+    + '<button class="btn primary" data-a="invite"' + (canInvite ? '' : ' disabled') + '>Invite to interview</button>'
+    + '<button class="btn" data-a="hold"' + (canHold ? '' : ' disabled') + '>Hold</button>'
+    + '<button class="btn danger" data-a="reject"' + (canReject ? '' : ' disabled') + '>Reject</button>'
+    + '<a class="btn link" target="_blank" href="cv?key=' + encodeURIComponent(DATA.key) + '&c=' + c.candidate_id + '">View CV ↗</a></div>'
+    + (events ? '<div class="sect">History</div><ul class="timeline">' + events + '</ul>' : '')
+    + '</div>';
+  document.querySelectorAll('[data-a]').forEach(b => b.onclick = () => act(c, b.dataset.a, b));
+}
+function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('show'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('show'), 3200); }
+async function act(c, action, btn) {
+  if (action === 'reject' && !confirm('Send ' + (state.blind ? 'this candidate' : c.name) + ' a rejection email?')) return;
+  document.querySelectorAll('[data-a]').forEach(b => b.disabled = true);
+  btn.textContent = action === 'invite' ? 'Finding times…' : 'Saving…';
+  try {
+    const res = await fetch('action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: DATA.key, candidate_id: c.candidate_id, action }) });
+    const out = await res.json();
+    if (!res.ok || !out.ok) throw new Error(out.message || 'That didn\'t work.');
+    Object.assign(c, out.candidate);
+    (DATA.events[c.candidate_id] = DATA.events[c.candidate_id] || []).push({ at: new Date().toISOString(), text: out.message });
+    toast(out.message);
+  } catch (e) { toast(e.message); }
+  render();
+}
+function render() { renderJobs(); renderHead(); renderList(); renderDetail(); }
+$('blind').checked = state.blind;
+$('blind').onchange = e => { state.blind = e.target.checked; store.set('ngt-blind', state.blind ? '1' : '0'); render(); };
+$('mode').innerHTML = DATA.mode === 'live' ? '<span class="pill live">Live</span>' : '<span class="pill test" title="Emails go to the Outbox table">Test mode</span>';
+$('updated').textContent = 'Updated ' + fmtDate(DATA.generated_at);
+render();
+</script>
+</body>
+</html>

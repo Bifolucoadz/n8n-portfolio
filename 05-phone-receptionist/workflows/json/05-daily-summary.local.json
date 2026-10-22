@@ -1,0 +1,376 @@
+{
+  "id": "receptionist-daily-summary",
+  "name": "Receptionist 5: Daily Summary",
+  "nodes": [
+    {
+      "id": "c670c164-850f-4e85-b81e-ea060150cb07",
+      "name": "Weekdays 5:30 pm",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        200,
+        300
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 30 17 * * 1-5"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "7577b181-d253-4462-8d01-902d240f56fa",
+      "name": "Read Settings",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        420,
+        400
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "qh2lP825xnkmt4z2",
+          "cachedResultName": "Receptionist Settings"
+        },
+        "returnAll": true
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "e8738018-7232-4823-9959-19589a20905c",
+      "name": "Next Day Window",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        640,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// The next day the clinic is open (tomorrow, or Monday after a Friday), for the schedule preview.\nconst tz = \"America/Chicago\";\nconst open = { 1: true, 2: true, 3: true, 4: true, 5: true };\nconst holidays = [\"2026-11-26\", \"2026-11-27\", \"2026-12-24\", \"2026-12-25\", \"2026-12-31\", \"2027-01-01\"];\nconst settings = Object.fromEntries($(\"Read Settings\").all().map(i => [i.json.key, i.json.value ?? \"\"]));\nlet d = DateTime.now().setZone(tz).startOf(\"day\").plus({ days: 1 });\nwhile (!open[d.weekday] || holidays.includes(d.toISODate())) d = d.plus({ days: 1 });\nreturn [{ json: { ...settings, next_day: d.toISODate(), time_min: d.toISO(), time_max: d.endOf(\"day\").toISO() } }];\n"
+      }
+    },
+    {
+      "id": "ef05c200-4355-45ec-bde4-61c43822d990",
+      "name": "Read Calls",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        860,
+        400
+      ],
+      "parameters": {
+        "resource": "sheet",
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $json.sheet_id }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "id",
+          "value": "1",
+          "cachedResultName": "Calls"
+        }
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "D8rKxzgMrJwmFZoQ",
+          "name": "Google Sheets account"
+        }
+      },
+      "executeOnce": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "alwaysOutputData": true
+    },
+    {
+      "id": "3e73eda2-7d2e-4ceb-8d13-7ce7cd9f1570",
+      "name": "Read Messages",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1080,
+        400
+      ],
+      "parameters": {
+        "resource": "sheet",
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Next Day Window').first().json.sheet_id }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "id",
+          "value": "2",
+          "cachedResultName": "Messages"
+        }
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "D8rKxzgMrJwmFZoQ",
+          "name": "Google Sheets account"
+        }
+      },
+      "executeOnce": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "alwaysOutputData": true
+    },
+    {
+      "id": "f29fbb03-e0a8-4fac-acda-c642ee9fb59c",
+      "name": "Read Next Day",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        1300,
+        400
+      ],
+      "parameters": {
+        "resource": "event",
+        "operation": "getAll",
+        "calendar": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Next Day Window').first().json.calendar_id }}"
+        },
+        "returnAll": true,
+        "timeMin": "={{ $('Next Day Window').first().json.time_min }}",
+        "timeMax": "={{ $('Next Day Window').first().json.time_max }}",
+        "options": {
+          "singleEvents": true,
+          "orderBy": "startTime"
+        }
+      },
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "5G8pvfh0Kjd75Asw",
+          "name": "Google Calendar account"
+        }
+      },
+      "executeOnce": true,
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000,
+      "alwaysOutputData": true
+    },
+    {
+      "id": "2c5bd4e5-94c4-4687-b648-ac73f1b93d7b",
+      "name": "Build Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1520,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Today's calls and messages, plus the next open day's appointments, as one Telegram message.\nconst tz = \"America/Chicago\";\nconst w = $(\"Next Day Window\").first().json;\nconst now = DateTime.now().setZone(tz);\nconst today = now.toISODate();\nconst esc = s => String(s ?? \"\").replace(/&/g, \"&amp;\").replace(/</g, \"&lt;\").replace(/>/g, \"&gt;\");\nconst calls = $(\"Read Calls\").all().map(i => i.json).filter(r => r && String(r.started_at ?? \"\").startsWith(today));\nconst messages = $(\"Read Messages\").all().map(i => i.json).filter(r => r && r.at);\nconst todaysMessages = messages.filter(r => String(r.at).startsWith(today));\nconst openMessages = messages.filter(r => String(r.status ?? \"new\").toLowerCase() === \"new\");\nconst appts = $(\"Read Next Day\").all().map(i => i.json).filter(e => e && e.id && e.start && e.status !== \"cancelled\")\n  .map(e => ({ start: DateTime.fromISO(e.start.dateTime ?? e.start.date).setZone(tz), title: e.summary ?? \"\" }))\n  .sort((a, b) => a.start - b.start);\n\nconst count = o => calls.filter(c => c.outcome === o).length;\nconst secs = calls.map(c => Number(c.duration_s)).filter(n => n > 0);\nconst avg = secs.length ? Math.round(secs.reduce((a, b) => a + b, 0) / secs.length) : 0;\nconst cost = calls.map(c => Number(c.cost_usd)).filter(n => n > 0).reduce((a, b) => a + b, 0);\nconst follow = calls.filter(c => c.follow_up);\n\nconst lines = [\n  \"🦷 <b>Fernhollow Dental: today on the phone line</b> (\" + now.toFormat(\"ccc LLL d\") + \")\",\n  \"\",\n  \"Calls answered: <b>\" + calls.length + \"</b>\" + (secs.length ? \" · average \" + Math.floor(avg / 60) + \"m \" + (avg % 60) + \"s\" : \"\") + (cost ? \" · cost $\" + cost.toFixed(2) : \"\"),\n  \"Booked: \" + count(\"booked\") + \" · moved: \" + count(\"rescheduled\") + \" · cancelled: \" + count(\"cancelled\"),\n  \"Questions answered: \" + count(\"question_answered\") + \" · emergencies referred: \" + count(\"emergency_referred\"),\n  \"Messages today: \" + todaysMessages.length + \" · still open: \" + openMessages.length,\n];\nif (follow.length) {\n  lines.push(\"\", \"<b>Needs a call back</b>\");\n  for (const c of follow.slice(0, 8)) lines.push(\"• \" + esc(c.caller_name || c.caller) + \": \" + esc(c.follow_up));\n}\nlines.push(\"\", \"<b>\" + DateTime.fromISO(w.next_day, { zone: tz }).toFormat(\"cccc LLL d\") + \"</b>: \" + (appts.length ? appts.length + \" appointment\" + (appts.length > 1 ? \"s\" : \"\") : \"nothing booked yet\"));\nfor (const a of appts.slice(0, 15)) lines.push(\"• \" + a.start.toFormat(\"h:mm a\") + \"  \" + esc(a.title));\nreturn [{ json: { chat_id: w.staff_chat_id, text: lines.join(\"\\n\") } }];\n"
+      }
+    },
+    {
+      "id": "447ca023-beca-484f-b60d-892c4860d60b",
+      "name": "Chat Set?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1740,
+        400
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.chat_id }}",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "a62c531c-9e40-480d-a88c-f3cb90710dfd",
+      "name": "Send Summary",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1960,
+        340
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $json.chat_id }}",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML",
+          "disable_web_page_preview": true
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "V3kTN1drqw8YNjzk",
+          "name": "Telegram account"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000
+    },
+    {
+      "id": "1b3b512c-0896-4e1e-92dd-3ca714e1ccb6",
+      "name": "Send Now",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        200,
+        500
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "7cd1671a-cc7a-4ecd-b1f0-5702f3fd407a",
+      "name": "Sticky Note 7cd1671a",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        160,
+        120
+      ],
+      "parameters": {
+        "content": "## Receptionist 5: Daily Summary\nWeekdays at 5:30 pm Austin time (or **Send Now**): calls answered, bookings, moves and cancellations, emergencies referred, messages and who still needs a call back, plus the next open day's appointments. Sent to the staff Telegram chat.",
+        "color": 4,
+        "width": 900,
+        "height": 160
+      }
+    }
+  ],
+  "connections": {
+    "Weekdays 5:30 pm": {
+      "main": [
+        [
+          {
+            "node": "Read Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Settings": {
+      "main": [
+        [
+          {
+            "node": "Next Day Window",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Next Day Window": {
+      "main": [
+        [
+          {
+            "node": "Read Calls",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Calls": {
+      "main": [
+        [
+          {
+            "node": "Read Messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Messages": {
+      "main": [
+        [
+          {
+            "node": "Read Next Day",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Next Day": {
+      "main": [
+        [
+          {
+            "node": "Build Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Summary": {
+      "main": [
+        [
+          {
+            "node": "Chat Set?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chat Set?": {
+      "main": [
+        [
+          {
+            "node": "Send Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Now": {
+      "main": [
+        [
+          {
+            "node": "Read Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {}
+}

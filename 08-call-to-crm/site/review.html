@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Call review · Tidewater Software</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f2f5fb; --panel: #fff; --line: #e1e7f2; --ink: #0f1b3d; --ink-2: #3b4a6b; --ink-3: #6b7a99; --brand: #1d4ed8; --brand-2: #e8efff;
+  --green: #0f8a5f; --green-bg: #e5f5ec; --amber: #b45309; --amber-bg: #fdf3e2; --red: #c0352b; --red-bg: #fdecea; --grey-bg: #eef1f7;
+  --us: #1d4ed8; --them: #0f8a5f; --radius: 14px; --shadow: 0 1px 2px rgba(15,27,61,.05), 0 8px 24px rgba(15,27,61,.06);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 Inter, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
+button, input, textarea { font: inherit; }
+.top { display: flex; align-items: center; justify-content: space-between; padding: 14px 26px; background: var(--panel); border-bottom: 1px solid var(--line); }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; }
+.logo { width: 30px; height: 30px; border-radius: 9px; background: var(--brand); color: #fff; display: grid; place-items: center; }
+.brand small { display: block; font-weight: 500; color: var(--ink-3); font-size: 12px; }
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.pill.test { background: var(--amber-bg); color: var(--amber); }
+.pill.stage { background: var(--brand-2); color: var(--brand); }
+.pill.pos { background: var(--green-bg); color: var(--green); } .pill.neu { background: var(--grey-bg); color: var(--ink-2); } .pill.neg { background: var(--red-bg); color: var(--red); }
+.wrap { max-width: 1320px; margin: 0 auto; padding: 24px 26px 60px; }
+.head h1 { margin: 0; font-size: 23px; letter-spacing: -.4px; }
+.meta { display: flex; gap: 10px 18px; flex-wrap: wrap; align-items: center; color: var(--ink-3); margin: 8px 0 0; font-size: 13px; }
+.meta b { color: var(--ink-2); font-weight: 600; }
+.talk { display: flex; align-items: center; gap: 8px; }
+.bar { width: 160px; height: 8px; border-radius: 999px; background: var(--them); overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--us); }
+.grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 18px; margin-top: 20px; align-items: start; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; box-shadow: var(--shadow); margin-bottom: 18px; }
+.card h2 { margin: 0 0 12px; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--ink-3); font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
+.summary { font-size: 15px; color: var(--ink-2); margin: 0; }
+.list { list-style: none; margin: 0; padding: 0; }
+.list li { display: grid; grid-template-columns: 24px 1fr; gap: 10px; padding: 9px 0; border-top: 1px solid var(--line); }
+.list li:first-child { border-top: 0; padding-top: 2px; }
+.ok { width: 22px; height: 22px; border-radius: 50%; background: var(--green-bg); color: var(--green); display: grid; place-items: center; font-size: 12px; font-weight: 700; }
+.sub { color: var(--ink-3); font-size: 12.5px; margin-top: 2px; }
+.sub q { font-style: italic; color: var(--ink-2); }
+.chg { display: grid; grid-template-columns: 24px 1fr; gap: 10px; padding: 11px 0; border-top: 1px solid var(--line); cursor: pointer; }
+.chg:first-of-type { border-top: 0; padding-top: 2px; }
+.chg input { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--brand); }
+.arrow { color: var(--ink-3); margin: 0 4px; }
+.why { color: var(--amber); font-size: 12.5px; margin-top: 2px; }
+.email label { display: block; font-size: 12px; color: var(--ink-3); font-weight: 600; margin: 10px 0 4px; }
+.email input, .email textarea { width: 100%; border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; color: var(--ink); background: #fbfcff; }
+.email textarea { min-height: 260px; resize: vertical; line-height: 1.55; }
+.email input:focus, .email textarea:focus { outline: 2px solid rgba(29,78,216,.2); border-color: var(--brand); }
+.to { color: var(--ink-2); font-weight: 500; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+.btn { border-radius: 10px; padding: 10px 16px; font-weight: 600; border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; }
+.btn.primary { background: var(--brand); border-color: var(--brand); color: #fff; }
+.btn.ghost { color: var(--ink-3); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.banner { border-radius: 12px; padding: 12px 14px; margin-bottom: 16px; font-weight: 500; }
+.banner.done { background: var(--green-bg); color: var(--green); }
+.banner.info { background: var(--grey-bg); color: var(--ink-2); }
+.bant { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.b { border: 1px solid var(--line); border-radius: 12px; padding: 11px 12px; }
+.b .k { display: flex; justify-content: space-between; align-items: center; font-weight: 600; margin-bottom: 4px; }
+.b .d { color: var(--ink-2); font-size: 13px; }
+.st-known { background: var(--green-bg); color: var(--green); } .st-partial { background: var(--amber-bg); color: var(--amber); } .st-unknown { background: var(--grey-bg); color: var(--ink-3); }
+ul.plain { margin: 0; padding-left: 18px; color: var(--ink-2); } ul.plain li { margin: 4px 0; }
+.tag { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; padding: 1px 7px; border-radius: 999px; margin-left: 6px; }
+.tag.open { background: var(--amber-bg); color: var(--amber); } .tag.resolved { background: var(--green-bg); color: var(--green); }
+details summary { cursor: pointer; font-weight: 600; color: var(--brand); list-style: none; }
+.turn { padding: 8px 0; border-top: 1px dashed var(--line); font-size: 13.5px; }
+.turn .ts { color: var(--ink-3); font-variant-numeric: tabular-nums; font-size: 12px; padding-top: 2px; }
+.turn .who { font-weight: 600; font-size: 12.5px; }
+.who.us { color: var(--us); } .who.them { color: var(--them); }
+.plaintext { white-space: pre-wrap; color: var(--ink-2); font-size: 13.5px; }
+@media (max-width: 980px) { .grid { grid-template-columns: 1fr; } .bant { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="brand"><div class="logo">T</div><div>Tidewater Software<small>Call review</small></div></div>
+  <div id="mode"></div>
+</div>
+<div class="wrap">
+  <div class="head" id="head"></div>
+  <div class="grid">
+    <div id="left"></div>
+    <div id="right"></div>
+  </div>
+</div>
+<script>
+const DATA = /*__DATA__*/null;
+const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const day = d => /^\d{4}-\d{2}-\d{2}$/.test(String(d)) ? new Date(d + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' }) : String(d || '');
+const $ = id => document.getElementById(id);
+const a = DATA.analysis, applied = DATA.applied, pending = DATA.pending.filter(p => p.field !== 'email');
+const STATUS = { pending_review: '', sent: 'Follow-up sent and the CRM is up to date.', approved: 'Changes approved; no email was sent.', discarded: 'Discarded. Nothing else was changed.' };
+const sideOf = Object.fromEntries((a.speakers || []).map(s => [s.name, s.side]));
+const mmss = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
+const quote = q => q ? '<q>' + esc(String(q).replace(/^["“”'\s]+|["“”'\s.]+$/g, '')) + '</q>' : '';
+
+function head() {
+  const d = DATA.deal;
+  const sent = { positive: ['pos', 'Positive call'], neutral: ['neu', 'Neutral call'], negative: ['neg', 'Negative call'] }[a.sentiment] || ['neu', ''];
+  const talk = a.talk_us !== null && a.talk_us !== undefined ? '<span class="talk">Talk time <span class="bar"><i style="width:' + a.talk_us + '%"></i></span> <b>' + a.talk_us + '%</b> rep · <b>' + (100 - a.talk_us) + '%</b> prospect</span>' : '';
+  $('head').innerHTML = '<h1>' + esc(d.name) + '</h1><div class="meta"><span>' + esc(DATA.company) + '</span><span class="pill stage">' + esc(DATA.stage_label) + '</span>'
+    + (d.amount ? '<span><b>$' + Number(d.amount).toLocaleString('en-US') + '</b></span>' : '') + '<span>Call ' + esc(DATA.when) + ' · <b>' + mmss(DATA.duration_s) + '</b> · ' + esc(DATA.rep) + '</span>'
+    + '<span class="pill ' + sent[0] + '">' + sent[1] + '</span>' + talk + '</div>';
+  $('mode').innerHTML = DATA.mode === 'live' ? '' : '<span class="pill test" title="Emails go to the Outbox table and the CRM is the demo tables">Test mode</span>';
+}
+function left() {
+  const done = ['<li><div class="ok">✓</div><div>Call note added to the deal<div class="sub">Summary, BANT, objections, competitors, next steps and risks</div></div></li>']
+    .concat(applied.changes.map(c => '<li><div class="ok">✓</div><div>' + esc(c.label) + ': ' + esc(c.from) + '<span class="arrow">→</span><b>' + esc(c.to) + '</b>' + (c.quote ? '<div class="sub">' + quote(c.quote) + '</div>' : '') + '</div></li>'))
+    .concat(applied.tasks.map(t => '<li><div class="ok">✓</div><div>Task: ' + esc(t.title) + '<div class="sub">Due ' + esc(day(t.due)) + ' · ' + esc(t.owner) + '</div></div></li>'));
+  const open = DATA.status === 'pending_review';
+  const chg = pending.map(p => '<label class="chg"><input type="checkbox" data-id="' + p.id + '" checked' + (open ? '' : ' disabled') + '><div>' + esc(p.label) + ': ' + esc(p.from) + '<span class="arrow">→</span><b>' + esc(p.to) + '</b>'
+    + '<div class="why">' + esc(p.why) + '</div>' + (p.quote ? '<div class="sub">' + quote(p.quote) + (p.verified ? '' : ' · not found in the transcript') + '</div>' : '') + '</div></label>').join('');
+  $('left').innerHTML = (STATUS[DATA.status] ? '<div class="banner ' + (DATA.status === 'discarded' ? 'info' : 'done') + '">' + STATUS[DATA.status] + '</div>' : '')
+    + '<div class="card"><h2>Summary</h2><p class="summary">' + esc(a.summary) + '</p></div>'
+    + '<div class="card"><h2>Done in the CRM</h2><ul class="list">' + done.join('') + '</ul></div>'
+    + (pending.length ? '<div class="card"><h2>Needs your OK <span>' + pending.length + '</span></h2>' + chg + '</div>' : '')
+    + '<div class="card email"><h2>Follow-up email</h2><div class="to">To ' + esc(DATA.email_to_name) + ' &lt;' + esc(DATA.email_to) + '&gt;</div>'
+    + '<label for="subject">Subject</label><input id="subject" value="' + esc(DATA.email_subject) + '"' + (open ? '' : ' disabled') + '>'
+    + '<label for="body">Message</label><textarea id="body"' + (open ? '' : ' disabled') + '>' + esc(DATA.email_body) + '</textarea>'
+    + '<div class="actions"><button class="btn primary" id="send"' + (open ? '' : ' disabled') + '>Approve and send</button><button class="btn" id="approve"' + (open ? '' : ' disabled') + '>Approve changes only</button><button class="btn ghost" id="discard"' + (open ? '' : ' disabled') + '>Discard</button></div></div>';
+  if (open) { $('send').onclick = () => submit('send'); $('approve').onclick = () => submit('approve'); $('discard').onclick = () => submit('discard'); }
+}
+function right() {
+  const b = a.bant || {};
+  const tile = (k, v) => '<div class="b"><div class="k">' + k + '<span class="pill st-' + (v ? v.status : 'unknown') + '">' + esc(v ? v.status : 'unknown') + '</span></div><div class="d">' + esc(v ? v.detail : '') + '</div></div>';
+  const theirs = (a.next_steps || []).filter(n => n.side === 'them');
+  const turns = (DATA.transcript.turns || []).map(t => '<div class="turn"><div><div class="who ' + (sideOf[t.speaker] || (t.speaker === DATA.rep ? 'us' : 'them')) + '">' + esc(t.speaker) + '</div>' + esc(t.text) + '</div></div>').join('');
+  $('right').innerHTML = '<div class="card"><h2>BANT</h2><div class="bant">' + tile('Budget', b.budget) + tile('Authority', b.authority) + tile('Need', b.need) + tile('Timeline', b.timeline) + '</div></div>'
+    + '<div class="card"><h2>Objections</h2>' + ((a.objections || []).length ? '<ul class="plain">' + a.objections.map(o => '<li>' + esc(o.objection) + '<span class="tag ' + o.status + '">' + o.status + '</span><div class="sub">' + esc(o.response) + '</div></li>').join('') + '</ul>' : '<span class="sub">None raised.</span>') + '</div>'
+    + '<div class="card"><h2>Risks and competitors</h2><ul class="plain">' + (a.risks || []).map(r => '<li>' + esc(r) + '</li>').join('') + (a.competitors || []).map(c => '<li><b>' + esc(c.name) + '</b>: ' + esc(c.context) + '</li>').join('') + '</ul></div>'
+    + (theirs.length ? '<div class="card"><h2>Waiting on them</h2><ul class="plain">' + theirs.map(n => '<li>' + esc(n.action) + ' <span class="sub">(' + esc(n.owner) + (n.due ? ', ' + esc(day(n.due)) : '') + ')</span></li>').join('') + '</ul></div>' : '')
+    + '<div class="card"><details><summary>Transcript' + (DATA.transcript.labelled ? '' : ' (no speaker labels)') + '</summary>' + (turns || '<div class="plaintext">' + esc(DATA.transcript.text) + '</div>') + '</details></div>';
+}
+async function submit(action) {
+  ['send', 'approve', 'discard'].forEach(id => $(id).disabled = true);
+  const approve = [...document.querySelectorAll('.chg input:checked')].map(i => i.dataset.id);
+  try {
+    const res = await fetch('review', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ call_id: DATA.call_id, token: DATA.token, action, approve, subject: $('subject').value, body: $('body').value }) });
+    const out = await res.json();
+    if (!res.ok || !out.ok) throw new Error(out.message || 'That didn\'t work.');
+    DATA.status = out.status;
+    left();
+  } catch (e) { alert(e.message); ['send', 'approve', 'discard'].forEach(id => $(id).disabled = false); }
+}
+head(); left(); right();
+</script>
+</body>
+</html>

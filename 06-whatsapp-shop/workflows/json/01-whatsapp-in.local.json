@@ -1,0 +1,104 @@
+{
+  "id": "honeycrumb-whatsapp-in",
+  "name": "Honeycrumb 1: WhatsApp In",
+  "nodes": [
+    {
+      "id": "15358ab5-9ca2-43a3-b329-2f4a7695534b",
+      "name": "WhatsApp Message",
+      "type": "n8n-nodes-base.whatsAppTrigger",
+      "typeVersion": 1,
+      "position": [
+        200,
+        300
+      ],
+      "parameters": {
+        "updates": [
+          "messages"
+        ],
+        "options": {
+          "messageStatusUpdates": []
+        }
+      },
+      "credentials": {}
+    },
+    {
+      "id": "3168652d-cd59-4b05-86ed-47e9ca0a8c37",
+      "name": "Normalise",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        420,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// WhatsApp Cloud API webhook value -> one item per customer message (statuses are filtered by the trigger).\nconst out = [];\nfor (const item of $input.all()) {\n  const v = item.json;\n  const names = Object.fromEntries((v.contacts ?? []).map(c => [c.wa_id, c.profile?.name ?? \"\"]));\n  for (const m of v.messages ?? []) {\n    let text = \"\", media_id = \"\", location = null;\n    const type = m.type;\n    if (type === \"text\") text = m.text?.body ?? \"\";\n    else if (type === \"interactive\") text = m.interactive?.button_reply?.title ?? m.interactive?.list_reply?.title ?? \"\";\n    else if (type === \"button\") text = m.button?.text ?? \"\";\n    else if (type === \"audio\") media_id = m.audio?.id ?? \"\";\n    else if (type === \"image\") { media_id = m.image?.id ?? \"\"; text = m.image?.caption ?? \"\"; }\n    else if (type === \"location\") location = m.location ?? null;\n    out.push({ json: {\n      phone: m.from, name: names[m.from] ?? \"\", message_id: m.id,\n      type: type === \"button\" ? \"text\" : type, text, media_id, location,\n      test: false, received_at: m.timestamp,\n    } });\n  }\n}\nreturn out;\n"
+      }
+    },
+    {
+      "id": "cf615efa-2152-4574-9fbe-c6a5683ec1eb",
+      "name": "Handle Each Message",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        640,
+        300
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "hcbHandleMsg0002",
+          "cachedResultName": "Honeycrumb 2: Handle Message"
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      }
+    },
+    {
+      "id": "adab648f-fc61-4127-90be-6a701ef3bd97",
+      "name": "Sticky Note adab648f",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        160,
+        40
+      ],
+      "parameters": {
+        "content": "## Honeycrumb 1: WhatsApp In\nMeta calls this for every customer message (n8n checks the `X-Hub-Signature-256` signature with the app secret; delivery and read receipts are switched off). Text, button replies, voice notes, photos and location pins become one tidy item each, handed to **Honeycrumb 2** without waiting, so Meta always gets its 200 at once.\n\nNeeds n8n on a public HTTPS address (`WEBHOOK_URL` = the ngrok domain) and one WhatsApp Trigger per Meta app.",
+        "color": 5,
+        "width": 760,
+        "height": 200
+      }
+    }
+  ],
+  "connections": {
+    "WhatsApp Message": {
+      "main": [
+        [
+          {
+            "node": "Normalise",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalise": {
+      "main": [
+        [
+          {
+            "node": "Handle Each Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {}
+}

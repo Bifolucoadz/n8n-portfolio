@@ -1,0 +1,11 @@
+{
+  "PRODUCTS": [["sku","string"],["title","string"],["category","string"],["price","number"],["inventory","number"],["lead_time_days","number"],["min_order_qty","number"],["supplier","string"],["notes","string"]],
+  "ORDERS": [["order_number","string"],["email","string"],["customer_name","string"],["created_at","string"],["total","number"],["items_json","string"],["fulfillment_status","string"],["shipped_at","string"],["carrier","string"],["tracking_number","string"],["tracking_url","string"],["tracking_status","string"],["estimated_delivery","string"],["last_event","string"],["last_event_at","string"],["delivered_at","string"],["ship_city","string"]],
+  "CHECKOUTS": [["checkout_id","string"],["email","string"],["first_name","string"],["created_at","string"],["items_json","string"],["subtotal","number"],["recovery_url","string"],["completed","boolean"],["accepts_marketing","boolean"],["orders_count","number"],["contacted_at","string"],["offer","string"]],
+  "REVIEWS": [["review_id","string"],["sku","string"],["rating","number"],["title","string"],["body","string"],["author","string"],["created_at","string"],["topics_json","string"],["sentiment","string"],["issue","string"],["analysed_at","string"]],
+  "MESSAGES": [["session_id","string"],["role","string"],["text","string"],["order_number","string"],["at","string"]],
+  "OUTBOX": [["to","string"],["subject","string"],["body","string"],["kind","string"],["ref","string"],["at","string"]],
+  "REPORTS": [["kind","string"],["period","string"],["summary","string"],["data_json","string"],["created_at","string"]],
+  "CONTACTED": [["contacted_at","string"],["offer","string"]],
+  "REVIEWTAGS": [["topics_json","string"],["sentiment","string"],["issue","string"],["analysed_at","string"]]
+}

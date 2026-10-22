@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Quotes and jobs · Mossgrove Landscapes</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--moss:#1f4d3a;--moss2:#173b2c;--leaf:#7bb661;--leafsoft:#e8f3e3;--cream:#f4f1ea;--paper:#fffdf8;--ink:#1d2a24;--body:#3d4b44;--muted:#748178;--line:#e6e0d3;--line2:#efeadf;--amber:#b7791f;--amberbg:#fff4de;--blue:#2f6690;--bluebg:#e8f1f8;--red:#a23b2a;--redbg:#fbeae6;--grey:#8a8f86;--greybg:#efede7}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--cream);color:var(--ink);font:14px/1.5 Inter,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+button{font:inherit}
+.top{background:var(--moss);color:#fff}
+.top .in{max-width:1480px;margin:0 auto;padding:14px 24px;display:flex;align-items:center;gap:16px}
+.brand{display:flex;align-items:center;gap:10px}
+.brand b{font-family:Fraunces,Georgia,serif;font-size:19px;font-weight:600}
+.brand span{color:#b9d4c1;font-size:13px;padding-left:10px;border-left:1px solid #3f6b56;margin-left:4px}
+.top .sp{flex:1}
+.pill{font-size:11.5px;font-weight:700;letter-spacing:.6px;padding:4px 10px;border-radius:99px;background:#f6d98b;color:#5a4206}
+.pill.live{background:#bfe3b0;color:#1f4d3a}
+.top a.new{background:#fff;color:var(--moss);text-decoration:none;font-weight:600;padding:9px 14px;border-radius:10px}
+.top .who{font-size:13px;color:#cfe3d3}
+.page{max-width:1480px;margin:0 auto;padding:22px 24px 40px}
+.kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;margin-bottom:20px}
+.kpi{background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:14px 16px}
+.kpi .k{font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.3px}
+.kpi .v{font-size:24px;font-weight:700;letter-spacing:-.4px;margin-top:2px}
+.kpi .s{font-size:12.5px;color:var(--muted)}
+.main{display:grid;grid-template-columns:minmax(0,1fr) 560px;gap:20px;align-items:start}
+.panel{background:var(--paper);border:1px solid var(--line);border-radius:18px;box-shadow:0 8px 26px rgba(31,77,58,.05)}
+.tabs{display:flex;gap:4px;padding:10px 10px 0;border-bottom:1px solid var(--line);overflow-x:auto}
+.tab{border:0;background:none;padding:10px 12px;border-radius:10px 10px 0 0;color:var(--muted);font-weight:600;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tab.on{color:var(--moss);border-bottom-color:var(--moss)}
+.tab .n{display:inline-block;min-width:20px;padding:0 6px;margin-left:5px;border-radius:99px;background:var(--line2);color:var(--body);font-size:11.5px;text-align:center}
+.tab.on .n{background:var(--leafsoft);color:var(--moss)}
+.list{list-style:none;margin:0;padding:6px}
+.row{display:grid;grid-template-columns:70px minmax(0,1fr) 110px 104px;gap:14px;align-items:center;padding:12px 12px;border-radius:12px;cursor:pointer}
+.row:hover{background:#f6f3ec}
+.row.sel{background:#eef5ee;box-shadow:inset 3px 0 0 var(--leaf)}
+.row .id{font-weight:600;color:var(--muted);font-size:13px}
+.row .who{font-weight:600}
+.row .job{color:var(--body);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .act{font-size:12.5px;color:var(--muted);margin-top:2px}
+.row .act b{color:var(--amber);font-weight:600}
+.row .amt{text-align:right;font-weight:700}
+.chip{display:inline-block;font-size:11.5px;font-weight:600;padding:3px 9px;border-radius:99px;white-space:nowrap}
+.c-draft{background:var(--amberbg);color:#8a5a12}.c-sent{background:var(--bluebg);color:var(--blue)}.c-accepted{background:#e5f3dd;color:#2d6a1e}.c-scheduled{background:var(--leafsoft);color:var(--moss)}.c-completed{background:#f3e8fb;color:#6b3f8f}.c-paid{background:var(--moss);color:#fff}.c-declined,.c-expired,.c-cancelled{background:var(--greybg);color:var(--grey)}
+.empty{padding:40px;text-align:center;color:var(--muted)}
+.detail{position:sticky;top:16px;max-height:calc(100vh - 32px);overflow:auto}
+.dh{padding:20px 22px 14px;border-bottom:1px solid var(--line)}
+.dh .t1{display:flex;align-items:center;gap:10px;color:var(--muted);font-weight:600;font-size:13px}
+.dh h2{font-family:Fraunces,Georgia,serif;font-size:23px;font-weight:600;margin:6px 0 2px;letter-spacing:-.2px}
+.dh .contact{font-size:13px;color:var(--muted)}
+.btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.b{border:1.5px solid #c9d8cd;background:#fff;color:var(--moss);border-radius:10px;padding:8px 13px;font-weight:600;cursor:pointer;text-decoration:none;font-size:13.5px}
+.b:hover{background:#f6faf6}
+.b.p{background:var(--moss);border-color:var(--moss);color:#fff}
+.b.p:hover{background:#25604a}
+.b.d{color:var(--red);border-color:#e7c4bc}
+.b[disabled]{opacity:.45;cursor:not-allowed}
+.sec{padding:16px 22px;border-bottom:1px solid var(--line2)}
+.sec h3{font-size:12px;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);margin:0 0 10px}
+.note{border-radius:10px;padding:9px 12px;margin:0 0 8px;font-size:13px;display:flex;gap:8px}
+.note.warn{background:var(--amberbg);color:#6e4a0f}
+.note.info{background:#eef4f0;color:#2f5141}
+.note.ok{background:#e9f4e3;color:#2d5a1e}
+.ai{display:flex;gap:10px;align-items:center;font-size:12.5px;color:var(--muted);margin-bottom:10px}
+.ai .spark{width:22px;height:22px;border-radius:7px;background:linear-gradient(135deg,#7bb661,#2f6690);color:#fff;display:grid;place-items:center;font-size:12px}
+table.lines{width:100%;border-collapse:collapse}
+table.lines td{padding:8px 4px;border-top:1px solid var(--line2);vertical-align:top}
+table.lines tr:first-child td{border-top:0}
+table.lines .nm{font-weight:600}
+table.lines .lb{font-size:12px;color:var(--muted)}
+table.lines .r{text-align:right;white-space:nowrap}
+table.lines input.q{width:62px;text-align:right}
+table.lines input.lbl{width:100%;margin-top:3px;font-size:12px;color:var(--muted);border-color:transparent;padding:3px 6px}
+table.lines input.lbl:focus{border-color:#d8d2c4}
+input.f,select.f,textarea.f{border:1.5px solid #d8d2c4;border-radius:8px;padding:6px 8px;font:13.5px Inter,sans-serif;color:var(--ink);background:#fff}
+input.f:focus,select.f:focus,textarea.f:focus{outline:0;border-color:var(--moss)}
+textarea.f{width:100%;min-height:64px}
+input.title{width:100%;font-family:Fraunces,Georgia,serif;font-size:20px;font-weight:600;border-color:transparent;padding:4px 6px;margin-left:-6px}
+input.title:focus{border-color:#d8d2c4}
+.x{border:0;background:none;color:#b3a99a;cursor:pointer;font-size:16px;line-height:1;padding:2px 4px}
+.x:hover{color:var(--red)}
+.add{display:flex;gap:8px;margin-top:10px}
+.add select{flex:1;min-width:0}
+.tot{margin-top:10px;border-top:1.5px solid var(--ink);padding-top:8px}
+.tot div{display:flex;justify-content:space-between;padding:2px 0;color:var(--body)}
+.tot .big{font-weight:700;font-size:17px;color:var(--ink)}
+.kv{display:grid;grid-template-columns:130px 1fr;gap:6px 12px;font-size:13px}
+.kv span:nth-child(odd){color:var(--muted)}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px}
+.tl{list-style:none;margin:0;padding:0}
+.tl li{display:grid;grid-template-columns:18px 1fr auto;gap:10px;padding:7px 0;font-size:13px}
+.tl .dot{width:10px;height:10px;border-radius:50%;background:#c9d8cd;margin-top:5px}
+.tl .dot.k-accepted,.tl .dot.k-deposit_paid,.tl .dot.k-balance_paid{background:var(--leaf)}
+.tl .dot.k-viewed{background:#7fb2d8}.tl .dot.k-question{background:#e0a23d}.tl .dot.k-declined,.tl .dot.k-expired,.tl .dot.k-cancelled{background:#c1b8aa}
+.tl .when{color:var(--muted);font-size:12px;white-space:nowrap}
+.tl .ev{font-weight:600}
+.tl .dt{color:var(--body)}
+details.raw{font-size:13px;color:var(--body);margin-top:8px}
+details.raw summary{cursor:pointer;color:var(--muted);font-weight:600}
+details.raw p{white-space:pre-wrap;background:#f7f4ed;border-radius:8px;padding:10px;margin:6px 0 0}
+.sched{margin-top:20px;padding:18px 20px}
+.sched h2{font-family:Fraunces,Georgia,serif;font-size:19px;font-weight:600;margin:0 0 12px}
+.gantt{display:grid;grid-template-columns:90px 1fr;gap:8px 12px;align-items:center}
+.lane{position:relative;height:34px;background:repeating-linear-gradient(90deg,transparent 0,transparent calc(100%/35 - 1px),var(--line2) calc(100%/35 - 1px),var(--line2) calc(100%/35));border-radius:8px;background-color:#faf8f2}
+.bar{position:absolute;top:4px;bottom:4px;border-radius:7px;background:#cfe3c4;color:#24452f;font-size:11.5px;font-weight:600;padding:5px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:default}
+.bar.mine{background:var(--moss);color:#fff;cursor:pointer}
+.bar.past{opacity:.5}
+.weeks{position:relative;height:18px;font-size:11.5px;color:var(--muted)}
+.weeks span{position:absolute;top:0}
+.today{position:absolute;top:-4px;bottom:-4px;width:2px;background:#d9534f;border-radius:2px}
+.crew{font-weight:600;font-size:13px;color:var(--body)}
+.toast{position:fixed;right:24px;bottom:24px;background:var(--ink);color:#fff;padding:12px 16px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.2);font-size:13.5px;z-index:9;max-width:420px}
+.toast.err{background:var(--red)}
+.busy{opacity:.6;pointer-events:none}
+@media (max-width:1180px){.kpis{grid-template-columns:repeat(3,1fr)}.main{grid-template-columns:1fr}.detail{position:static;max-height:none}}
+@media (max-width:640px){.kpis{grid-template-columns:repeat(2,1fr)}.row{grid-template-columns:1fr auto}.row .id,.row .st{display:none}.top .who{display:none}.page{padding:14px}}
+</style>
+</head>
+<body>
+<div class="top"><div class="in">
+  <div class="brand"><svg width="26" height="26" viewBox="0 0 34 34" aria-hidden="true"><path d="M2 32C2 14 14 2 32 2c0 18-12 30-30 30z" fill="#7bb661"/><path d="M5 29L27 7" stroke="#1f4d3a" stroke-width="2"/></svg><b id="co">Mossgrove Landscapes</b><span>Quotes and jobs</span></div>
+  <div class="sp"></div>
+  <span class="pill" id="mode"></span>
+  <span class="who" id="who"></span>
+  <a class="new" id="newVisit" href="#">+ New site visit</a>
+</div></div>
+<div class="page">
+  <section class="kpis" id="kpis"></section>
+  <div class="main">
+    <section class="panel">
+      <nav class="tabs" id="tabs"></nav>
+      <ul class="list" id="list"></ul>
+    </section>
+    <aside class="panel detail" id="detail"></aside>
+  </div>
+  <section class="panel sched" id="sched"></section>
+</div>
+<script>
+var D = /*__DATA__*/null;
+(function () {
+  if (!D) return;
+  var $ = function (id) { return document.getElementById(id); };
+  var gbp = function (n) { return '£' + (Math.round(Number(n || 0) * 100) / 100).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+  var gbp0 = function (n) { return '£' + Math.round(Number(n || 0)).toLocaleString('en-GB'); };
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+  var LABEL = { draft: 'Draft', sent: 'Sent', accepted: 'Accepted', scheduled: 'Booked', completed: 'Invoiced', paid: 'Paid', declined: 'Declined', expired: 'Expired', cancelled: 'Cancelled' };
+  var EVENT = { drafted: 'Drafted by AI', edited: 'Edited', sent: 'Sent to client', resent: 'Sent again', viewed: 'Opened by client', question: 'Client asked', accepted: 'Accepted and signed', deposit_paid: 'Deposit paid', scheduled: 'Booked', completed: 'Job done, invoiced', balance_paid: 'Paid in full', review_requested: 'Review requested', reminder: 'Reminder sent', deposit_reminder: 'Deposit reminder', balance_reminder: 'Payment reminder', declined: 'Declined', expired: 'Expired', cancelled: 'Cancelled' };
+  var NOW = new Date(D.now);
+  var state = { tab: 'action', sel: null, edit: null };
+  var params = new URLSearchParams(location.search);
+  state.sel = params.get('q');
+
+  function days(a, b) { return Math.round((new Date(b) - new Date(a)) / 864e5); }
+  function ago(iso) { if (!iso) return ''; var m = Math.round((NOW - new Date(iso)) / 6e4); if (m < 1) return 'just now'; if (m < 60) return m + ' min ago'; var h = Math.round(m / 60); if (h < 24) return h + ' h ago'; var d = Math.round(h / 24); return d === 1 ? 'yesterday' : d + ' days ago'; }
+  function dshort(iso) { return iso ? new Date(iso + (String(iso).length === 10 ? 'T12:00:00' : '')).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) : ''; }
+  function qty(l) { var n = Math.round(Number(l.quantity) * 10) / 10; return l.unit === 'each' ? String(n) : n + ' ' + (l.unit === 'metre' ? 'm' : esc(l.unit)); }
+  function value(q) { return q.accepted_at ? q.accepted_total : q.total; }
+  function unpriced(q) { return (q.custom || []).some(function (c) { return c.unit_price == null || c.unit_price === ''; }); }
+
+  function nextStep(q) {
+    if (q.status === 'draft') return unpriced(q) ? '<b>Needs a price</b> before sending' : '<b>Ready to check and send</b>';
+    if (q.status === 'sent') { var v = q.view_count ? 'Viewed ' + q.view_count + '× · last ' + ago(q.viewed_at) : '<b>Not opened yet</b>'; return 'Sent ' + ago(q.sent_at) + ' · ' + v; }
+    if (q.status === 'accepted') return '<b>Deposit due</b> ' + gbp(q.deposit_due) + ' · accepted ' + ago(q.accepted_at);
+    if (q.status === 'scheduled') return (q.job_start ? 'Starts ' + dshort(q.job_start) + ' · ' + esc(q.crew) : 'Deposit in, needs a date');
+    if (q.status === 'completed') { var due = days(NOW, new Date(new Date(q.completed_at).getTime() + D.settings.payment_days * 864e5)); return '<b>Balance due</b> ' + gbp(q.balance_due) + (due >= 0 ? ' in ' + due + ' days' : ' · ' + -due + ' days late'); }
+    if (q.status === 'paid') return 'Paid ' + ago(q.balance_paid_at) + (q.review_sent_at ? ' · review asked' : '');
+    if (q.status === 'declined') return 'Declined: ' + esc(q.decline_reason || 'no reason');
+    if (q.status === 'expired') return 'Expired after ' + (q.reminders_sent || 0) + ' reminders';
+    return LABEL[q.status] || q.status;
+  }
+
+  var TABS = [
+    ['action', 'Needs action', function (q) { return q.status === 'draft' || (q.status === 'sent' && q.view_count > 0) || q.status === 'accepted' || q.status === 'completed'; }],
+    ['draft', 'Drafts', function (q) { return q.status === 'draft'; }],
+    ['sent', 'Sent', function (q) { return q.status === 'sent'; }],
+    ['won', 'Won', function (q) { return ['accepted', 'scheduled', 'completed', 'paid'].indexOf(q.status) >= 0; }],
+    ['lost', 'Lost', function (q) { return ['declined', 'expired', 'cancelled'].indexOf(q.status) >= 0; }],
+    ['all', 'All', function () { return true; }]
+  ];
+
+  function kpis() {
+    var Q = D.quotes;
+    var open = Q.filter(function (q) { return q.status === 'sent'; });
+    var since = function (iso, d) { return iso && (NOW - new Date(iso)) / 864e5 <= d; };
+    var won30 = Q.filter(function (q) { return since(q.accepted_at, 30); });
+    var decided = Q.filter(function (q) { return since(q.sent_at, 90) && ['draft', 'sent'].indexOf(q.status) < 0; });
+    var wonD = decided.filter(function (q) { return q.accepted_at; });
+    var dep = Q.filter(function (q) { return q.status === 'accepted'; });
+    var owed = Q.filter(function (q) { return q.status === 'completed'; });
+    var next = D.schedule.filter(function (e) { return e.start >= D.today; }).sort(function (a, b) { return a.start < b.start ? -1 : 1; })[0];
+    var tiles = [
+      ['Open quotes', gbp0(open.reduce(function (a, q) { return a + q.total; }, 0)), open.length + ' waiting for the client'],
+      ['Won (30 days)', gbp0(won30.reduce(function (a, q) { return a + q.accepted_total; }, 0)), won30.length + ' jobs accepted'],
+      ['Win rate (90 days)', decided.length ? Math.round(wonD.length / decided.length * 100) + '%' : '–', wonD.length + ' of ' + decided.length + ' decided quotes'],
+      ['Deposits due', gbp0(dep.reduce(function (a, q) { return a + q.deposit_due; }, 0)), dep.length + ' accepted, not yet booked'],
+      ['Owed to you', gbp0(owed.reduce(function (a, q) { return a + q.balance_due; }, 0)), owed.length + ' final invoice' + (owed.length === 1 ? '' : 's')],
+      ['Next job', next ? dshort(next.start) : '–', next ? esc(next.title) + ' · ' + esc(next.crew) : 'Nothing booked']
+    ];
+    $('kpis').innerHTML = tiles.map(function (t) { return '<div class="kpi"><div class="k">' + t[0] + '</div><div class="v">' + t[1] + '</div><div class="s">' + t[2] + '</div></div>'; }).join('');
+  }
+
+  function list() {
+    var tab = TABS.find(function (t) { return t[0] === state.tab; });
+    $('tabs').innerHTML = TABS.map(function (t) { var n = D.quotes.filter(t[2]).length; return '<button class="tab' + (t[0] === state.tab ? ' on' : '') + '" data-tab="' + t[0] + '">' + t[1] + '<span class="n">' + n + '</span></button>'; }).join('');
+    var rows = D.quotes.filter(tab[2]).sort(function (a, b) { return (b.updated_at || b.created_at) > (a.updated_at || a.created_at) ? 1 : -1; });
+    $('list').innerHTML = rows.length ? rows.map(function (q) {
+      return '<li class="row' + (q.quote_id === state.sel ? ' sel' : '') + '" data-q="' + q.quote_id + '"><span class="id">' + q.quote_id + '</span><div><div class="who">' + esc(q.client_name) + '</div><div class="job">' + esc(q.job_title) + '</div><div class="act">' + nextStep(q) + '</div></div><span class="st"><span class="chip c-' + q.status + '">' + LABEL[q.status] + '</span></span><span class="amt">' + gbp0(value(q)) + '</span></li>';
+    }).join('') : '<li class="empty">Nothing here right now.</li>';
+  }
+
+  // ---- Detail ----
+  function priceLine(l) {
+    var b = D.book[l.code]; if (!b) return null;
+    var qty = Math.max(Number(l.quantity) || 0, 0); if (b.min_qty && qty > 0 && qty < b.min_qty) qty = b.min_qty; qty = Math.round(qty * 10) / 10;
+    return Object.assign({}, l, { item: b.item, unit: b.unit, unit_price: b.unit_price, quantity: qty, amount: Math.round(qty * b.unit_price * 100) / 100 });
+  }
+  function editTotals(e) {
+    var sub = e.lines.reduce(function (a, l) { var p = priceLine(l); return a + (p ? p.amount : 0); }, 0) + e.custom.reduce(function (a, c) { return a + (c.unit_price === '' || c.unit_price == null ? 0 : Math.round(c.quantity * c.unit_price * 100) / 100); }, 0);
+    sub = Math.round(sub * 100) / 100; var vat = Math.round(sub * D.settings.vat_rate * 100) / 100;
+    return { sub: sub, vat: vat, tot: Math.round((sub + vat) * 100) / 100 };
+  }
+  function bookOptions() {
+    var cats = {};
+    Object.keys(D.book).forEach(function (c) { var b = D.book[c]; (cats[b.category] = cats[b.category] || []).push(b); });
+    return '<option value="">Add an item from the price book…</option>' + Object.keys(cats).map(function (k) { return '<optgroup label="' + esc(k) + '">' + cats[k].map(function (b) { return '<option value="' + b.code + '">' + esc(b.item) + ' (' + gbp(b.unit_price) + ' / ' + esc(b.unit) + ')</option>'; }).join('') + '</optgroup>'; }).join('');
+  }
+
+  function detail() {
+    var q = D.quotes.find(function (x) { return x.quote_id === state.sel; });
+    if (!q) { $('detail').innerHTML = '<div class="empty">Pick a quote on the left.</div>'; return; }
+    var e = state.edit && state.edit.quote_id === q.quote_id ? state.edit : null;
+    var h = '<div class="dh"><div class="t1"><span>' + q.quote_id + '</span><span class="chip c-' + q.status + '">' + LABEL[q.status] + '</span>' + (q.version > 1 ? '<span>v' + q.version + '</span>' : '') + '</div>';
+    h += e ? '<input class="f title" id="eTitle" value="' + esc(e.job_title) + '">' : '<h2>' + esc(q.job_title) + '</h2>';
+    h += '<div class="contact">' + esc(q.client_name) + ' · ' + esc(q.client_email) + (q.client_phone ? ' · ' + esc(q.client_phone) : '') + '<br>' + esc(q.site_address) + (q.postcode ? ', ' + esc(q.postcode) : '') + '</div>';
+    h += '<div class="btns">' + buttons(q, e) + '</div></div>';
+
+    // AI and checks
+    var notes = '';
+    if (q.status === 'draft' || e) {
+      notes += '<div class="ai"><span class="spark">✦</span><span>Drafted by AI in ' + Math.round((q.build_ms || 0) / 1000) + ' s' + (q.transcript ? ' from a voice memo' : ' from notes') + ' · by ' + esc(q.estimator) + ' · priced from the price book</span></div>';
+      (e ? e.flags : q.flags || []).forEach(function (f) { notes += '<div class="note ' + f.level + '">' + (f.level === 'warn' ? '⚠' : 'ℹ') + '<span>' + esc(f.text) + '</span></div>'; });
+      (q.questions || []).forEach(function (t) { notes += '<div class="note warn">?<span>' + esc(t) + '</span></div>'; });
+    }
+    (q.messages || []).forEach(function (m) { notes += '<div class="note info">✉<span><b>' + esc(q.client_name.split(' ')[0]) + ' asked ' + ago(m.at) + ':</b> ' + esc(m.text) + '</span></div>'; });
+    if (notes) h += '<div class="sec">' + notes + '</div>';
+
+    // Lines
+    h += '<div class="sec"><h3>' + (e ? 'Edit the quote' : 'The quote') + '</h3>';
+    if (e) {
+      h += '<textarea class="f" id="eSummary" placeholder="Summary for the client">' + esc(e.summary) + '</textarea>';
+      h += '<table class="lines" style="margin-top:10px">' + e.lines.map(function (l, i) {
+        var p = priceLine(l) || l;
+        return '<tr><td><div class="nm">' + esc(p.item) + '</div><input class="f lbl" data-i="' + i + '" data-k="label" value="' + esc(l.label) + '"></td><td class="r"><input class="f q" data-i="' + i + '" data-k="quantity" value="' + l.quantity + '"> <span class="lb">' + esc(p.unit) + '</span></td><td class="r">' + gbp(p.amount) + '</td><td><button class="x" data-del="' + i + '" title="Remove">×</button></td></tr>';
+      }).join('') + e.custom.map(function (c, i) {
+        return '<tr><td><div class="nm">' + esc(c.description) + '</div><div class="lb">Custom item, not in the price book</div></td><td class="r">' + c.quantity + ' ' + esc(c.unit) + '</td><td class="r">£<input class="f q" style="width:80px" data-c="' + i + '" value="' + (c.unit_price == null ? '' : c.unit_price) + '" placeholder="price"></td><td><button class="x" data-cdel="' + i + '">×</button></td></tr>';
+      }).join('') + '</table>';
+      h += '<div class="add"><select class="f" id="eAdd">' + bookOptions() + '</select><input class="f" id="eAddQty" placeholder="qty" style="width:70px"><button class="b" id="eAddGo">Add</button></div>';
+      if (e.extras.length) h += '<p class="lb" style="margin:12px 0 4px;color:var(--muted)">Optional extras offered: ' + e.extras.map(function (x, i) { var p = priceLine(x) || x; return esc(p.item) + ' (' + gbp(p.amount) + ') <button class="x" data-xdel="' + i + '">×</button>'; }).join(' · ') + '</p>';
+      var t = editTotals(e);
+      h += '<div class="tot"><div><span>Subtotal</span><span>' + gbp(t.sub) + '</span></div><div><span>VAT</span><span>' + gbp(t.vat) + '</span></div><div class="big"><span>Total</span><span>' + gbp(t.tot) + '</span></div></div>';
+    } else {
+      if (q.summary) h += '<p style="margin:0 0 10px;color:var(--body)">' + esc(q.summary) + '</p>';
+      var chosen = q.chosen_extras || [];
+      h += '<table class="lines">' + q.lines.map(function (l) { return '<tr><td><div class="nm">' + esc(l.item) + '</div><div class="lb">' + esc(l.label) + '</div></td><td class="r lb">' + qty(l) + '</td><td class="r">' + gbp(l.amount) + '</td></tr>'; }).join('')
+        + (q.custom || []).map(function (c) { return '<tr><td><div class="nm">' + esc(c.description) + '</div><div class="lb">Custom item</div></td><td class="r lb">' + c.quantity + ' ' + esc(c.unit) + '</td><td class="r">' + (c.amount == null ? '<b style="color:var(--amber)">to price</b>' : gbp(c.amount)) + '</td></tr>'; }).join('')
+        + (q.extras || []).map(function (x) { var on = chosen.indexOf(x.code) >= 0; return '<tr><td><div class="nm">' + esc(x.item) + ' <span class="chip ' + (on ? 'c-accepted' : 'c-cancelled') + '">' + (on ? 'extra added' : 'optional extra') + '</span></div><div class="lb">' + esc(x.why || x.label) + '</div></td><td class="r lb">' + qty(x) + '</td><td class="r"' + (on ? '' : ' style="color:var(--muted)"') + '>' + gbp(x.amount) + '</td></tr>'; }).join('') + '</table>';
+      var acc = !!q.accepted_at;
+      h += '<div class="tot"><div><span>Subtotal</span><span>' + gbp(acc ? q.accepted_subtotal : q.subtotal) + '</span></div><div><span>VAT</span><span>' + gbp(acc ? q.accepted_vat : q.vat) + '</span></div><div class="big"><span>Total</span><span>' + gbp(acc ? q.accepted_total : q.total) + '</span></div><div><span>Deposit (' + D.settings.deposit_pct + '%)</span><span>' + gbp(acc ? q.deposit_due : q.deposit) + '</span></div></div>';
+    }
+    h += '</div>';
+
+    // Facts
+    var kv = [];
+    if (q.sent_at) kv.push(['Sent', dshort(q.sent_at) + (q.valid_until ? ' · valid until ' + dshort(q.valid_until) : '')]);
+    if (q.sent_at && q.status === 'sent') kv.push(['Opened', q.view_count ? q.view_count + ' times, first ' + ago(q.viewed_at) : 'not yet']);
+    if (q.accepted_at) kv.push(['Signed', esc(q.signed_name) + ', ' + new Date(q.accepted_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })]);
+    if (q.sign_meta && q.sign_meta.fingerprint) kv.push(['Fingerprint', '<span class="mono">' + esc(String(q.sign_meta.fingerprint).slice(0, 24)) + '…</span>']);
+    if (q.deposit_paid_at) kv.push(['Deposit', gbp(q.deposit_due) + ' paid ' + dshort(q.deposit_paid_at)]);
+    if (q.job_start) kv.push(['Booked', esc(q.crew) + ', ' + dshort(q.job_start) + ' to ' + dshort(q.job_end)]);
+    if (q.invoice_id) kv.push(['Invoice', esc(q.invoice_id) + ' · balance ' + gbp(q.balance_due) + (q.balance_paid_at ? ' paid ' + dshort(q.balance_paid_at) : '')]);
+    if (kv.length) h += '<div class="sec"><h3>Status</h3><div class="kv">' + kv.map(function (k) { return '<span>' + k[0] + '</span><span>' + k[1] + '</span>'; }).join('') + '</div></div>';
+
+    // Visit notes
+    if (q.visit_notes || q.transcript) h += '<div class="sec"><h3>From the site visit</h3>' + (q.visit_notes ? '<details class="raw" open><summary>Notes</summary><p>' + esc(q.visit_notes) + '</p></details>' : '') + (q.transcript ? '<details class="raw"><summary>Voice memo transcript</summary><p>' + esc(q.transcript) + '</p></details>' : '') + '</div>';
+
+    // Timeline
+    var ev = (D.events[q.quote_id] || []).slice().reverse();
+    if (ev.length) h += '<div class="sec" style="border:0"><h3>History</h3><ul class="tl">' + ev.map(function (x) { return '<li><span class="dot k-' + esc(x.event) + '"></span><div><span class="ev">' + esc(EVENT[x.event] || x.event) + '</span> <span class="dt">' + esc(x.detail) + '</span></div><span class="when">' + ago(x.at) + '</span></li>'; }).join('') + '</ul></div>';
+    $('detail').innerHTML = h;
+    wire(q, e);
+  }
+
+  function buttons(q, e) {
+    var pdf = '<a class="b" target="_blank" href="pdf?t=' + q.token + '&doc=quote">PDF</a>';
+    var view = '<a class="b" target="_blank" href="quote?t=' + q.token + (q.status === 'draft' ? '&preview=1' : '') + '">' + (q.status === 'draft' ? 'Preview' : 'Client page') + '</a>';
+    if (e) return '<button class="b p" id="bSaveSend"' + (unpricedEdit(e) || !e.lines.length ? ' disabled' : '') + '>Save and send</button><button class="b" id="bSave">Save</button><button class="b" id="bCancelEdit">Cancel</button>';
+    if (q.status === 'draft') return '<button class="b p" id="bSend"' + (unpriced(q) || !q.lines.length ? ' disabled title="Price the custom items first"' : '') + '>Send to client</button><button class="b" id="bEdit">Edit</button>' + view + pdf + '<button class="b d" id="bCancel">Cancel</button>';
+    if (q.status === 'sent') return '<button class="b" id="bEdit">Edit</button><button class="b" id="bResend">Send again</button>' + view + pdf + '<button class="b d" id="bCancel">Withdraw</button>';
+    if (q.status === 'accepted') return '<button class="b p" id="bDeposit">Record deposit (bank transfer)</button>' + view + pdf;
+    if (q.status === 'scheduled') return '<button class="b p" id="bComplete">Job done: send final invoice</button>' + view + pdf;
+    if (q.status === 'completed') return '<button class="b p" id="bBalance">Record payment (bank transfer)</button><a class="b" target="_blank" href="pdf?t=' + q.token + '&doc=invoice">Invoice PDF</a>' + view;
+    if (q.status === 'paid') return '<a class="b" target="_blank" href="pdf?t=' + q.token + '&doc=receipt">Receipt PDF</a><a class="b" target="_blank" href="pdf?t=' + q.token + '&doc=invoice">Invoice PDF</a>' + view;
+    return view + pdf;
+  }
+  function unpricedEdit(e) { return e.custom.some(function (c) { return c.unit_price === '' || c.unit_price == null || isNaN(Number(c.unit_price)); }); }
+
+  function startEdit(q) {
+    state.edit = { quote_id: q.quote_id, job_title: q.job_title, summary: q.summary, flags: q.flags || [],
+      lines: q.lines.map(function (l) { return { code: l.code, quantity: l.quantity, label: l.label }; }),
+      extras: (q.extras || []).map(function (x) { return { code: x.code, quantity: x.quantity, label: x.label, why: x.why }; }),
+      custom: (q.custom || []).map(function (c) { return { description: c.description, quantity: c.quantity, unit: c.unit, unit_price: c.unit_price, why: c.why }; }) };
+    detail();
+  }
+  function readEdit() {
+    var e = state.edit; if (!e) return;
+    if ($('eTitle')) e.job_title = $('eTitle').value;
+    if ($('eSummary')) e.summary = $('eSummary').value;
+  }
+  function payload(e) { return { job_title: e.job_title, summary: e.summary, lines: e.lines, extras: e.extras, custom: e.custom.map(function (c) { return Object.assign({}, c, { unit_price: c.unit_price === '' || c.unit_price == null ? null : Number(c.unit_price) }); }) }; }
+
+  function wire(q, e) {
+    var on = function (id, fn) { var el = $(id); if (el) el.onclick = fn; };
+    on('bEdit', function () { startEdit(q); });
+    on('bCancelEdit', function () { state.edit = null; detail(); });
+    on('bSave', function () { readEdit(); act('save', q, payload(state.edit), function () { state.edit = null; }); });
+    on('bSaveSend', function () { readEdit(); var p = payload(state.edit); act('save', q, p, function () { state.edit = null; act('send', q, {}); }); });
+    on('bSend', function () { if (confirm('Send ' + q.quote_id + ' to ' + q.client_name + ' (' + q.client_email + ')?')) act('send', q, {}); });
+    on('bResend', function () { act('send', q, {}); });
+    on('bCancel', function () { if (confirm('Cancel ' + q.quote_id + '?')) act('cancel', q, {}); });
+    on('bDeposit', function () { if (confirm('Record a ' + gbp(q.deposit_due) + ' deposit paid by bank transfer? This books the job.')) act('record_payment', q, { kind: 'deposit' }); });
+    on('bBalance', function () { if (confirm('Record ' + gbp(q.balance_due) + ' paid by bank transfer?')) act('record_payment', q, { kind: 'balance' }); });
+    on('bComplete', function () { if (confirm('Mark the job done and send the final invoice for ' + gbp(q.accepted_total - q.deposit_due) + '?')) act('complete', q, {}); });
+    if (!e) return;
+    Array.prototype.forEach.call(document.querySelectorAll('[data-k]'), function (el) { el.onchange = function () { readEdit(); var l = e.lines[+el.getAttribute('data-i')]; l[el.getAttribute('data-k')] = el.getAttribute('data-k') === 'quantity' ? Number(el.value) : el.value; detail(); }; });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-c]'), function (el) { el.onchange = function () { readEdit(); e.custom[+el.getAttribute('data-c')].unit_price = el.value === '' ? null : Number(el.value); detail(); }; });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-del]'), function (el) { el.onclick = function () { readEdit(); e.lines.splice(+el.getAttribute('data-del'), 1); detail(); }; });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-cdel]'), function (el) { el.onclick = function () { readEdit(); e.custom.splice(+el.getAttribute('data-cdel'), 1); detail(); }; });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-xdel]'), function (el) { el.onclick = function () { readEdit(); e.extras.splice(+el.getAttribute('data-xdel'), 1); detail(); }; });
+    on('eAddGo', function () { readEdit(); var c = $('eAdd').value, n = Number($('eAddQty').value) || 1; if (!c) return; e.lines.push({ code: c, quantity: n, label: 'Added by ' + D.settings.owner_name }); detail(); });
+  }
+
+  function toast(t, err) { var d = document.createElement('div'); d.className = 'toast' + (err ? ' err' : ''); d.textContent = t; document.body.appendChild(d); setTimeout(function () { d.remove(); }, 4200); }
+  function act(action, q, extra, after) {
+    document.body.classList.add('busy');
+    fetch('owner', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ key: D.key, action: action, quote_id: q.quote_id }, extra)) })
+      .then(function (r) { return r.json(); })
+      .then(function (r) {
+        document.body.classList.remove('busy');
+        if (!r.ok) { toast(r.message || 'That didn\'t work.', true); return; }
+        if (r.data) { D = Object.assign(D, r.data); }
+        if (after) after();
+        toast(r.message || 'Done');
+        render();
+      })
+      .catch(function () { document.body.classList.remove('busy'); toast('Could not reach n8n.', true); });
+  }
+
+  function schedule() {
+    var start = new Date(D.today + 'T00:00:00'); start.setDate(start.getDate() - ((start.getDay() + 6) % 7) - 7);
+    var span = 35, pos = function (iso) { return (new Date(iso + 'T00:00:00') - start) / 864e5 / span * 100; };
+    var h = '<h2>Crew schedule</h2><div class="gantt"><div></div><div class="weeks">';
+    for (var w = 0; w < 5; w++) { var d = new Date(start); d.setDate(d.getDate() + w * 7); h += '<span style="left:' + (w * 20) + '%">w/c ' + d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) + '</span>'; }
+    h += '</div>';
+    D.settings.crews.forEach(function (crew) {
+      h += '<div class="crew">' + esc(crew) + '</div><div class="lane"><span class="today" style="left:' + pos(D.today) + '%"></span>';
+      D.schedule.filter(function (x) { return x.crew === crew; }).forEach(function (x) {
+        var l = Math.max(0, pos(x.start)), r = Math.min(100, pos(x.end) + 100 / span); if (r <= 0 || l >= 100) return;
+        h += '<span class="bar' + (x.quote_id ? ' mine' : '') + (x.end < D.today ? ' past' : '') + '" ' + (x.quote_id ? 'data-q="' + x.quote_id + '"' : '') + ' style="left:' + l + '%;width:' + (r - l) + '%" title="' + esc(x.title) + ' (' + x.start + ' to ' + x.end + ')">' + esc(x.title) + '</span>';
+      });
+      h += '</div>';
+    });
+    $('sched').innerHTML = h + '</div>';
+  }
+
+  function render() { kpis(); list(); detail(); schedule(); }
+  document.addEventListener('click', function (ev) {
+    var t = ev.target.closest('[data-tab]'); if (t) { state.tab = t.getAttribute('data-tab'); list(); return; }
+    var r = ev.target.closest('.row[data-q], .bar[data-q]'); if (r) { state.sel = r.getAttribute('data-q'); state.edit = null; list(); detail(); }
+  });
+  $('co').textContent = D.settings.company;
+  $('mode').textContent = D.settings.mode === 'live' ? 'LIVE' : 'TEST MODE';
+  if (D.settings.mode === 'live') $('mode').classList.add('live');
+  $('who').textContent = D.settings.owner_name;
+  $('newVisit').href = D.formUrl;
+  if (state.sel) { var sq = D.quotes.find(function (x) { return x.quote_id === state.sel; }); if (sq) state.tab = TABS.find(function (t) { return t[2](sq) && t[0] !== 'all'; })[0]; }
+  else { var first = D.quotes.filter(TABS[0][2]).sort(function (a, b) { return (b.updated_at || b.created_at) > (a.updated_at || a.created_at) ? 1 : -1; })[0]; if (first) state.sel = first.quote_id; }
+  render();
+})();
+</script>
+</body>
+</html>

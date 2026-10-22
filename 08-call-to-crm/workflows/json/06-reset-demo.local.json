@@ -1,0 +1,893 @@
+{
+  "id": "tdwResetDemo0006",
+  "name": "Tidewater 6: Reset Demo",
+  "description": "Call to CRM (project 8): puts the demo CRM back to its starting deals, companies and contacts and clears calls, activity and the outbox.",
+  "nodes": [
+    {
+      "id": "3de5b504-138f-46fa-ae42-94837df49fa3",
+      "name": "Reset Demo",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        200,
+        300
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "2633c93b-b875-44cf-bbcf-f68855d9ffe0",
+      "name": "Clear Deals",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        420,
+        300
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "deleteRows",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "6fad2EyLoty9oElv",
+          "cachedResultName": "Tidewater Deals"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "gt",
+              "keyValue": "0"
+            }
+          ]
+        }
+      },
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "id": "df8f8402-583f-4b49-b2e5-88ae6d6fb39d",
+      "name": "Clear Companies",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        640,
+        300
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "deleteRows",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "h1O24r8zgxQeqODi",
+          "cachedResultName": "Tidewater Companies"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "gt",
+              "keyValue": "0"
+            }
+          ]
+        }
+      },
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "id": "209a5faa-6fc4-44c7-837a-2e6b15db90cc",
+      "name": "Clear Contacts",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        860,
+        300
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "deleteRows",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "0jlx2ckch1Gj6Qtr",
+          "cachedResultName": "Tidewater Contacts"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "gt",
+              "keyValue": "0"
+            }
+          ]
+        }
+      },
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "id": "ff1dd2c6-9981-4c51-b270-8cf3f7c21c3d",
+      "name": "Clear Activity",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1080,
+        300
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "deleteRows",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "VUrS7HRsgmNpXROv",
+          "cachedResultName": "Tidewater Activity"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "gt",
+              "keyValue": "0"
+            }
+          ]
+        }
+      },
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "id": "3b57fa97-3f04-467a-bc8a-2e765850b7a1",
+      "name": "Clear Calls",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1300,
+        300
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "deleteRows",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "0hHsTxLEuk6Su6C7",
+          "cachedResultName": "Tidewater Calls"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "gt",
+              "keyValue": "0"
+            }
+          ]
+        }
+      },
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "id": "685be641-7c56-40a8-8aba-685533d6a575",
+      "name": "Clear Outbox",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1520,
+        300
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "deleteRows",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "VGQHvXZw7QIaNJgY",
+          "cachedResultName": "Tidewater Outbox"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "gt",
+              "keyValue": "0"
+            }
+          ]
+        }
+      },
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "id": "dfd0cac3-83f4-44de-b480-6274210c66ca",
+      "name": "Starting CRM",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1740,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// The demo CRM as it starts: three open deals at different stages, their companies and contacts,\n// and a little earlier activity. Every company, person and email is invented (.example domains).\n// ---- lib-tdw.js (included by build.py): shared helpers for the Tidewater workflows ----\nconst TZ = 'America/New_York';\nconst esc = s => String(s === null || s === undefined ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');\nconst settingsOf = items => Object.fromEntries(items.map(i => i.json).filter(r => r && r.key).map(r => [r.key, r.value]));\nconst parseJson = (s, d) => { try { return typeof s === 'string' ? JSON.parse(s) : (s === null || s === undefined ? d : s); } catch (e) { return d; } };\nconst nowIso = () => DateTime.now().setZone(TZ).toISO();\nconst newId = (prefix, n) => prefix + Array.from({ length: n || 5 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 32)]).join('');\nconst newToken = n => Array.from({ length: n || 24 }, () => 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 56)]).join('');\nconst dollars = n => '$' + Math.round(Number(n) || 0).toLocaleString('en-US');\nconst mmss = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');\n\n// HubSpot's default sales pipeline.\nconst STAGES = [\n  ['appointmentscheduled', 'Appointment scheduled', 'A first meeting is booked.'],\n  ['qualifiedtobuy', 'Qualified to buy', 'Need, rough budget, decision process and timeline are understood.'],\n  ['presentationscheduled', 'Presentation scheduled', 'A demo or presentation is booked or has been given.'],\n  ['decisionmakerboughtin', 'Decision maker bought-in', 'The person who signs has seen it and supports it.'],\n  ['contractsent', 'Contract sent', 'A proposal or contract has been sent.'],\n  ['closedwon', 'Closed won', 'Signed.'],\n  ['closedlost', 'Closed lost', 'The prospect said no.']\n];\nconst stageIndex = id => STAGES.findIndex(s => s[0] === id);\nconst stageLabel = id => (STAGES.find(s => s[0] === id) || [id, id])[1];\n\n// OpenAI node (Responses API) output: the JSON object from the first output_text part, or null.\nfunction aiJson(res) {\n  if (!res || res.error) return null;\n  const msg = (res.output || []).find(o => o && o.type === 'message');\n  const part = msg && (msg.content || []).find(c => c && c.type === 'output_text');\n  let t = part ? part.text : null;\n  if (typeof t === 'string') { try { t = JSON.parse(t); } catch (e) { t = null; } }\n  return t && typeof t === 'object' ? t : null;\n}\n\n// Is this quote really in the transcript? (case, punctuation and spacing ignored)\nconst norm = s => String(s || '').toLowerCase().replace(/[’']/g, \"'\").replace(/[^a-z0-9' ]+/g, ' ').replace(/\\s+/g, ' ').trim();\nconst quoteFound = (quote, transcriptNorm) => { const q = norm(quote); return q.length >= 6 && transcriptNorm.includes(q); };\n\nfunction emailHtml(company, paragraphs, extraHtml) {\n  const p = paragraphs.map(t => '<p style=\"margin:0 0 14px;text-align:left\">' + t + '</p>').join('');\n  return '<div style=\"font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.55;color:#1f2933;max-width:560px;text-align:left\">'\n    + '<div style=\"font-weight:700;font-size:13px;letter-spacing:1px;text-transform:uppercase;color:#1d4ed8;margin:0 0 18px\">' + esc(company) + '</div>'\n    + p + (extraHtml || '') + '</div>';\n}\nconst plainToHtml = t => String(t || '').split(/\\n{2,}/).map(p => '<p style=\"margin:0 0 14px;text-align:left\">' + esc(p).replace(/\\n/g, '<br>') + '</p>').join('');\n// ---- end lib-tdw.js ----\nconst now = DateTime.now().setZone(TZ);\nconst ago = d => now.minus({ days: d }).toISO();\nconst companies = [\n  { company_id: 'C-201', name: 'Calloway Dental Group', domain: 'callowaydental.example', industry: 'Dental clinics (5 locations)', size: '120 staff' },\n  { company_id: 'C-202', name: 'Pemberton Freight', domain: 'pembertonfreight.example', industry: 'Freight and logistics', size: '300 staff' },\n  { company_id: 'C-203', name: 'Ostara Home Care', domain: 'ostarahomecare.example', industry: 'Home care (8 branches)', size: '450 staff' }\n];\nconst contacts = [\n  { contact_id: 'P-301', company_id: 'C-201', name: 'Renee Alvarez', email: 'renee.alvarez@callowaydental.example', title: 'Operations Director' },\n  { contact_id: 'P-302', company_id: 'C-201', name: 'Mark Feld', email: 'mark.feld@callowaydental.example', title: 'COO' },\n  { contact_id: 'P-303', company_id: 'C-202', name: 'Tom Reyes', email: 'tom.reyes@pembertonfreight.example', title: 'IT Manager' },\n  { contact_id: 'P-304', company_id: 'C-202', name: 'Dana Whitcombe', email: 'dana.whitcombe@pembertonfreight.example', title: 'CFO' },\n  { contact_id: 'P-305', company_id: 'C-203', name: 'Janelle Brooks', email: 'janelle.brooks@ostarahomecare.example', title: 'CEO' }\n];\nconst deals = [\n  { deal_id: 'D-1001', name: 'Calloway Dental: patient reminders', company_id: 'C-201', stage: 'appointmentscheduled', amount: 0, close_date: '', owner: 'Maya Collins', next_step: 'Discovery call with Renee', updated_at: ago(6) },\n  { deal_id: 'D-1002', name: 'Pemberton Freight: customer tracking portal', company_id: 'C-202', stage: 'presentationscheduled', amount: 65000, close_date: now.plus({ days: 55 }).toISODate(), owner: 'Maya Collins', next_step: 'Demo follow-up call', updated_at: ago(7) },\n  { deal_id: 'D-1003', name: 'Ostara Home Care: caregiver scheduling app', company_id: 'C-203', stage: 'contractsent', amount: 28000, close_date: now.plus({ days: 24 }).toISODate(), owner: 'Maya Collins', next_step: 'Contract call with Janelle', updated_at: ago(3) }\n];\nconst activity = [\n  { activity_id: 'N-SEED1', deal_id: 'D-1001', kind: 'note', title: 'Inbound lead: website form', body: 'Asked about automating appointment reminders across 5 clinics.', owner: 'Maya Collins', due: '', status: 'done', source: 'seed', created_at: ago(9) },\n  { activity_id: 'N-SEED2', deal_id: 'D-1002', kind: 'meeting', title: 'Portal demo with the dispatch team', body: 'Showed live tracking and the customer portal. Tom Reyes and two dispatchers attended.', owner: 'Maya Collins', due: '', status: 'done', source: 'seed', created_at: ago(7) },\n  { activity_id: 'N-SEED3', deal_id: 'D-1003', kind: 'email', title: 'Contract v1 sent', body: 'Annual contract for 8 branches, $28,000.', owner: 'Maya Collins', due: '', status: 'done', source: 'seed', created_at: ago(3) }\n];\nreturn [\n  ...companies.map(r => ({ json: { table: 'companies', ...r } })),\n  ...contacts.map(r => ({ json: { table: 'contacts', ...r } })),\n  ...deals.map(r => ({ json: { table: 'deals', ...r } })),\n  ...activity.map(r => ({ json: { table: 'activity', ...r } }))\n];\n"
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "419caa5a-e100-4e2d-af9e-ff49e6316d82",
+      "name": "Which Table?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        1980,
+        300
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "outputKey": "companies",
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.table }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "companies"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "outputKey": "contacts",
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.table }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "contacts"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "outputKey": "deals",
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.table }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "deals"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "outputKey": "activity",
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.table }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "activity"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "19190254-d89a-4626-adc0-39d7f692069e",
+      "name": "Add Companies",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2300,
+        160
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "h1O24r8zgxQeqODi",
+          "cachedResultName": "Tidewater Companies"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "company_id": "={{ $json.company_id }}",
+            "name": "={{ $json.name }}",
+            "domain": "={{ $json.domain }}",
+            "industry": "={{ $json.industry }}",
+            "size": "={{ $json.size }}"
+          },
+          "schema": [
+            {
+              "id": "company_id",
+              "displayName": "company_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "domain",
+              "displayName": "domain",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "industry",
+              "displayName": "industry",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "size",
+              "displayName": "size",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "31a2e9ef-2481-4267-8f9a-b655965bb4cf",
+      "name": "Add Contacts",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2300,
+        340
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "0jlx2ckch1Gj6Qtr",
+          "cachedResultName": "Tidewater Contacts"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "contact_id": "={{ $json.contact_id }}",
+            "company_id": "={{ $json.company_id }}",
+            "name": "={{ $json.name }}",
+            "email": "={{ $json.email }}",
+            "title": "={{ $json.title }}"
+          },
+          "schema": [
+            {
+              "id": "contact_id",
+              "displayName": "contact_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "company_id",
+              "displayName": "company_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "title",
+              "displayName": "title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "0cbcc4d6-06c8-4af1-a705-6abc04fe8c6a",
+      "name": "Add Deals",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2300,
+        520
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "6fad2EyLoty9oElv",
+          "cachedResultName": "Tidewater Deals"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "deal_id": "={{ $json.deal_id }}",
+            "name": "={{ $json.name }}",
+            "company_id": "={{ $json.company_id }}",
+            "stage": "={{ $json.stage }}",
+            "amount": "={{ $json.amount }}",
+            "close_date": "={{ $json.close_date }}",
+            "owner": "={{ $json.owner }}",
+            "next_step": "={{ $json.next_step }}",
+            "updated_at": "={{ $json.updated_at }}"
+          },
+          "schema": [
+            {
+              "id": "deal_id",
+              "displayName": "deal_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "company_id",
+              "displayName": "company_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "stage",
+              "displayName": "stage",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "amount",
+              "displayName": "amount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "close_date",
+              "displayName": "close_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "owner",
+              "displayName": "owner",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "next_step",
+              "displayName": "next_step",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "updated_at",
+              "displayName": "updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "9452e5d0-76cd-4282-af97-d52485770a15",
+      "name": "Add Activity",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2300,
+        700
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "VUrS7HRsgmNpXROv",
+          "cachedResultName": "Tidewater Activity"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "activity_id": "={{ $json.activity_id }}",
+            "deal_id": "={{ $json.deal_id }}",
+            "kind": "={{ $json.kind }}",
+            "title": "={{ $json.title }}",
+            "body": "={{ $json.body }}",
+            "owner": "={{ $json.owner }}",
+            "due": "={{ $json.due }}",
+            "status": "={{ $json.status }}",
+            "source": "={{ $json.source }}",
+            "created_at": "={{ $json.created_at }}"
+          },
+          "schema": [
+            {
+              "id": "activity_id",
+              "displayName": "activity_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "deal_id",
+              "displayName": "deal_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "kind",
+              "displayName": "kind",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "title",
+              "displayName": "title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "body",
+              "displayName": "body",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "owner",
+              "displayName": "owner",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "due",
+              "displayName": "due",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "source",
+              "displayName": "source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "bcd10897-1562-4569-a01e-b1e25eb69d16",
+      "name": "Sticky Note bcd10897",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        160,
+        60
+      ],
+      "parameters": {
+        "content": "## Tidewater 6: Reset Demo (manual, destructive)\nPuts the demo CRM back to where it starts: three open deals (Calloway Dental at appointment scheduled, Pemberton Freight at presentation scheduled, Ostara Home Care at contract sent), their companies and contacts and a little earlier activity. Clears processed calls and the outbox.",
+        "color": 3,
+        "width": 1100,
+        "height": 180
+      }
+    }
+  ],
+  "connections": {
+    "Reset Demo": {
+      "main": [
+        [
+          {
+            "node": "Clear Deals",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear Deals": {
+      "main": [
+        [
+          {
+            "node": "Clear Companies",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear Companies": {
+      "main": [
+        [
+          {
+            "node": "Clear Contacts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear Contacts": {
+      "main": [
+        [
+          {
+            "node": "Clear Activity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear Activity": {
+      "main": [
+        [
+          {
+            "node": "Clear Calls",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear Calls": {
+      "main": [
+        [
+          {
+            "node": "Clear Outbox",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear Outbox": {
+      "main": [
+        [
+          {
+            "node": "Starting CRM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Starting CRM": {
+      "main": [
+        [
+          {
+            "node": "Which Table?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Which Table?": {
+      "main": [
+        [
+          {
+            "node": "Add Companies",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Add Contacts",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Add Deals",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Add Activity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "timezone": "America/New_York",
+    "callerPolicy": "workflowsFromSameOwner"
+  }
+}

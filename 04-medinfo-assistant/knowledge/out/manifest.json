@@ -1,0 +1,108 @@
+[
+  {
+    "file": "Quenvara Prescribing Information v5.0.pdf",
+    "name": "Quenvara Prescribing Information v5.0.pdf",
+    "folder": "Public",
+    "kind": "pdf",
+    "doc_code": "LRK-PI-QNV",
+    "version": "5.0"
+  },
+  {
+    "file": "Quenvara Prescribing Information v4.0.pdf",
+    "name": "Quenvara Prescribing Information v4.0.pdf",
+    "folder": "Public",
+    "kind": "pdf",
+    "doc_code": "LRK-PI-QNV",
+    "version": "4.0"
+  },
+  {
+    "file": "Lumetra Prescribing Information v2.1.pdf",
+    "name": "Lumetra Prescribing Information v2.1.pdf",
+    "folder": "Public",
+    "kind": "pdf",
+    "doc_code": "LRK-PI-LUM",
+    "version": "2.1"
+  },
+  {
+    "file": "Aurivex Prescribing Information v3.0.pdf",
+    "name": "Aurivex Prescribing Information v3.0.pdf",
+    "folder": "Public",
+    "kind": "pdf",
+    "doc_code": "LRK-PI-AUR",
+    "version": "3.0"
+  },
+  {
+    "file": "Aurivex Dear HCP letter 2026-08 (scan).pdf",
+    "name": "Aurivex Dear HCP letter 2026-08 (scan).pdf",
+    "folder": "Public",
+    "kind": "pdf",
+    "doc_code": "LRK-DHCP-AUR-2026-01",
+    "version": "1.0",
+    "pages": 2,
+    "scanned": true
+  },
+  {
+    "file": "srl-quenvara-mechanical-valves.md",
+    "name": "LRK-SRL-QNV-001 Quenvara: mechanical heart valves",
+    "folder": "Medical",
+    "kind": "gdoc",
+    "doc_code": "LRK-SRL-QNV-001",
+    "version": "1.2"
+  },
+  {
+    "file": "srl-quenvara-crushing.md",
+    "name": "LRK-SRL-QNV-002 Quenvara: crushing tablets and feeding tubes",
+    "folder": "Medical",
+    "kind": "gdoc",
+    "doc_code": "LRK-SRL-QNV-002",
+    "version": "1.0"
+  },
+  {
+    "file": "srl-aurivex-infants.md",
+    "name": "LRK-SRL-AUR-001 Aurivex: infants younger than 3 months",
+    "folder": "Medical",
+    "kind": "gdoc",
+    "doc_code": "LRK-SRL-AUR-001",
+    "version": "1.1"
+  },
+  {
+    "file": "srl-lumetra-temperature.md",
+    "name": "LRK-SRL-LUM-001 Lumetra: temperature excursions",
+    "folder": "Medical",
+    "kind": "gdoc",
+    "doc_code": "LRK-SRL-LUM-001",
+    "version": "2.0"
+  },
+  {
+    "file": "sop-pv-001-adverse-events.md",
+    "name": "SOP-PV-001 Adverse event intake and reporting",
+    "folder": "Internal",
+    "kind": "gdoc",
+    "doc_code": "SOP-PV-001",
+    "version": "3.0"
+  },
+  {
+    "file": "sop-mi-002-off-label.md",
+    "name": "SOP-MI-002 Handling unsolicited off-label requests",
+    "folder": "Internal",
+    "kind": "gdoc",
+    "doc_code": "SOP-MI-002",
+    "version": "2.1"
+  },
+  {
+    "file": "sop-qa-004-complaints.md",
+    "name": "SOP-QA-004 Product complaint intake",
+    "folder": "Internal",
+    "kind": "gdoc",
+    "doc_code": "SOP-QA-004",
+    "version": "1.4"
+  },
+  {
+    "file": "product-catalog.csv",
+    "name": "Larkmoor Product Catalog",
+    "folder": "Data",
+    "kind": "gsheet",
+    "doc_code": "LRK-CATALOG",
+    "version": "live"
+  }
+]

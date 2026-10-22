@@ -1,0 +1,42 @@
+{
+  "timezone": "America/Los_Angeles",
+  "errorWorkflow": "iTxd64lDk3gI0bKG",
+  "workflows": {
+    "00-load-demo-store.ts": {
+      "id": "ktlLoadStore0000",
+      "description": "Shopify ops (project 9): loads the Kettle & Fern demo store (products, orders, abandoned checkouts, reviews) into the test tables.",
+      "errorWorkflow": false
+    },
+    "01-store-api.ts": {
+      "id": "ktlStoreApi00001",
+      "description": "Shopify ops (project 9): store adapter. Reads checkouts, orders, inventory and reviews from the Shopify Admin API (live) or the Kettle tables (test).",
+      "disabled": [
+        "Shopify GraphQL"
+      ]
+    },
+    "02-abandoned-carts.ts": {
+      "id": "ktlAbandoned0002",
+      "description": "Shopify ops (project 9): every 30 minutes, a personal recovery email for each abandoned checkout, with an offer only when the rules allow one."
+    },
+    "03-review-insights.ts": {
+      "id": "ktlReviews000003",
+      "description": "Shopify ops (project 9): Monday report of what customers praise and complain about, from new reviews tagged by AI, with three suggested fixes."
+    },
+    "04-low-stock.ts": {
+      "id": "ktlLowStock00004",
+      "description": "Shopify ops (project 9): daily low-stock alert from sales velocity, supplier lead times and a safety buffer, with reorder quantities. No AI."
+    },
+    "05-order-help.ts": {
+      "id": "ktlOrderHelp0005",
+      "description": "Shopify ops (project 9): the store's help chat. Answers 'where is my order?' after checking the order number and email, and opens a ticket for late parcels."
+    },
+    "06-send-email.ts": {
+      "id": "ktlSendEmail0006",
+      "description": "Shopify ops (project 9): sends an email with Gmail in live mode or writes it to the Kettle Outbox table in test mode."
+    },
+    "07-help-tools.ts": {
+      "id": "ktlHelpTools0007",
+      "description": "Shopify ops (project 9): tools for the help chat. Looks up an order (number and email must match) and opens a support ticket for late parcels."
+    }
+  }
+}

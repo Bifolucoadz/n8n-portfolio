@@ -1,0 +1,178 @@
+{
+  "id": "csrWeeklyDgst04",
+  "name": "Radar 4: Weekly Digest",
+  "description": "Competitor radar (project 12): Monday 8:00 email with the week's changes by importance, price position and page problems.",
+  "nodes": [
+    {
+      "id": "e67d3bed-19f1-4df8-9c0b-88f38489b830",
+      "name": "Mondays 8:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        200,
+        240
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "weeksInterval": 1,
+              "triggerAtDay": [
+                1
+              ],
+              "triggerAtHour": 8,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "b8c960d1-bf6d-4805-b45d-204aab51f68f",
+      "name": "Load All",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        440,
+        320
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/1TyTgZFE87WFKQzOTdusFeov6m27SAixpu-Xiz7DHD7g/values:batchGet?ranges=Settings&ranges=Watchlist&ranges=%27Our%20Products%27&ranges=Matches&ranges=Prices&ranges=Changes&valueRenderOption=UNFORMATTED_VALUE",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "D8rKxzgMrJwmFZoQ",
+          "name": "Google Sheets account"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "id": "ecf37de8-90eb-439c-9e38-5d3d96a454b7",
+      "name": "Build Digest",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        320
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Monday's digest: what changed this week by importance, where we stand on price against the cheapest\n// matching rival bike, and any pages the radar couldn't read.\n// ---- lib-cs.js (included by build.py): shared helpers for the Competitor Radar workflows ----\nconst TZ = 'Europe/London';\nconst esc = s => String(s === null || s === undefined ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');\nconst parseJson = (s, d) => { try { return typeof s === 'string' ? (s.trim() ? JSON.parse(s) : d) : (s === null || s === undefined ? d : s); } catch (e) { return d; } };\nconst nowDt = () => DateTime.now().setZone(TZ);\nconst toDt = iso => DateTime.fromISO(String(iso), { zone: TZ });\nconst isoOf = dt => dt.set({ millisecond: 0 }).toISO({ suppressMilliseconds: true });\nconst nowIso = () => isoOf(nowDt());\nconst newId = (p, n) => p + Array.from({ length: n || 8 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 32)]).join('');\nconst newToken = n => Array.from({ length: n || 24 }, () => 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 56)]).join('');\nconst gbp = n => n === null || n === undefined || n === '' ? '' : '£' + Number(n).toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 2 });\nconst day = iso => iso ? toDt(iso).toFormat('d LLL yyyy') : '';\nconst truthy = v => v === true || /^(true|yes|1|y)$/i.test(String(v).trim());\nconst COLUMNS = {\"Settings\": [\"key\", \"value\", \"note\"], \"Watchlist\": [\"page_id\", \"competitor\", \"page_type\", \"url\", \"active\", \"last_checked\", \"last_status\", \"last_hash\", \"last_method\", \"fail_count\", \"last_items_json\", \"last_text\", \"note\"], \"Our Products\": [\"sku\", \"name\", \"category\", \"price\", \"battery_wh\", \"range_km\", \"motor\", \"url\"], \"Matches\": [\"competitor\", \"competitor_product\", \"our_sku\", \"confidence\", \"matched_by\", \"matched_at\"], \"Prices\": [\"checked_at\", \"competitor\", \"product\", \"price\", \"was_price\", \"in_stock\", \"page_id\", \"our_sku\"], \"Changes\": [\"change_id\", \"detected_at\", \"run_id\", \"competitor\", \"page_id\", \"page_type\", \"kind\", \"item\", \"before\", \"after\", \"delta_pct\", \"our_sku\", \"our_price\", \"significance\", \"headline\", \"why_it_matters\", \"suggested_action\", \"alerted\", \"status\"], \"Runs\": [\"run_id\", \"started_at\", \"finished_at\", \"trigger\", \"pages\", \"unchanged\", \"changed\", \"failed\", \"changes\", \"alerts\", \"ai_calls\", \"ms\"], \"Outbox\": [\"at\", \"to\", \"subject\", \"kind\", \"links\", \"html\"]};\n// Product names compared without case, punctuation or the competitor's own name\nconst normName = (name, competitor) => String(name || '').toLowerCase().replace(String(competitor || '').toLowerCase(), '').replace(/[^a-z0-9]+/g, ' ').trim();\n\nfunction tablesOf(res) {\n  const out = {};\n  for (const vr of (res && res.valueRanges) || []) {\n    const name = String(vr.range || '').split('!')[0].replace(/^'|'$/g, '').replace(/''/g, \"'\");\n    const rows = vr.values || [];\n    const head = (rows[0] || []).map(h => String(h).trim());\n    out[name] = rows.slice(1).map((r, i) => {\n      const o = { _row: i + 2 };\n      head.forEach((h, j) => { if (h) o[h] = r[j] === undefined || r[j] === null ? '' : r[j]; });\n      return o;\n    }).filter(o => Object.keys(o).some(k => k !== '_row' && o[k] !== ''));\n  }\n  return out;\n}\nconst settingsOf = rows => Object.fromEntries((rows || []).filter(r => r.key).map(r => [String(r.key).trim(), r.value === undefined ? '' : r.value]));\nfunction sheetRow(o) {\n  const r = {};\n  for (const [k, v] of Object.entries(o)) if (k !== '_row') r[k] = v === null || v === undefined ? '' : (typeof v === 'object' ? JSON.stringify(v) : v);\n  return r;\n}\n// OpenAI result (Responses API or the OpenAI node's simplified output) → the JSON object, or null\nfunction aiJson(res) {\n  if (!res || res.error) return null;\n  const msg = (res.output || []).find(o => o && Array.isArray(o.content));\n  const part = msg && (msg.content || []).find(c => c && (c.type === 'output_text' || c.text !== undefined));\n  let t = part ? part.text : null;\n  if (typeof t === 'string') { try { t = JSON.parse(t); } catch (e) { t = null; } }\n  return t && typeof t === 'object' ? t : null;\n}\n\nconst baseUrl = s => String(s.base_url || 'http://localhost:5678').replace(/\\/$/, '');\nconst dashboardUrl = s => baseUrl(s) + '/webhook/radar/dashboard?key=' + encodeURIComponent(s.dashboard_key || '');\nfunction button(url, label) {\n  return '<p style=\"margin:22px 0;text-align:left\"><a href=\"' + esc(url) + '\" style=\"display:inline-block;background:#e4572e;color:#ffffff;text-decoration:none;font-weight:600;padding:12px 22px;border-radius:10px\">' + esc(label) + '</a></p>';\n}\nfunction emailHtml(s, paragraphs, extraHtml) {\n  const p = paragraphs.filter(Boolean).map(t => '<p style=\"margin:0 0 14px;text-align:left\">' + t + '</p>').join('');\n  return '<div style=\"font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.55;color:#1c2430;max-width:620px;text-align:left\">'\n    + '<div style=\"font-weight:700;font-size:13px;letter-spacing:1px;text-transform:uppercase;color:#e4572e;margin:0 0 18px\">' + esc(s.company || 'Cobble & Spoke') + ' · Competitor Radar</div>'\n    + p + (extraHtml || '') + '</div>';\n}\nfunction pageHtml(title, bodyHtml) {\n  return '<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><meta name=\"robots\" content=\"noindex\"><title>' + esc(title) + '</title>'\n    + '<style>body{margin:0;background:#f3f4f6;font:16px/1.55 -apple-system,\"Segoe UI\",Helvetica,Arial,sans-serif;color:#1c2430}.card{max-width:520px;margin:48px auto;background:#fff;border-radius:16px;padding:30px;box-shadow:0 8px 28px rgba(0,0,0,.06)}h1{font-size:22px;margin:0 0 10px}</style></head><body><div class=\"card\"><h1>' + esc(title) + '</h1>' + bodyHtml + '</div></body></html>';\n}\nfunction emptyPlan(s) { return { mode: s.mode === 'live' ? 'live' : 'test', appends: { Changes: [], Prices: [], Runs: [], Matches: [], Watchlist: [] }, updates: { Watchlist: [], Changes: [] }, emails: [], result: { ok: true } }; }\nconst emailItem = (to, subject, html, kind, links) => ({ to, subject, html, kind, links: (links || []).join(' ') });\n\n// Latest price of every product a rival still sells: rows from each page's most recent snapshot only\n// (a bike dropped from the page disappears instead of keeping its old price)\nfunction currentPrices(rows) {\n  const lastCheck = {};\n  for (const p of rows || []) if (!lastCheck[p.page_id] || String(p.checked_at) > lastCheck[p.page_id]) lastCheck[p.page_id] = String(p.checked_at);\n  const out = {};\n  for (const p of rows || []) if (String(p.checked_at) === lastCheck[p.page_id]) out[p.competitor + '|' + p.product] = p;\n  return out;\n}\n\nconst KIND_LABEL = { price_drop: 'Price cut', price_rise: 'Price rise', new_product: 'New product', removed_product: 'Product gone', out_of_stock: 'Out of stock', back_in_stock: 'Back in stock', promotion: 'Promotion', hiring: 'Hiring', news: 'News', messaging: 'Messaging', layout_warning: 'Check page', fetch_failed: 'Page down', other: 'Change' };\n// ---- end lib-cs.js ----\nconst T = tablesOf($('Load All').first().json);\nconst s = settingsOf(T.Settings);\nconst now = nowDt();\nconst week = (T.Changes || []).filter(c => now.diff(toDt(c.detected_at), 'days').days <= 7.5).map(c => Object.assign({}, c, { significance: Number(c.significance) || 1 }));\nconst alerts = week.filter(c => c.significance >= (Number(s.alert_threshold) || 4));\nconst top = week.filter(c => c.significance >= 3).sort((a, b) => b.significance - a.significance).slice(0, 8);\nconst latest = currentPrices(T.Prices);\nconst rows = (T['Our Products'] || []).map(o => {\n  const rivals = (T.Matches || []).filter(m => m.our_sku === o.sku).map(m => latest[m.competitor + '|' + m.competitor_product]).filter(Boolean).filter(p => p.in_stock !== 'no');\n  const cheapest = rivals.sort((a, b) => Number(a.price) - Number(b.price))[0];\n  return { o, cheapest, gap: cheapest ? Number(cheapest.price) - Number(o.price) : null };\n});\nconst under = rows.filter(r => r.gap !== null && r.gap < 0);\nconst issues = (T.Watchlist || []).filter(w => /fail|warn/.test(String(w.last_status)));\nconst colour = n => n >= 5 ? '#d1382a' : (n >= 4 ? '#e4572e' : '#b7791f');\nconst td = 'padding:7px 10px;border-bottom:1px solid #eceef3;text-align:left;font-size:14px';\nconst h = t => '<p style=\"margin:24px 0 8px;font-weight:700;font-size:16px;text-align:left\">' + t + '</p>';\nlet html = h('The week in ' + top.length + ' changes') + (top.length ? top.map(c => '<div style=\"border-left:4px solid ' + colour(c.significance) + ';padding:2px 0 2px 12px;margin:0 0 14px;text-align:left\"><div style=\"font-weight:700\">' + esc(c.headline) + '</div><div style=\"color:#475467;font-size:14px\">' + esc(c.why_it_matters) + '</div>' + (c.suggested_action && !/^no action/i.test(c.suggested_action) ? '<div style=\"font-size:14px;margin-top:3px\"><b>Next step:</b> ' + esc(c.suggested_action) + '</div>' : '') + '</div>').join('') : '<p style=\"color:#7a8496;text-align:left\">A quiet week: nothing important changed.</p>');\nhtml += h('Where we stand on price') + '<table style=\"border-collapse:collapse;width:100%\"><tr><th style=\"' + td + ';color:#7a8496;font-size:12px\">Our bike</th><th style=\"' + td + ';color:#7a8496;font-size:12px\">Ours</th><th style=\"' + td + ';color:#7a8496;font-size:12px\">Cheapest rival in stock</th><th style=\"' + td + ';color:#7a8496;font-size:12px\">Gap</th></tr>'\n  + rows.map(r => '<tr><td style=\"' + td + '\">' + esc(r.o.name) + '</td><td style=\"' + td + '\">' + gbp(r.o.price) + '</td><td style=\"' + td + '\">' + (r.cheapest ? esc(r.cheapest.competitor + ' ' + r.cheapest.product) + ' ' + gbp(r.cheapest.price) : '–') + '</td><td style=\"' + td + ';font-weight:700;color:' + (r.gap === null ? '#7a8496' : (r.gap < 0 ? '#d1382a' : '#2f7d4f')) + '\">' + (r.gap === null ? '' : (r.gap < 0 ? '−' : '+') + gbp(Math.abs(r.gap))) + '</td></tr>').join('') + '</table>';\nif (issues.length) html += h('Pages to look at') + '<ul style=\"padding-left:20px;margin:0;text-align:left\">' + issues.map(w => '<li>' + esc(w.competitor) + ' ' + esc(w.page_type) + ': ' + esc(w.last_status) + '</li>').join('') + '</ul>';\nhtml += button(dashboardUrl(s), 'Open the radar');\nconst intro = 'This week the radar found <b>' + week.length + ' changes</b> across ' + new Set(week.map(c => c.competitor)).size + ' competitors' + (alerts.length ? ', ' + alerts.length + ' of them important enough to alert you at the time' : '') + '. A rival is cheaper than us on <b>' + under.length + ' of our ' + rows.length + ' bikes</b>.';\nconst plan = emptyPlan(s);\nplan.emails.push(emailItem(s.alert_email, 'Competitor digest, week of ' + now.startOf('week').toFormat('d LLLL') + ': ' + week.length + ' changes, ' + alerts.length + ' alerts', emailHtml(s, ['Good morning,', intro], html), 'digest', [dashboardUrl(s)]));\nplan.result = { ok: true, changes: week.length, alerts: alerts.length, undercut: under.length };\nreturn [{ json: { plan } }];\n"
+      }
+    },
+    {
+      "id": "18eb9f13-f63c-4a39-9e3d-288e32169ab7",
+      "name": "Send Digest",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        880,
+        320
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "csrSaveChange005",
+          "cachedResultName": "Radar 5: Save Changes"
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    },
+    {
+      "id": "cf73ef53-d2b4-41b2-8472-513c341e0a46",
+      "name": "Send Now",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        200,
+        420
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "4d8fb983-acc2-47b2-9820-28ffa4949ce8",
+      "name": "Sticky Note 4d8fb983",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        160,
+        40
+      ],
+      "parameters": {
+        "content": "## Radar 4: Weekly Digest\nMonday 8:00 (Europe/London). One email for the team: the week's changes in order of importance with what to do about them, our price against the cheapest in-stock rival for every bike, and any pages the radar couldn't read.",
+        "color": 7,
+        "width": 880,
+        "height": 150
+      }
+    }
+  ],
+  "connections": {
+    "Mondays 8:00": {
+      "main": [
+        [
+          {
+            "node": "Load All",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load All": {
+      "main": [
+        [
+          {
+            "node": "Build Digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Digest": {
+      "main": [
+        [
+          {
+            "node": "Send Digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Now": {
+      "main": [
+        [
+          {
+            "node": "Load All",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "timezone": "Europe/London",
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "iTxd64lDk3gI0bKG"
+  }
+}

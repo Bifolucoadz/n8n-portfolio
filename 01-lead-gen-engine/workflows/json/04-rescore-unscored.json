@@ -1,0 +1,425 @@
+[
+  {
+    "updatedAt": "2026-10-01T13:16:18.788Z",
+    "createdAt": "2026-10-01T13:14:54.998Z",
+    "id": "Ne4YQv2VD6bnWRkq",
+    "name": "Lead Engine 4: Rescore Unscored Leads",
+    "description": "Manual utility: scores sheet rows whose lead_score is empty (e.g. after an AI failure in the Lead Scraper) and writes lead_score, score_reason and personal_line back.",
+    "active": false,
+    "isArchived": false,
+    "nodes": [
+      {
+        "id": "e754b85d-5a65-4ae7-a5b2-b1010455e36e",
+        "name": "Run Manually",
+        "type": "n8n-nodes-base.manualTrigger",
+        "typeVersion": 1,
+        "position": [
+          220,
+          300
+        ],
+        "parameters": {}
+      },
+      {
+        "id": "dba89792-bc4f-4e70-af6e-be79c3552ef2",
+        "name": "Config",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          440,
+          300
+        ],
+        "parameters": {
+          "mode": "manual",
+          "includeOtherFields": false,
+          "assignments": {
+            "assignments": [
+              {
+                "id": "cfg-offer",
+                "name": "OFFER",
+                "value": "I build AI automations for small businesses: instant replies to new enquiries, automatic follow-ups so leads don't go cold, appointment booking, and AI assistants that answer common customer questions around the clock. Built on n8n and usually live within two weeks.",
+                "type": "string"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "8de09c43-d7db-4fa9-9d44-8b60cbaafb6c",
+        "name": "Read All Leads",
+        "type": "n8n-nodes-base.googleSheets",
+        "typeVersion": 4.7,
+        "position": [
+          660,
+          300
+        ],
+        "parameters": {
+          "resource": "sheet",
+          "operation": "read",
+          "authentication": "oAuth2",
+          "documentId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "1515YmG8Ak6Ozdy-Feho_VIYyxr49B4XhGSczavigJ1k"
+          },
+          "sheetName": {
+            "__rl": true,
+            "mode": "list",
+            "value": "gid=0",
+            "cachedResultName": "Leads"
+          }
+        },
+        "credentials": {
+          "googleSheetsOAuth2Api": {
+            "id": "D8rKxzgMrJwmFZoQ",
+            "name": "Google Sheets account"
+          }
+        },
+        "retryOnFail": true,
+        "maxTries": 3,
+        "waitBetweenTries": 5000
+      },
+      {
+        "id": "cb53474a-f50c-4813-b5f4-a980f649ecd7",
+        "name": "Unscored Leads Only",
+        "type": "n8n-nodes-base.filter",
+        "typeVersion": 2.3,
+        "position": [
+          880,
+          300
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "leftValue": "={{ Boolean($json.place_id) && ($json.lead_score === \"\" || $json.lead_score === null || $json.lead_score === undefined) }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          }
+        }
+      },
+      {
+        "id": "9a1f0c25-2ef1-4afb-ad25-fd7b749b6a6e",
+        "name": "Score Lead with AI",
+        "type": "@n8n/n8n-nodes-langchain.chainLlm",
+        "typeVersion": 1.9,
+        "position": [
+          1180,
+          300
+        ],
+        "parameters": {
+          "promptType": "define",
+          "text": "=Business: {{ $json.business_name }}\nCategory: {{ $json.category || \"unknown\" }}\nArea: {{ $json.city || $json.address || \"unknown\" }}\nGoogle rating: {{ $json.rating || \"none\" }} from {{ $json.reviews || 0 }} reviews\nWebsite: {{ $json.website || \"none\" }}\nEmail address found: {{ $json.email ? \"yes\" : \"no\" }}\nPhone listed: {{ $json.phone ? \"yes\" : \"no\" }}\n\nThe offer: {{ $(\"Config\").first().json.OFFER }}",
+          "hasOutputParser": true,
+          "messages": {
+            "messageValues": [
+              {
+                "type": "SystemMessagePromptTemplate",
+                "message": "You qualify local businesses as prospects for a freelancer who builds AI automations. Use only the listing data you are given and never invent facts.\n\nlead_score (1-10): how likely this business is to need and pay for the offer. Score higher when the business runs on enquiries and bookings (clinics, salons, trades, agencies, restaurants that take reservations), is busy (many reviews), is active online (has a website) and can be reached by email. Score lower for large chains and franchises with central IT, public bodies and charities, and listings with very few reviews and no website.\n\nscore_reason: one short sentence explaining the score.\n\npersonal_line: one natural sentence, max 25 words, that the freelancer could open a cold email with. Base it on something specific, true and positive from the listing, such as a strong rating, a high number of reviews, the specialty or the neighbourhood. Never mention a rating below 4.0 or a low number of reviews. Do not start with \"I noticed\" or \"I saw\". No flattery cliches and no exclamation marks."
+              }
+            ]
+          },
+          "batching": {
+            "batchSize": 5,
+            "delayBetweenBatches": 0
+          }
+        },
+        "retryOnFail": true,
+        "maxTries": 3,
+        "waitBetweenTries": 5000
+      },
+      {
+        "id": "cf1364df-45f8-4db7-bbab-2cc206425967",
+        "name": "OpenAI GPT-5.4 mini",
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        "typeVersion": 1.3,
+        "position": [
+          1100,
+          540
+        ],
+        "parameters": {
+          "model": {
+            "__rl": true,
+            "mode": "list",
+            "value": "gpt-5.4-mini",
+            "cachedResultName": "gpt-5.4-mini"
+          },
+          "responsesApiEnabled": true,
+          "options": {
+            "reasoningEffort": "low"
+          }
+        },
+        "credentials": {
+          "openAiApi": {
+            "id": "GQdth43VUJxkSsw9",
+            "name": "OpenAI account"
+          }
+        }
+      },
+      {
+        "id": "37613f07-0e9d-4625-8332-76b9d6877897",
+        "name": "Score Format",
+        "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+        "typeVersion": 1.3,
+        "position": [
+          1320,
+          540
+        ],
+        "parameters": {
+          "schemaType": "manual",
+          "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"lead_score\": { \"type\": \"integer\", \"minimum\": 1, \"maximum\": 10, \"description\": \"Fit with the offer, 1 (poor) to 10 (ideal)\" },\n    \"score_reason\": { \"type\": \"string\", \"description\": \"One short sentence explaining the score\" },\n    \"personal_line\": { \"type\": \"string\", \"description\": \"One natural opening sentence for a cold email, max 25 words\" }\n  },\n  \"required\": [\"lead_score\", \"score_reason\", \"personal_line\"]\n}"
+        }
+      },
+      {
+        "id": "65afaac4-c4fe-4095-82f6-cc8ca5ee7369",
+        "name": "Save Score to Sheet",
+        "type": "n8n-nodes-base.googleSheets",
+        "typeVersion": 4.7,
+        "position": [
+          1500,
+          300
+        ],
+        "parameters": {
+          "resource": "sheet",
+          "operation": "update",
+          "authentication": "oAuth2",
+          "documentId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "1515YmG8Ak6Ozdy-Feho_VIYyxr49B4XhGSczavigJ1k"
+          },
+          "sheetName": {
+            "__rl": true,
+            "mode": "list",
+            "value": "gid=0",
+            "cachedResultName": "Leads"
+          },
+          "columns": {
+            "mappingMode": "defineBelow",
+            "matchingColumns": [
+              "place_id"
+            ],
+            "value": {
+              "place_id": "={{ $(\"Unscored Leads Only\").item.json.place_id }}",
+              "lead_score": "={{ $json.output.lead_score }}",
+              "score_reason": "={{ $json.output.score_reason }}",
+              "personal_line": "={{ $json.output.personal_line }}"
+            },
+            "schema": [
+              {
+                "id": "place_id",
+                "displayName": "place_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "lead_score",
+                "displayName": "lead_score",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "number",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "score_reason",
+                "displayName": "score_reason",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "personal_line",
+                "displayName": "personal_line",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              }
+            ]
+          },
+          "options": {
+            "cellFormat": "RAW"
+          }
+        },
+        "credentials": {
+          "googleSheetsOAuth2Api": {
+            "id": "D8rKxzgMrJwmFZoQ",
+            "name": "Google Sheets account"
+          }
+        },
+        "retryOnFail": true,
+        "maxTries": 3,
+        "waitBetweenTries": 5000
+      },
+      {
+        "id": "276e9f0f-c585-4611-b613-ba31bb2259aa",
+        "name": "Sticky Note 01d75c45",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          140,
+          60
+        ],
+        "parameters": {
+          "content": "## Rescore unscored leads\nThe Lead Scraper saves a place even when the AI scoring step fails, so no Apify results are lost. Those rows have an empty `lead_score` and are never emailed.\n\nRun this workflow by hand to score them afterwards. It only touches rows with an empty `lead_score` and only writes `lead_score`, `score_reason` and `personal_line`. Keep `OFFER` in **Config** the same as in the other workflows.",
+          "color": 4,
+          "width": 1520,
+          "height": 640
+        }
+      }
+    ],
+    "connections": {
+      "Run Manually": {
+        "main": [
+          [
+            {
+              "node": "Config",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Config": {
+        "main": [
+          [
+            {
+              "node": "Read All Leads",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Read All Leads": {
+        "main": [
+          [
+            {
+              "node": "Unscored Leads Only",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Unscored Leads Only": {
+        "main": [
+          [
+            {
+              "node": "Score Lead with AI",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Score Lead with AI": {
+        "main": [
+          [
+            {
+              "node": "Save Score to Sheet",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "OpenAI GPT-5.4 mini": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "Score Lead with AI",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Score Format": {
+        "ai_outputParser": [
+          [
+            {
+              "node": "Score Lead with AI",
+              "type": "ai_outputParser",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1",
+      "availableInMCP": true,
+      "timezone": "Africa/Lagos"
+    },
+    "staticData": null,
+    "meta": {
+      "aiBuilderAssisted": true,
+      "builderVariant": "mcp"
+    },
+    "nodeGroups": [],
+    "pinData": null,
+    "versionId": "83dc000f-667e-4880-8df8-e83c667d2dd0",
+    "activeVersionId": null,
+    "versionCounter": 3,
+    "triggerCount": 0,
+    "sourceWorkflowId": null,
+    "tags": [
+      {
+        "updatedAt": "2026-10-01T12:00:05.096Z",
+        "createdAt": "2026-10-01T12:00:05.096Z",
+        "id": "Clu8sveTmN7O7jzV",
+        "name": "portfolio"
+      },
+      {
+        "updatedAt": "2026-10-01T12:00:05.094Z",
+        "createdAt": "2026-10-01T12:00:05.094Z",
+        "id": "qjpEykWc9tHuNa2O",
+        "name": "lead-engine"
+      }
+    ],
+    "shared": [
+      {
+        "updatedAt": "2026-10-01T13:14:55.003Z",
+        "createdAt": "2026-10-01T13:14:55.003Z",
+        "role": "workflow:owner",
+        "workflowId": "Ne4YQv2VD6bnWRkq",
+        "projectId": "YsMTtqflyTWc3LOK",
+        "project": {
+          "updatedAt": "2026-07-14T23:35:46.885Z",
+          "createdAt": "2026-07-14T23:33:27.645Z",
+          "id": "YsMTtqflyTWc3LOK",
+          "name": "Samuel Oladele <samuel@carrotcredit.com>",
+          "type": "personal",
+          "icon": null,
+          "description": null,
+          "customTelemetryTags": [],
+          "creatorId": "69fa5aa9-e74e-4425-80ca-8a1dbc6bb1e6"
+        }
+      }
+    ],
+    "versionMetadata": {
+      "name": null,
+      "description": null
+    }
+  }
+]

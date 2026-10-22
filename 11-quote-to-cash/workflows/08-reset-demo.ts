@@ -1,0 +1,525 @@
+import { workflow, node, trigger, sticky, expr } from '@n8n/workflow-sdk';
+
+const SHEETS_CRED = { googleSheetsOAuth2Api: { id: 'D8rKxzgMrJwmFZoQ', name: 'Google Sheets account' } };
+
+const start = trigger({
+  type: 'n8n-nodes-base.manualTrigger',
+  version: 1,
+  config: { name: 'Reset the Demo', position: [200, 300] },
+  output: [{}]
+});
+
+const seed = node({
+  type: 'n8n-nodes-base.code',
+  version: 2,
+  config: { name: 'Build Demo Data', position: [420, 300], parameters: { mode: 'runOnceForAllItems', language: 'javaScript', jsCode:
+        (
+          '// Builds every tab of the demo sheet: settings, the price book and nine sample quotes at every stage\n' +
+          '// (dates relative to today), their history, payments and the crews\' calendar. Real quotes have random\n' +
+          '// tokens; the samples use fixed ones so the demo links stay the same.\n' +
+          '// ---- lib-mgv.js (included by build.py): shared helpers for the Mossgrove workflows ----\n' +
+          'const TZ = \'Europe/London\';\n' +
+          'const esc = s => String(s === null || s === undefined ? \'\' : s).replace(/&/g, \'&amp;\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\').replace(/"/g, \'&quot;\');\n' +
+          'const parseJson = (s, d) => { try { return typeof s === \'string\' ? (s.trim() ? JSON.parse(s) : d) : (s === null || s === undefined ? d : s); } catch (e) { return d; } };\n' +
+          'const nowDt = () => DateTime.now().setZone(TZ);\n' +
+          'const nowIso = () => nowDt().set({ millisecond: 0 }).toISO({ suppressMilliseconds: true });\n' +
+          'const toDt = iso => DateTime.fromISO(String(iso), { zone: TZ });\n' +
+          'const newToken = n => Array.from({ length: n || 24 }, () => \'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789\'[Math.floor(Math.random() * 56)]).join(\'\');\n' +
+          'const round2 = n => Math.round((Number(n) || 0) * 100) / 100;\n' +
+          'const money = n => \'£\' + round2(n).toLocaleString(\'en-GB\', { minimumFractionDigits: 2, maximumFractionDigits: 2 });\n' +
+          'const day = iso => iso ? toDt(iso).toFormat(\'d LLL yyyy\') : \'\';\n' +
+          'const dayLong = iso => iso ? toDt(iso).toFormat(\'cccc d LLLL\') : \'\';\n' +
+          'const firstName = name => String(name || \'\').trim().split(/\\s+/)[0] || \'there\';\n' +
+          'const qtyText = n => (Math.round(Number(n) * 10) / 10).toLocaleString(\'en-GB\');\n' +
+          'const unitText = (u, n) => u === \'each\' ? \'\' : (u === \'metre\' ? (Number(n) === 1 ? \'metre\' : \'metres\') : u);\n' +
+          'const COLUMNS = {"Settings": ["key", "value", "note"], "Price Book": ["code", "category", "item", "unit", "unit_price", "labour_days", "min_qty", "notes", "active"], "Quotes": ["quote_id", "token", "status", "client_name", "client_email", "client_phone", "site_address", "postcode", "job_title", "summary", "visit_notes", "transcript", "lines_json", "extras_json", "custom_json", "assumptions_json", "questions_json", "flags_json", "subtotal", "vat", "total", "deposit", "labour_days", "version", "estimator", "created_at", "build_ms", "sent_at", "valid_until", "viewed_at", "view_count", "accepted_at", "signed_name", "sign_meta_json", "chosen_extras_json", "accepted_subtotal", "accepted_vat", "accepted_total", "deposit_due", "deposit_paid_at", "job_start", "job_end", "crew", "completed_at", "invoice_id", "balance_due", "balance_paid_at", "review_sent_at", "declined_at", "decline_reason", "reminders_sent", "last_reminder_at", "messages_json", "updated_at"], "Events": ["at", "quote_id", "event", "detail", "actor"], "Payments": ["payment_id", "quote_id", "kind", "amount", "status", "provider", "provider_ref", "created_at", "paid_at"], "Schedule": ["entry_id", "quote_id", "title", "start", "end", "crew", "kind", "notes"], "Outbox": ["at", "to", "subject", "kind", "quote_id", "links", "html"]};\n' +
+          '\n' +
+          '// Sheets API values:batchGet response → { \'Tab name\': [ { column: value, _row } ] } (blank rows dropped)\n' +
+          'function tablesOf(res) {\n' +
+          '  const out = {};\n' +
+          '  for (const vr of (res && res.valueRanges) || []) {\n' +
+          '    const name = String(vr.range || \'\').split(\'!\')[0].replace(/^\'|\'$/g, \'\').replace(/\'\'/g, "\'");\n' +
+          '    const rows = vr.values || [];\n' +
+          '    const head = (rows[0] || []).map(h => String(h).trim());\n' +
+          '    out[name] = rows.slice(1).map((r, i) => {\n' +
+          '      const o = { _row: i + 2 };\n' +
+          '      head.forEach((h, j) => { if (h) o[h] = r[j] === undefined || r[j] === null ? \'\' : r[j]; });\n' +
+          '      return o;\n' +
+          '    }).filter(o => Object.keys(o).some(k => k !== \'_row\' && o[k] !== \'\'));\n' +
+          '  }\n' +
+          '  return out;\n' +
+          '}\n' +
+          'const settingsOf = rows => Object.fromEntries((rows || []).filter(r => r.key).map(r => [String(r.key).trim(), r.value === undefined ? \'\' : r.value]));\n' +
+          'const truthy = v => v === true || /^(true|yes|1|y)$/i.test(String(v).trim());\n' +
+          'function bookOf(rows) {\n' +
+          '  const b = {};\n' +
+          '  for (const r of rows || []) if (r.code && (r.active === \'\' || truthy(r.active))) b[String(r.code).trim().toUpperCase()] = r;\n' +
+          '  return b;\n' +
+          '}\n' +
+          '\n' +
+          '// A quote row with its JSON columns parsed\n' +
+          'function quoteOf(row) {\n' +
+          '  if (!row) return null;\n' +
+          '  const q = Object.assign({}, row);\n' +
+          '  for (const k of [\'lines\', \'extras\', \'custom\', \'assumptions\', \'questions\', \'flags\', \'chosen_extras\', \'messages\', \'sign_meta\']) q[k] = parseJson(row[k + \'_json\'], k === \'sign_meta\' ? {} : []);\n' +
+          '  for (const k of [\'subtotal\', \'vat\', \'total\', \'deposit\', \'labour_days\', \'view_count\', \'accepted_subtotal\', \'accepted_vat\', \'accepted_total\', \'deposit_due\', \'balance_due\', \'reminders_sent\', \'version\']) q[k] = Number(row[k]) || 0;\n' +
+          '  return q;\n' +
+          '}\n' +
+          '\n' +
+          '// ---- Pricing: the AI picks items and quantities; prices always come from the price book ----\n' +
+          'function priceEntry(e, book) {\n' +
+          '  const b = book[String(e.code || \'\').trim().toUpperCase()];\n' +
+          '  if (!b) return null;\n' +
+          '  let qty = Math.max(Number(e.quantity) || 0, 0);\n' +
+          '  const min = Number(b.min_qty) || 0;\n' +
+          '  const minApplied = qty > 0 && min > 0 && qty < min;\n' +
+          '  if (minApplied) qty = min;\n' +
+          '  qty = Math.round(qty * 10) / 10;\n' +
+          '  const unitPrice = Number(b.unit_price) || 0;\n' +
+          '  return {\n' +
+          '    code: String(b.code).toUpperCase(), item: b.item, category: b.category, unit: b.unit, quantity: qty,\n' +
+          '    unit_price: unitPrice, amount: round2(qty * unitPrice), labour_days: round2(qty * (Number(b.labour_days) || 0)),\n' +
+          '    label: String(e.label || \'\'), evidence: String(e.evidence || \'\'), why: String(e.why || \'\'), min_applied: minApplied\n' +
+          '  };\n' +
+          '}\n' +
+          '\n' +
+          'function priceQuote(draft, book, s) {\n' +
+          '  const flags = [];\n' +
+          '  const lines = [], extras = [], custom = [];\n' +
+          '  for (const e of draft.lines || []) {\n' +
+          '    const p = priceEntry(e, book);\n' +
+          '    if (!p) { custom.push({ description: String(e.label || e.code), quantity: Number(e.quantity) || 1, unit: \'each\', unit_price: null, why: \'Code \' + e.code + \' is not in the price book\' }); flags.push({ level: \'warn\', text: \'Code \' + e.code + \' is not in the price book, so it was moved to custom items.\' }); continue; }\n' +
+          '    if (!p.quantity) { flags.push({ level: \'warn\', text: p.item + \' had no quantity and was left out.\' }); continue; }\n' +
+          '    if (p.min_applied) flags.push({ level: \'info\', text: p.item + \': minimum of \' + qtyText(p.quantity) + \' \' + unitText(p.unit, p.quantity) + \' applied.\' });\n' +
+          '    lines.push(p);\n' +
+          '  }\n' +
+          '  for (const e of draft.extras || []) { const p = priceEntry(e, book); if (p && p.quantity) extras.push(p); }\n' +
+          '  for (const c of draft.custom_items || draft.custom || []) {\n' +
+          '    const price = c.unit_price === null || c.unit_price === undefined || c.unit_price === \'\' ? null : Number(c.unit_price);\n' +
+          '    const qty = Number(c.quantity) || 1;\n' +
+          '    custom.push({ description: String(c.description || \'\'), quantity: qty, unit: String(c.unit || \'each\'), unit_price: price, amount: price === null ? null : round2(qty * price), labour_days: Number(c.labour_days) || 0, why: String(c.why || \'\') });\n' +
+          '  }\n' +
+          '  const unpriced = custom.filter(c => c.unit_price === null || isNaN(c.unit_price));\n' +
+          '  if (unpriced.length) flags.push({ level: \'warn\', text: unpriced.length + (unpriced.length === 1 ? \' item isn\\\'t\' : \' items aren\\\'t\') + \' in the price book. Add a price before sending.\' });\n' +
+          '  const subtotal = round2(lines.reduce((a, l) => a + l.amount, 0) + custom.reduce((a, c) => a + (c.amount || 0), 0));\n' +
+          '  const vatRate = Number(s.vat_rate === \'\' || s.vat_rate === undefined ? 0.2 : s.vat_rate);\n' +
+          '  const vat = round2(subtotal * vatRate);\n' +
+          '  const total = round2(subtotal + vat);\n' +
+          '  const deposit = round2(total * (Number(s.deposit_pct) || 25) / 100);\n' +
+          '  const labour = round2(lines.reduce((a, l) => a + l.labour_days, 0) + custom.reduce((a, c) => a + (c.labour_days || 0), 0));\n' +
+          '  if (total >= (Number(s.big_job) || 15000)) flags.push({ level: \'info\', text: \'Large job (\' + money(total) + \'). Double-check the measurements before sending.\' });\n' +
+          '  if (!lines.length && !custom.length) flags.push({ level: \'warn\', text: \'No priced lines yet. Add items before sending.\' });\n' +
+          '  return { lines, extras, custom, subtotal, vat, total, deposit, labour_days: labour, flags };\n' +
+          '}\n' +
+          '\n' +
+          '// Totals once the client has picked optional extras\n' +
+          'function acceptedTotals(q, chosenCodes, s) {\n'
+        ) +
+        (
+          '  const chosen = (q.extras || []).filter(x => chosenCodes.includes(x.code));\n' +
+          '  const subtotal = round2(Number(q.subtotal) + chosen.reduce((a, x) => a + x.amount, 0));\n' +
+          '  const vat = round2(subtotal * Number(s.vat_rate === \'\' || s.vat_rate === undefined ? 0.2 : s.vat_rate));\n' +
+          '  const total = round2(subtotal + vat);\n' +
+          '  return { chosen, subtotal, vat, total, deposit: round2(total * (Number(s.deposit_pct) || 25) / 100), labour_days: round2(Number(q.labour_days) + chosen.reduce((a, x) => a + x.labour_days, 0)) };\n' +
+          '}\n' +
+          'const jobDays = labour => Math.max(1, Math.ceil(Number(labour) - 0.25));\n' +
+          '\n' +
+          '// ---- Links ----\n' +
+          'const baseUrl = s => String(s.base_url || \'http://localhost:5678\').replace(/\\/$/, \'\');\n' +
+          'const quoteUrl = (s, token) => baseUrl(s) + \'/webhook/mossgrove/quote?t=\' + token;\n' +
+          'const pdfUrl = (s, token, doc) => baseUrl(s) + \'/webhook/mossgrove/pdf?t=\' + token + \'&doc=\' + (doc || \'quote\');\n' +
+          'const payUrl = (s, token, kind) => baseUrl(s) + \'/webhook/mossgrove/pay?t=\' + token + \'&kind=\' + kind;\n' +
+          'const dashboardUrl = s => baseUrl(s) + \'/webhook/mossgrove/dashboard?key=\' + encodeURIComponent(s.dashboard_key || \'\');\n' +
+          '\n' +
+          '// ---- Emails and plain pages ----\n' +
+          'function button(url, label) {\n' +
+          '  return \'<p style="margin:22px 0;text-align:left"><a href="\' + esc(url) + \'" style="display:inline-block;background:#1f4d3a;color:#ffffff;text-decoration:none;font-weight:600;padding:12px 22px;border-radius:10px">\' + esc(label) + \'</a></p>\';\n' +
+          '}\n' +
+          'function emailHtml(s, paragraphs, extraHtml) {\n' +
+          '  const p = paragraphs.filter(Boolean).map(t => \'<p style="margin:0 0 14px;text-align:left">\' + t + \'</p>\').join(\'\');\n' +
+          '  return \'<div style="font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.55;color:#1d2a24;max-width:560px;text-align:left">\'\n' +
+          '    + \'<div style="font-weight:700;font-size:13px;letter-spacing:1px;text-transform:uppercase;color:#1f4d3a;margin:0 0 18px">\' + esc(s.company || \'Mossgrove Landscapes\') + \'</div>\'\n' +
+          '    + p + (extraHtml || \'\')\n' +
+          '    + \'<p style="margin:26px 0 0;color:#6b7a72;font-size:12px;text-align:left">\' + esc(s.company_legal || s.company || \'\') + \' · \' + esc(s.company_phone || \'\') + \'</p></div>\';\n' +
+          '}\n' +
+          'function pageHtml(s, title, bodyHtml) {\n' +
+          '  return \'<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>\' + esc(title) + \' · \' + esc(s.company || \'Mossgrove Landscapes\') + \'</title>\'\n' +
+          '    + \'<style>body{margin:0;background:#f4f1ea;font:16px/1.55 -apple-system,"Segoe UI",Helvetica,Arial,sans-serif;color:#1d2a24}\'\n' +
+          '    + \'.card{max-width:520px;margin:48px auto;background:#fff;border:1px solid #e3ddd0;border-radius:18px;padding:32px 30px;box-shadow:0 8px 28px rgba(31,77,58,.07)}\'\n' +
+          '    + \'.brand{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#1f4d3a;margin-bottom:20px}\'\n' +
+          '    + \'h1{font-size:23px;margin:0 0 10px;letter-spacing:-.3px}p{color:#3d4b44;margin:0 0 12px}a.btn{display:inline-block;background:#1f4d3a;color:#fff;text-decoration:none;font-weight:600;padding:12px 20px;border-radius:12px;margin-top:8px}\'\n' +
+          '    + \'.muted{color:#6b7a72;font-size:14px}</style></head><body><div class="card">\'\n' +
+          '    + \'<div class="brand"><svg width="22" height="22" viewBox="0 0 34 34"><path d="M2 32C2 14 14 2 32 2c0 18-12 30-30 30z" fill="#7bb661"/><path d="M5 29L27 7" stroke="#1f4d3a" stroke-width="2"/></svg>\' + esc(s.company || \'Mossgrove Landscapes\') + \'</div>\'\n' +
+          '    + \'<h1>\' + esc(title) + \'</h1>\' + bodyHtml + \'</div></body></html>\';\n' +
+          '}\n' +
+          '\n' +
+          '// ---- Plans: decide everything in code, then Mossgrove 7: Save Changes writes it ----\n' +
+          'function emptyPlan(s) { return { mode: s.mode === \'live\' ? \'live\' : \'test\', quote_inserts: [], quote_updates: [], events: [], payments: [], schedule: [], emails: [], result: { ok: true } }; }\n' +
+          'const eventRow = (quote_id, event, detail, actor) => ({ at: nowIso(), quote_id, event, detail: String(detail || \'\'), actor: actor || \'system\' });\n' +
+          'const emailItem = (to, subject, html, kind, quote_id, links, attach, token) => ({ to, subject, html, kind, quote_id, links: (links || []).join(\' \'), attach: attach || \'\', token: token || \'\' });\n' +
+          '// Arrays and objects go to the sheet as JSON text\n' +
+          'function sheetRow(o) {\n' +
+          '  const r = {};\n' +
+          '  for (const [k, v] of Object.entries(o)) if (k !== \'_row\') r[k] = v === null || v === undefined ? \'\' : (typeof v === \'object\' ? JSON.stringify(v) : v);\n' +
+          '  return r;\n' +
+          '}\n' +
+          '\n' +
+          '// Working days (Mon–Fri) from a date, inclusive of the start\n' +
+          'function addWorkdays(start, n) {\n' +
+          '  let d = start, left = n - 1;\n' +
+          '  while (left > 0) { d = d.plus({ days: 1 }); if (d.weekday <= 5) left--; }\n' +
+          '  return d;\n' +
+          '}\n' +
+          '// Earliest start (after the lead time) where one crew has the whole job free\n' +
+          'function nextSlot(schedule, s, days) {\n' +
+          '  const crews = String(s.crews || \'Crew A\').split(\',\').map(c => c.trim()).filter(Boolean);\n' +
+          '  const busy = (schedule || []).filter(e => e.start && e.end).map(e => ({ crew: String(e.crew), start: String(e.start).slice(0, 10), end: String(e.end).slice(0, 10) }));\n' +
+          '  let d = nowDt().startOf(\'day\').plus({ days: Number(s.lead_days) || 7 });\n' +
+          '  for (let i = 0; i < 180; i++, d = d.plus({ days: 1 })) {\n' +
+          '    if (d.weekday > 5) continue;\n' +
+          '    const end = addWorkdays(d, days);\n' +
+          '    const a = d.toISODate(), b = end.toISODate();\n' +
+          '    for (const crew of crews) {\n' +
+          '      if (!busy.some(x => x.crew === crew && !(x.end < a || x.start > b))) return { crew, start: a, end: b };\n' +
+          '    }\n' +
+          '  }\n' +
+          '  return null;\n' +
+          '}\n' +
+          '\n' +
+          '// A payment arrived (card, test checkout or bank transfer the owner recorded)\n' +
+          'function planPayment(plan, q, kind, provider, ref, T, s, actor) {\n' +
+          '  const amount = kind === \'deposit\' ? q.deposit_due : q.balance_due;\n' +
+          '  const at = nowIso();\n' +
+          '  plan.payments.push({ payment_id: \'PAY-\' + newToken(8).toUpperCase(), quote_id: q.quote_id, kind, amount, status: \'paid\', provider, provider_ref: ref || \'\', created_at: at, paid_at: at });\n' +
+          '  const links = [quoteUrl(s, q.token)];\n' +
+          '  if (kind === \'deposit\') {\n' +
+          '    const slot = nextSlot(T.Schedule, s, jobDays(q.labour_days));\n' +
+          '    const upd = { quote_id: q.quote_id, status: \'scheduled\', deposit_paid_at: at, updated_at: at };\n' +
+          '    let when = \'We\\\'ll be in touch shortly with your start date.\';\n' +
+          '    if (slot) {\n' +
+          '      Object.assign(upd, { job_start: slot.start, job_end: slot.end, crew: slot.crew });\n' +
+          '      plan.schedule.push({ entry_id: \'JOB-\' + q.quote_id, quote_id: q.quote_id, title: q.client_name.split(\' \').slice(-1)[0] + \': \' + q.job_title, start: slot.start, end: slot.end, crew: slot.crew, kind: \'job\', notes: q.site_address });\n' +
+          '      const n = jobDays(q.labour_days);\n' +
+          '      when = \'We\\\'ve booked you in to start on <b>\' + esc(dayLong(slot.start)) + \'</b>, for about \' + n + \' working day\' + (n === 1 ? \'\' : \'s\') + \'. We\\\'ll confirm the arrival time the week before.\';\n' +
+          '    }\n' +
+          '    plan.quote_updates.push(upd);\n' +
+          '    plan.events.push(eventRow(q.quote_id, \'deposit_paid\', money(amount) + \' via \' + provider + (slot ? \'; booked \' + slot.crew + \' from \' + slot.start + \' to \' + slot.end : \'; no free slot found\'), actor));\n' +
+          '    plan.emails.push(emailItem(q.client_email, \'You\\\'re booked in: \' + q.job_title, emailHtml(s, [\n' +
+          '      \'Hi \' + esc(firstName(q.client_name)) + \',\',\n' +
+          '      \'Thank you, we\\\'ve received your deposit of <b>\' + money(amount) + \'</b>.\',\n' +
+          '      when\n' +
+          '    ], button(quoteUrl(s, q.token), \'View your booking\')), \'deposit_receipt\', q.quote_id, links, \'quote\', q.token));\n' +
+          '    plan.emails.push(emailItem(s.owner_email, \'Deposit paid: \' + q.quote_id + \' \' + q.client_name + \' (\' + money(amount) + \')\', emailHtml(s, [\n' +
+          '      esc(q.client_name) + \' paid the \' + money(amount) + \' deposit for <b>\' + esc(q.job_title) + \'</b>.\',\n' +
+          '      slot ? \'Booked for \' + esc(slot.crew) + \', \' + esc(day(slot.start)) + \' to \' + esc(day(slot.end)) + \'.\' : \'<b>No free slot was found in the next six months.</b> Please book it by hand.\'\n' +
+          '    ], button(dashboardUrl(s), \'Open the dashboard\')), \'owner_deposit\', q.quote_id, links));\n' +
+          '    return slot;\n' +
+          '  }\n' +
+          '  plan.quote_updates.push({ quote_id: q.quote_id, status: \'paid\', balance_paid_at: at, updated_at: at });\n'
+        ) +
+        (
+          '  plan.events.push(eventRow(q.quote_id, \'balance_paid\', money(amount) + \' via \' + provider, actor));\n' +
+          '  plan.emails.push(emailItem(q.client_email, \'Payment received, thank you (\' + q.invoice_id + \')\', emailHtml(s, [\n' +
+          '    \'Hi \' + esc(firstName(q.client_name)) + \',\',\n' +
+          '    \'Thank you for your payment of <b>\' + money(amount) + \'</b>. Your invoice \' + esc(q.invoice_id) + \' is now paid in full; the receipt is attached.\',\n' +
+          '    \'Enjoy the garden!\'\n' +
+          '  ], button(pdfUrl(s, q.token, \'receipt\'), \'Download your receipt\')), \'balance_receipt\', q.quote_id, [pdfUrl(s, q.token, \'receipt\')], \'receipt\', q.token));\n' +
+          '  plan.emails.push(emailItem(s.owner_email, \'Paid in full: \' + q.quote_id + \' \' + q.client_name + \' (\' + money(amount) + \')\', emailHtml(s, [\n' +
+          '    esc(q.client_name) + \' paid the final \' + money(amount) + \' for <b>\' + esc(q.job_title) + \'</b>. The job is closed; a review request goes out in two days.\'\n' +
+          '  ]), \'owner_paid\', q.quote_id, links));\n' +
+          '  return null;\n' +
+          '}\n' +
+          '\n' +
+          '// OpenAI Responses API result → the JSON object the model returned, or null\n' +
+          'function aiJson(res) {\n' +
+          '  if (!res || res.error) return null;\n' +
+          '  const msg = (res.output || []).find(o => o && o.type === \'message\');\n' +
+          '  const part = msg && (msg.content || []).find(c => c && c.type === \'output_text\');\n' +
+          '  let t = part ? part.text : null;\n' +
+          '  if (typeof t === \'string\') { try { t = JSON.parse(t); } catch (e) { t = null; } }\n' +
+          '  return t && typeof t === \'object\' ? t : null;\n' +
+          '}\n' +
+          '\n' +
+          '// Full page for the estimator\'s form results (the n8n form shows it instead of its own page)\n' +
+          'function formPage(title, bodyHtml) {\n' +
+          '  return \'<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>\' + esc(title) + \'</title>\'\n' +
+          '    + \'<style>body{margin:0;background:#f4f1ea;font:15px/1.55 -apple-system,"Segoe UI",Helvetica,Arial,sans-serif;color:#1d2a24}\'\n' +
+          '    + \'.wrap{max-width:640px;margin:36px auto;padding:0 16px}.card{background:#fff;border:1px solid #e3ddd0;border-radius:18px;padding:28px 26px;box-shadow:0 8px 28px rgba(31,77,58,.07)}\'\n' +
+          '    + \'.brand{display:flex;align-items:center;gap:10px;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#1f4d3a;margin-bottom:16px}\'\n' +
+          '    + \'h1{font-size:22px;margin:0 0 6px;letter-spacing:-.3px}.sub{color:#5c6b63;margin:0 0 18px}table{width:100%;border-collapse:collapse;margin:14px 0}td{padding:8px 0;border-bottom:1px solid #eee8dc;vertical-align:top}td.r{text-align:right;white-space:nowrap;padding-left:12px}\'\n' +
+          '    + \'.lbl{color:#76847c;font-size:13px}.tot td{border:0;font-weight:700;font-size:17px;padding-top:12px}.flag{background:#fff7e6;border:1px solid #f3dfb2;border-radius:10px;padding:9px 12px;margin:8px 0;font-size:14px}.flag.info{background:#eef5f0;border-color:#d3e6d8}\'\n' +
+          '    + \'a.btn{display:inline-block;background:#1f4d3a;color:#fff;text-decoration:none;font-weight:600;padding:12px 20px;border-radius:12px;margin:14px 10px 0 0}a.ghost{background:#fff;color:#1f4d3a;border:1px solid #c9d8cd}ul{padding-left:20px;margin:6px 0}\'\n' +
+          '    + \'</style></head><body><div class="wrap"><div class="card"><div class="brand"><svg width="20" height="20" viewBox="0 0 34 34"><path d="M2 32C2 14 14 2 32 2c0 18-12 30-30 30z" fill="#7bb661"/><path d="M5 29L27 7" stroke="#1f4d3a" stroke-width="2"/></svg>Mossgrove Landscapes</div>\'\n' +
+          '    + \'<h1>\' + esc(title) + \'</h1>\' + bodyHtml + \'</div></div></body></html>\';\n' +
+          '}\n' +
+          '\n' +
+          '// The client\'s terms, also printed on the PDF\n' +
+          'function quoteTerms(q, s) {\n' +
+          '  return [\n' +
+          '    \'Prices include VAT at \' + Math.round(Number(s.vat_rate === \'\' || s.vat_rate === undefined ? 0.2 : s.vat_rate) * 100) + \'% and are valid until \' + (day(q.valid_until) || \'the date shown\') + \'. A \' + (Number(s.deposit_pct) || 25) + \'% deposit books your start date; the balance is due within \' + (Number(s.payment_days) || 7) + \' days of completion.\',\n' +
+          '    \'We remove all waste from the job. If we find something we could not see at the survey (such as buried concrete or old drains), we agree any extra cost with you before doing the work.\',\n' +
+          '    \'New plants and turf are guaranteed for 3 months if watered as advised; paving and fencing workmanship for 5 years.\'\n' +
+          '  ];\n' +
+          '}\n' +
+          'const isExpired = q => q.status === \'sent\' && q.valid_until && toDt(q.valid_until) < nowDt();\n' +
+          '\n' +
+          'const STATUS_LABEL = { draft: \'Draft\', sent: \'Sent\', accepted: \'Accepted\', scheduled: \'Booked\', completed: \'Invoiced\', paid: \'Paid\', declined: \'Declined\', expired: \'Expired\', cancelled: \'Cancelled\' };\n' +
+          '// ---- end lib-mgv.js ----\n' +
+          '// ---- seed-mgv.js (included by build.py): demo data for Mossgrove 8: Reset Demo ----\n' +
+          '// Everything is invented. Phone numbers are in Ofcom\'s drama range; emails use example domains.\n' +
+          'const PRICE_BOOK = [\n' +
+          '  [\'PAT-SAND\', \'Patios\', \'Indian sandstone patio on a full mortar bed\', \'m²\', 98, 0.12, 6, \'New patios on lawn or soil also need EXC-DIG and SUB-BASE for the same area.\'],\n' +
+          '  [\'PAT-PORC\', \'Patios\', \'Porcelain patio, 20 mm, on a full mortar bed\', \'m²\', 128, 0.14, 6, \'New patios on lawn or soil also need EXC-DIG and SUB-BASE for the same area.\'],\n' +
+          '  [\'PAT-SLAB\', \'Patios\', \'Concrete slab patio (budget range)\', \'m²\', 68, 0.1, 6, \'New patios on lawn or soil also need EXC-DIG and SUB-BASE for the same area.\'],\n' +
+          '  [\'PAV-BLOCK\', \'Driveways\', \'Block paving driveway with edging\', \'m²\', 92, 0.12, 10, \'Also needs EXC-DIG and SUB-BASE for the same area.\'],\n' +
+          '  [\'EXC-DIG\', \'Groundwork\', \'Dig out to 150 mm and take the soil away\', \'m²\', 22, 0.04, 4, \'Standard groundwork for new paving, decking bases and paths.\'],\n' +
+          '  [\'SUB-BASE\', \'Groundwork\', \'MOT Type 1 sub-base, 100 mm, compacted\', \'m²\', 15, 0.02, 4, \'Standard groundwork under new paving.\'],\n' +
+          '  [\'SKIP\', \'Groundwork\', \'8-yard skip including permit\', \'each\', 340, 0, 1, \'One skip for every 20 m² of dig-out (at least one).\'],\n' +
+          '  [\'DRAIN-CH\', \'Groundwork\', \'Linear drainage channel connected to an existing drain\', \'metre\', 68, 0.1, 1, \'Where a patio meets the house or water pools.\'],\n' +
+          '  [\'FEN-CLOSE\', \'Fencing\', \'Closeboard fence, 1.8 m, concrete posts and gravel boards\', \'metre\', 82, 0.1, 3, \'\'],\n' +
+          '  [\'FEN-PANEL\', \'Fencing\', \'Lap panel fence, 1.8 m, concrete posts\', \'metre\', 58, 0.07, 3, \'\'],\n' +
+          '  [\'FEN-SLAT\', \'Fencing\', \'Horizontal slatted cedar fence, 1.8 m\', \'metre\', 165, 0.15, 3, \'\'],\n' +
+          '  [\'FEN-REMOVE\', \'Fencing\', \'Take down and dispose of the old fence\', \'metre\', 14, 0.03, 3, \'Whenever an existing fence is replaced.\'],\n' +
+          '  [\'GATE\', \'Fencing\', \'Timber side gate, supplied and hung\', \'each\', 460, 0.5, 1, \'\'],\n' +
+          '  [\'TURF\', \'Lawns\', \'New turf, supplied and laid, with soil preparation\', \'m²\', 17, 0.02, 10, \'\'],\n' +
+          '  [\'TURF-STRIP\', \'Lawns\', \'Strip and dispose of the old lawn\', \'m²\', 7, 0.01, 10, \'Whenever new turf or artificial grass replaces an existing lawn.\'],\n' +
+          '  [\'ART-GRASS\', \'Lawns\', \'Artificial grass with sub-base and edging\', \'m²\', 62, 0.06, 10, \'\'],\n' +
+          '  [\'DECK-SW\', \'Decking\', \'Softwood decking with frame\', \'m²\', 145, 0.15, 6, \'\'],\n' +
+          '  [\'DECK-COMP\', \'Decking\', \'Composite decking on an aluminium frame\', \'m²\', 215, 0.18, 6, \'\'],\n' +
+          '  [\'SLEEPER-BED\', \'Planting\', \'Oak sleeper raised bed, three sleepers high\', \'metre\', 120, 0.12, 2, \'Measured along the outside edge.\'],\n' +
+          '  [\'PLANTING\', \'Planting\', \'Bed preparation and planting, plants included\', \'m²\', 48, 0.05, 2, \'\'],\n' +
+          '  [\'GRAVEL\', \'Paths\', \'Gravel path with membrane and steel edging\', \'m²\', 44, 0.05, 3, \'\'],\n' +
+          '  [\'STEP\', \'Paths\', \'Stone step to match the patio\', \'each\', 190, 0.25, 1, \'\'],\n' +
+          '  [\'WALL-BRICK\', \'Walls\', \'Brick garden wall, 600 mm high\', \'metre\', 270, 0.35, 1, \'\'],\n' +
+          '  [\'LIGHT\', \'Lighting\', \'Low-voltage LED garden light, cabling included\', \'each\', 95, 0.08, 1, \'A popular optional extra for patios, decks and paths.\'],\n' +
+          '  [\'SEAL\', \'Finishing\', \'Seal natural stone (two coats)\', \'m²\', 9, 0.01, 6, \'Optional extra for sandstone patios.\'],\n' +
+          '  [\'JETWASH\', \'Finishing\', \'Pressure clean existing paving\', \'m²\', 6, 0.01, 10, \'\']\n' +
+          '];\n' +
+          '\n' +
+          'const SETTINGS_ROWS = [\n' +
+          '  [\'mode\', \'test\', \'test: emails go to the Outbox tab and card payments are simulated. live: Gmail and Stripe.\'],\n' +
+          '  [\'company\', \'Mossgrove Landscapes\', \'\'],\n' +
+          '  [\'company_legal\', \'Mossgrove Landscapes Ltd\', \'\'],\n' +
+          '  [\'company_address\', \'Unit 4, Coldharbour Yard, Bristol BS5 0QT\', \'\'],\n' +
+          '  [\'company_phone\', \'0117 496 0123\', \'\'],\n' +
+          '  [\'company_email\', \'hello@mossgrove.example\', \'\'],\n' +
+          '  [\'company_number\', \'09876543\', \'\'],\n' +
+          '  [\'vat_number\', \'GB 123 4567 89\', \'\'],\n' +
+          '  [\'owner_name\', \'Tom Hale\', \'\'],\n' +
+          '  [\'owner_email\', \'tom@mossgrove.example\', \'Gets drafts, acceptances, payments and the morning summary.\'],\n' +
+          '  [\'vat_rate\', 0.2, \'\'],\n' +
+          '  [\'deposit_pct\', 25, \'Deposit to book, % of the accepted total.\'],\n' +
+          '  [\'validity_days\', 30, \'Quotes expire after this many days.\'],\n' +
+          '  [\'payment_days\', 7, \'Balance due this many days after completion.\'],\n' +
+          '  [\'lead_days\', 7, \'Earliest start: this many days after the deposit.\'],\n' +
+          '  [\'crews\', \'Crew A, Crew B\', \'Comma-separated; each crew does one job at a time.\'],\n' +
+          '  [\'big_job\', 15000, \'Drafts over this total get a "double-check" note.\'],\n' +
+          '  [\'reminder_days\', \'3, 7\', \'Chase quotes this many days after sending.\'],\n' +
+          '  [\'base_url\', \'http://localhost:5678\', \'Public address of n8n (links in emails and PDFs).\'],\n' +
+          '  [\'dashboard_key\', \'3NrLL9oxXcxzwtQqg94Czsxu\', \'Key in the dashboard link.\'],\n' +
+          '  [\'review_url\', \'https://example.com/review/mossgrove\', \'Where happy clients leave a review.\'],\n'
+        ) +
+        (
+          '  [\'bank_name\', \'Mossgrove Landscapes Ltd\', \'\'],\n' +
+          '  [\'bank_sort_code\', \'04-00-04\', \'\'],\n' +
+          '  [\'bank_account\', \'12345678\', \'\'],\n' +
+          '  [\'currency\', \'gbp\', \'\']\n' +
+          '];\n' +
+          '\n' +
+          '// Sample quotes at every stage. Dates are days relative to the reset (negative = in the past).\n' +
+          'const SAMPLE_QUOTES = [\n' +
+          '  { id: \'Q-1001\', client: [\'Hannah Brooks\', \'hannah.brooks@example.com\', \'07700 900101\', \'14 Cotham Vale, Bristol\', \'BS6 6HR\'], est: \'Tom Hale\', title: \'Porcelain patio with garden lighting\', status: \'paid\', created: -58, sent: -57, viewed: -57, accepted: -55, deposit: -54, start: -40, days: 5, crew: \'Crew A\', completed: -35, balance: -33, review: -31,\n' +
+          '    summary: \'We\\\'ll replace the old lawn by the back door with a 28 m² porcelain patio, with a drainage channel along the house and four low-voltage lights.\',\n' +
+          '    lines: [[\'PAT-PORC\', 28, \'Patio 7 m × 4 m = 28 m²\'], [\'EXC-DIG\', 28, \'Same area as the patio (standard groundwork)\'], [\'SUB-BASE\', 28, \'Same area as the patio (standard groundwork)\'], [\'SKIP\', 2, \'28 m² of dig-out\'], [\'DRAIN-CH\', 7, \'Along the back of the house\'], [\'LIGHT\', 4, \'Two each side of the patio\']],\n' +
+          '    extras: [], chosen: [], assumptions: [\'Clear access through the side passage.\', \'The existing drain at the back corner can take the channel.\'] },\n' +
+          '  { id: \'Q-1002\', client: [\'Marcus Webb\', \'marcus.webb@example.com\', \'07700 900102\', \'3 Ashgrove Road, Bishopston, Bristol\', \'BS7 9LD\'], est: \'Priya Nair\', title: \'Block paving front driveway\', status: \'scheduled\', created: -16, sent: -15, viewed: -15, accepted: -9, deposit: -6, start: 5, days: 4, crew: \'Crew A\',\n' +
+          '    summary: \'We\\\'ll take up the cracked concrete and lay a 36 m² block paved driveway with a drainage channel by the garage.\',\n' +
+          '    lines: [[\'PAV-BLOCK\', 36, \'Driveway 6 m × 6 m = 36 m²\'], [\'EXC-DIG\', 36, \'Same area (standard groundwork)\'], [\'SUB-BASE\', 36, \'Same area (standard groundwork)\'], [\'SKIP\', 2, \'36 m² of dig-out\'], [\'DRAIN-CH\', 6, \'Across the garage entrance\']],\n' +
+          '    extras: [[\'LIGHT\', 2, \'Either side of the front door\', \'Lights the path to the door.\']], chosen: [\'LIGHT\'], assumptions: [\'The old concrete is no more than 100 mm thick.\', \'Cars moved off the drive during the work.\'] },\n' +
+          '  { id: \'Q-1003\', client: [\'Eleanor Price\', \'eleanor.price@example.com\', \'07700 900103\', \'27 Kellaway Avenue, Bristol\', \'BS6 7XS\'], est: \'Tom Hale\', title: \'Replacement closeboard fence\', status: \'completed\', created: -30, sent: -29, viewed: -28, accepted: -27, deposit: -26, start: -4, days: 3, crew: \'Crew B\', completed: -1,\n' +
+          '    summary: \'We\\\'ll take down the leaning panel fence on both sides and put up 22 metres of closeboard fencing on concrete posts.\',\n' +
+          '    lines: [[\'FEN-CLOSE\', 22, \'Left 12 m + right 10 m = 22 m\'], [\'FEN-REMOVE\', 22, \'Old fence on both sides\']],\n' +
+          '    extras: [], chosen: [], assumptions: [\'Neighbours on both sides have agreed to the new fence.\'] },\n' +
+          '  { id: \'Q-1004\', client: [\'Sam Turner\', \'sam.turner@example.com\', \'07700 900104\', \'8 Belvoir Road, St Andrews, Bristol\', \'BS6 5DQ\'], est: \'Priya Nair\', title: \'Composite deck and raised beds\', status: \'accepted\', created: -12, sent: -11, viewed: -10, accepted: -4,\n' +
+          '    summary: \'We\\\'ll build a 15 m² composite deck off the kitchen doors and two oak sleeper raised beds along the back fence.\',\n' +
+          '    lines: [[\'DECK-COMP\', 15, \'Deck 5 m × 3 m = 15 m²\'], [\'SLEEPER-BED\', 8, \'Two beds, 4 m of edge each\'], [\'PLANTING\', 4, \'Inside the two beds\']],\n' +
+          '    extras: [[\'LIGHT\', 3, \'Set into the deck edge\', \'Makes the deck usable in the evenings.\']], chosen: [], assumptions: [\'The ground under the deck is level to within 150 mm.\'] },\n' +
+          '  { id: \'Q-1005\', client: [\'Grace Whitfield\', \'grace.whitfield@example.com\', \'07700 900105\', \'41 Chesterfield Road, Montpelier, Bristol\', \'BS6 5DN\'], est: \'Tom Hale\', title: \'New lawn and gravel path\', status: \'sent\', created: -5, sent: -4, viewed: -2, views: 2,\n' +
+          '    summary: \'We\\\'ll strip the patchy lawn and lay 45 m² of new turf, with a gravel path from the patio to the shed.\',\n' +
+          '    lines: [[\'TURF-STRIP\', 45, \'Lawn 9 m × 5 m = 45 m²\'], [\'TURF\', 45, \'Same area as the old lawn\'], [\'GRAVEL\', 9, \'Path 9 m × 1 m = 9 m²\'], [\'EXC-DIG\', 9, \'Under the path (standard groundwork)\']],\n' +
+          '    extras: [[\'PLANTING\', 6, \'Border along the path\', \'Softens the edge of the new path.\']], chosen: [], assumptions: [\'No large roots or buried rubble under the lawn.\'] },\n' +
+          '  { id: \'Q-1006\', client: [\'Daniel Osei\', \'daniel.osei@example.com\', \'07700 900106\', \'19 Brynland Avenue, Bristol\', \'BS7 9DS\'], est: \'Priya Nair\', title: \'Sandstone patio\', status: \'sent\', created: -9, sent: -8, reminders: 1, lastReminder: -5,\n' +
+          '    summary: \'We\\\'ll lay a 20 m² Indian sandstone patio where the lawn meets the house.\',\n' +
+          '    lines: [[\'PAT-SAND\', 20, \'Patio 5 m × 4 m = 20 m²\'], [\'EXC-DIG\', 20, \'Same area (standard groundwork)\'], [\'SUB-BASE\', 20, \'Same area (standard groundwork)\'], [\'SKIP\', 1, \'20 m² of dig-out\']],\n' +
+          '    extras: [[\'SEAL\', 20, \'Whole patio\', \'Protects sandstone from staining.\']], chosen: [], assumptions: [\'Access through the side gate (at least 80 cm wide).\'] },\n' +
+          '  { id: \'Q-1007\', client: [\'Fiona McLeod\', \'fiona.mcleod@example.com\', \'07700 900107\', \'6 Redland Grove, Bristol\', \'BS6 6PR\'], est: \'Tom Hale\', title: \'Garden wall and steps\', status: \'declined\', created: -24, sent: -23, viewed: -22, declined: -18, reason: \'Went with a cheaper quote\',\n' +
+          '    summary: \'We\\\'ll build a 600 mm brick wall across the garden with three stone steps up to the lawn.\',\n' +
+          '    lines: [[\'WALL-BRICK\', 8, \'Across the garden, 8 m\'], [\'STEP\', 3, \'Up to the lawn\']],\n' +
+          '    extras: [], chosen: [], assumptions: [\'Footings in firm ground at 450 mm.\'] },\n' +
+          '  { id: \'Q-1008\', client: [\'Robert Lang\', \'robert.lang@example.com\', \'07700 900108\', \'52 Cranbrook Road, Bristol\', \'BS6 7BT\'], est: \'Priya Nair\', title: \'Artificial grass\', status: \'expired\', created: -44, sent: -43, viewed: -40, reminders: 2, lastReminder: -36,\n' +
+          '    summary: \'We\\\'ll replace the lawn with 30 m² of artificial grass on a proper sub-base.\',\n' +
+          '    lines: [[\'TURF-STRIP\', 30, \'Lawn 6 m × 5 m = 30 m²\'], [\'ART-GRASS\', 30, \'Same area\']],\n' +
+          '    extras: [], chosen: [], assumptions: [] },\n' +
+          '  { id: \'Q-1009\', client: [\'Aisha Rahman\', \'aisha.rahman@example.com\', \'07700 900109\', \'11 Somerville Road, Bristol\', \'BS7 9AD\'], est: \'Tom Hale\', title: \'Side gate and panel fence\', status: \'draft\', created: -1,\n' +
+          '    summary: \'We\\\'ll replace the back fence with 14 metres of lap panel fencing, hang a new side gate and take away the old shed.\',\n' +
+          '    lines: [[\'FEN-PANEL\', 14, \'Back fence, 14 m\'], [\'FEN-REMOVE\', 14, \'Old back fence\'], [\'GATE\', 1, \'Side passage\']],\n' +
+          '    custom: [[\'Take down and remove the old shed (about 2 m × 3 m)\', 1, \'each\', \'Not in the price book\']],\n' +
+          '    extras: [], chosen: [], assumptions: [\'The shed has no electrics.\'], questions: [\'Is the shed on a concrete base that also needs breaking up?\'],\n' +
+          '    notes: \'Back fence 14m, falling down, replace with panel. New side gate, old one rotten. Old shed in corner to go, about 2 by 3. Client wants it done before Christmas.\' }\n' +
+          '];\n' +
+          '\n' +
+          '// Other booked jobs (from before this system) so the scheduler has to find a gap.\n' +
+          'const BOOKED = [\n' +
+          '  [\'Hughes: patio relay\', 3, 5, \'Crew B\'],\n' +
+          '  [\'Okafor: driveway\', 12, 6, \'Crew A\'],\n' +
+          '  [\'Mills: fencing\', 10, 3, \'Crew B\'],\n' +
+          '  [\'Carter: turf and borders\', 16, 4, \'Crew B\']\n' +
+          '];\n' +
+          '// ---- end seed-mgv.js ----\n' +
+          'const s = Object.fromEntries(SETTINGS_ROWS.map(r => [r[0], r[1]]));\n' +
+          'const book = bookOf(PRICE_BOOK.map(r => ({ code: r[0], category: r[1], item: r[2], unit: r[3], unit_price: r[4], labour_days: r[5], min_qty: r[6], notes: r[7], active: true })));\n' +
+          'const now = nowDt();\n' +
+          'const at = (d, h, m) => d === undefined ? \'\' : now.plus({ days: d }).set({ hour: h || 10, minute: m || 0, second: 0, millisecond: 0 }).toISO({ suppressMilliseconds: true });\n' +
+          'const weekday = d => { let x = now.plus({ days: d }).startOf(\'day\'); while (x.weekday > 5) x = x.plus({ days: 1 }); return x; };\n' +
+          'const hex = n => Array.from({ length: n }, () => \'0123456789abcdef\'[Math.floor(Math.random() * 16)]).join(\'\');\n' +
+          'const quotes = [], events = [], payments = [], schedule = [];\n' +
+          'const ev = (id, d, h, event, detail, actor) => events.push({ at: at(d, h, 15), quote_id: id, event, detail, actor });\n' +
+          '\n' +
+          'for (const sq of SAMPLE_QUOTES) {\n' +
+          '  const priced = priceQuote({\n' +
+          '    lines: sq.lines.map(l => ({ code: l[0], quantity: l[1], label: l[2] })),\n' +
+          '    extras: (sq.extras || []).map(l => ({ code: l[0], quantity: l[1], label: l[2], why: l[3] })),\n' +
+          '    custom_items: (sq.custom || []).map(c => ({ description: c[0], quantity: c[1], unit: c[2], why: c[3] }))\n' +
+          '  }, book, s);\n' +
+          '  const [name, email, phone, address, postcode] = sq.client;\n' +
+          '  const q = {\n' +
+          '    quote_id: sq.id, token: \'demo-\' + sq.id.toLowerCase() + \'-mg7k2p\', status: sq.status, client_name: name, client_email: email, client_phone: phone, site_address: address, postcode,\n' +
+          '    job_title: sq.title, summary: sq.summary, visit_notes: sq.notes || \'\', transcript: \'\',\n' +
+          '    lines_json: priced.lines, extras_json: priced.extras, custom_json: priced.custom, assumptions_json: sq.assumptions || [], questions_json: sq.questions || [], flags_json: priced.flags,\n' +
+          '    subtotal: priced.subtotal, vat: priced.vat, total: priced.total, deposit: priced.deposit, labour_days: priced.labour_days, version: 1, estimator: sq.est,\n' +
+          '    created_at: at(sq.created, 15, 40), build_ms: 17000 + Math.floor(Math.random() * 9000), view_count: sq.views || (sq.viewed !== undefined ? 1 : 0), reminders_sent: sq.reminders || 0, last_reminder_at: at(sq.lastReminder, 9),\n' +
+          '    messages_json: [], updated_at: at(Math.max(...[sq.created, sq.sent, sq.viewed, sq.accepted, sq.deposit, sq.completed, sq.balance, sq.declined].filter(x => x !== undefined)), 12)\n' +
+          '  };\n' +
+          '  ev(sq.id, sq.created, 15, \'drafted\', \'AI draft: \' + priced.lines.length + \' lines, \' + money(priced.total), sq.est);\n' +
+          '  if (sq.sent !== undefined) {\n' +
+          '    Object.assign(q, { sent_at: at(sq.sent, 9, 5), valid_until: now.plus({ days: sq.sent + (Number(s.validity_days) || 30) }).endOf(\'day\').toISO({ suppressMilliseconds: true }) });\n' +
+          '    ev(sq.id, sq.sent, 9, \'sent\', \'To \' + email, sq.est);\n' +
+          '  }\n' +
+          '  if (sq.viewed !== undefined) { q.viewed_at = at(sq.viewed, 19, 12); ev(sq.id, sq.viewed, 19, \'viewed\', \'First opened by the client\', \'client\'); }\n' +
+          '  for (let r = 1; r <= (sq.reminders || 0); r++) ev(sq.id, sq.sent + (r === 1 ? 3 : 7), 8, \'reminder\', \'Reminder \' + r, \'system\');\n' +
+          '  if (sq.accepted !== undefined) {\n' +
+          '    const tot = acceptedTotals(Object.assign({}, priced), sq.chosen || [], s);\n' +
+          '    Object.assign(q, { accepted_at: at(sq.accepted, 20, 41), signed_name: name, sign_meta_json: { fingerprint: hex(64), signed_at: at(sq.accepted, 20, 41), method: \'typed name + checkbox\', ip: \'demo\' },\n' +
+          '      chosen_extras_json: sq.chosen || [], accepted_subtotal: tot.subtotal, accepted_vat: tot.vat, accepted_total: tot.total, deposit_due: tot.deposit, labour_days: tot.labour_days });\n' +
+          '    ev(sq.id, sq.accepted, 20, \'accepted\', \'Signed by \' + name + \' for \' + money(tot.total) + (tot.chosen.length ? \' with \' + tot.chosen.map(x => x.item).join(\', \') : \'\'), \'client\');\n' +
+          '    q.balance_due = round2(tot.total - tot.deposit);\n' +
+          '  }\n' +
+          '  if (sq.deposit !== undefined) {\n' +
+          '    const start = weekday(sq.start), end = addWorkdays(start, sq.days);\n' +
+          '    Object.assign(q, { deposit_paid_at: at(sq.deposit, 11, 3), job_start: start.toISODate(), job_end: end.toISODate(), crew: sq.crew });\n' +
+          '    payments.push({ payment_id: \'PAY-\' + sq.id.slice(2) + \'D\', quote_id: sq.id, kind: \'deposit\', amount: q.deposit_due, status: \'paid\', provider: \'card (Stripe)\', provider_ref: \'pi_demo_\' + hex(10), created_at: q.deposit_paid_at, paid_at: q.deposit_paid_at });\n' +
+          '    schedule.push({ entry_id: \'JOB-\' + sq.id, quote_id: sq.id, title: name.split(\' \').slice(-1)[0] + \': \' + sq.title, start: q.job_start, end: q.job_end, crew: sq.crew, kind: \'job\', notes: address });\n' +
+          '    ev(sq.id, sq.deposit, 11, \'deposit_paid\', money(q.deposit_due) + \' via card (Stripe); booked \' + sq.crew + \' from \' + q.job_start + \' to \' + q.job_end, \'client\');\n'
+        ) +
+        (
+          '  }\n' +
+          '  if (sq.completed !== undefined) {\n' +
+          '    Object.assign(q, { completed_at: at(sq.completed, 16, 30), invoice_id: sq.id.replace(\'Q-\', \'INV-\') });\n' +
+          '    ev(sq.id, sq.completed, 16, \'completed\', \'Invoice \' + q.invoice_id + \': balance \' + money(q.balance_due), \'Tom Hale\');\n' +
+          '  }\n' +
+          '  if (sq.balance !== undefined) {\n' +
+          '    q.balance_paid_at = at(sq.balance, 13, 20);\n' +
+          '    payments.push({ payment_id: \'PAY-\' + sq.id.slice(2) + \'B\', quote_id: sq.id, kind: \'balance\', amount: q.balance_due, status: \'paid\', provider: \'bank transfer\', provider_ref: \'\', created_at: q.balance_paid_at, paid_at: q.balance_paid_at });\n' +
+          '    ev(sq.id, sq.balance, 13, \'balance_paid\', money(q.balance_due) + \' via bank transfer\', \'Tom Hale\');\n' +
+          '  }\n' +
+          '  if (sq.review !== undefined) { q.review_sent_at = at(sq.review, 9); ev(sq.id, sq.review, 9, \'review_requested\', \'Two days after paying\', \'system\'); }\n' +
+          '  if (sq.declined !== undefined) { Object.assign(q, { declined_at: at(sq.declined, 18), decline_reason: sq.reason }); ev(sq.id, sq.declined, 18, \'declined\', sq.reason, \'client\'); }\n' +
+          '  if (sq.status === \'expired\') ev(sq.id, sq.sent + 30, 7, \'expired\', \'Not accepted in 30 days\', \'system\');\n' +
+          '  quotes.push(q);\n' +
+          '}\n' +
+          'for (const [title, d, n, crew] of BOOKED) {\n' +
+          '  const start = weekday(d);\n' +
+          '  schedule.push({ entry_id: \'JOB-\' + title.split(\':\')[0].toUpperCase(), quote_id: \'\', title, start: start.toISODate(), end: addWorkdays(start, n).toISODate(), crew, kind: \'job\', notes: \'Booked before the quote system\' });\n' +
+          '}\n' +
+          'events.sort((a, b) => a.at < b.at ? -1 : 1);\n' +
+          '\n' +
+          'const rows = (tab, objs) => [COLUMNS[tab]].concat(objs.map(o => COLUMNS[tab].map(c => { const v = o[c]; return v === undefined || v === null ? \'\' : (typeof v === \'object\' ? JSON.stringify(v) : v); })));\n' +
+          'const tabs = {\n' +
+          '  \'Settings\': [COLUMNS.Settings].concat(SETTINGS_ROWS),\n' +
+          '  \'Price Book\': [COLUMNS[\'Price Book\']].concat(PRICE_BOOK.map(r => r.concat([true]))),\n' +
+          '  \'Quotes\': rows(\'Quotes\', quotes),\n' +
+          '  \'Events\': rows(\'Events\', events),\n' +
+          '  \'Payments\': rows(\'Payments\', payments),\n' +
+          '  \'Schedule\': rows(\'Schedule\', schedule),\n' +
+          '  \'Outbox\': [COLUMNS.Outbox]\n' +
+          '};\n' +
+          'const q = n => "\'" + n.replace(/\'/g, "\'\'") + "\'";\n' +
+          'return [{ json: {\n' +
+          '  clear: { ranges: Object.keys(tabs).map(q) },\n' +
+          '  write: { valueInputOption: \'RAW\', data: Object.entries(tabs).map(([n, v]) => ({ range: q(n) + \'!A1\', values: v })) },\n' +
+          '  summary: Object.fromEntries(Object.entries(tabs).map(([n, v]) => [n, v.length - 1]))\n' +
+          '} }];\n'
+        )
+  } },
+  output: [{ clear: { ranges: [] }, write: { valueInputOption: 'RAW', data: [] }, summary: {} }]
+});
+
+const clear = node({
+  type: 'n8n-nodes-base.httpRequest',
+  version: 4.4,
+  config: {
+    name: 'Clear All Tabs',
+    position: [640, 300],
+    retryOnFail: true, maxTries: 3, waitBetweenTries: 3000,
+    parameters: {
+      method: 'POST',
+      url: 'https://sheets.googleapis.com/v4/spreadsheets/1754F1Rep-Rg9J3x6Dnga0fjTeSR4zfaLOS_zD7Zp1J4/values:batchClear',
+      authentication: 'predefinedCredentialType', nodeCredentialType: 'googleSheetsOAuth2Api',
+      sendBody: true, contentType: 'json', specifyBody: 'json',
+      jsonBody: expr("{{ JSON.stringify($('Build Demo Data').first().json.clear) }}"),
+      options: {}
+    },
+    credentials: SHEETS_CRED
+  },
+  output: [{ clearedRanges: [] }]
+});
+
+const write = node({
+  type: 'n8n-nodes-base.httpRequest',
+  version: 4.4,
+  config: {
+    name: 'Write All Tabs',
+    position: [860, 300],
+    retryOnFail: true, maxTries: 3, waitBetweenTries: 3000,
+    parameters: {
+      method: 'POST',
+      url: 'https://sheets.googleapis.com/v4/spreadsheets/1754F1Rep-Rg9J3x6Dnga0fjTeSR4zfaLOS_zD7Zp1J4/values:batchUpdate',
+      authentication: 'predefinedCredentialType', nodeCredentialType: 'googleSheetsOAuth2Api',
+      sendBody: true, contentType: 'json', specifyBody: 'json',
+      jsonBody: expr("{{ JSON.stringify($('Build Demo Data').first().json.write) }}"),
+      options: {}
+    },
+    credentials: SHEETS_CRED
+  },
+  output: [{ totalUpdatedRows: 60 }]
+});
+
+const summary = node({
+  type: 'n8n-nodes-base.code',
+  version: 2,
+  config: { name: 'Summary', position: [1080, 300], parameters: { mode: 'runOnceForAllItems', language: 'javaScript', jsCode: "return [{ json: { rows: $('Build Demo Data').first().json.summary, cellsWritten: $input.first().json.totalUpdatedCells } }];" } },
+  output: [{ rows: {} }]
+});
+
+const note = sticky(
+  '## Mossgrove 8: Reset Demo\nPuts the Google Sheet back to the demo state: settings, a 26-item price book, nine sample quotes at every stage (draft, sent, accepted, booked, invoiced, paid, declined, expired) with dates relative to today, their history and payments, both crews\' calendars, and an empty Outbox. Run it before a demo or recording.',
+  [], { position: [160, 80], width: 940, height: 150, color: 7 }
+);
+
+export default workflow('mossgrove-reset-demo', 'Mossgrove 8: Reset Demo')
+  .add(start)
+  .to(seed)
+  .to(clear)
+  .to(write)
+  .to(summary)
+  .add(note);

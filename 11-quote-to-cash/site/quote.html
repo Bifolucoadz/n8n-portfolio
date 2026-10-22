@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Your quote · Mossgrove Landscapes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--moss:#1f4d3a;--moss2:#173b2c;--leaf:#7bb661;--leafsoft:#e8f3e3;--cream:#f4f1ea;--paper:#fffdf8;--ink:#1d2a24;--body:#3d4b44;--muted:#6f7d75;--line:#e6e0d3;--warn:#a5671a;--warnbg:#fff6e5;--red:#a23b2a}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--cream);color:var(--ink);font:15.5px/1.6 Inter,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:var(--moss)}
+.top{background:var(--moss);color:#fff}
+.top .in{max-width:1080px;margin:0 auto;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:600;letter-spacing:.2px}
+.brand b{font-family:Fraunces,Georgia,serif;font-weight:600;font-size:19px;letter-spacing:.1px}
+.top .ref{font-size:13px;color:#cfe3d3}
+.steps{background:var(--moss2);color:#cfe3d3}
+.steps ol{max-width:1080px;margin:0 auto;padding:10px 20px 12px;display:flex;gap:6px;list-style:none;overflow-x:auto;font-size:12.5px}
+.steps li{display:flex;align-items:center;gap:7px;white-space:nowrap;padding-right:12px}
+.steps li .dot{width:18px;height:18px;border-radius:50%;border:1.5px solid #5f8a72;display:grid;place-items:center;font-size:11px;color:#cfe3d3}
+.steps li.done .dot{background:var(--leaf);border-color:var(--leaf);color:var(--moss2)}
+.steps li.now{color:#fff;font-weight:600}
+.steps li.now .dot{border-color:#fff}
+.steps li+li:before{content:"";width:18px;height:1px;background:#4b7360;margin-right:6px}
+.wrap{max-width:1080px;margin:0 auto;padding:28px 20px 120px;display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:24px;align-items:start}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:24px 24px;box-shadow:0 1px 0 rgba(0,0,0,.02),0 10px 30px rgba(31,77,58,.05);margin-bottom:18px}
+.eyebrow{font-size:12.5px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--leaf);margin-bottom:6px}
+h1{font-family:Fraunces,Georgia,serif;font-weight:600;font-size:34px;line-height:1.15;letter-spacing:-.4px;margin:0 0 12px}
+h2{font-family:Fraunces,Georgia,serif;font-weight:600;font-size:21px;letter-spacing:-.2px;margin:0 0 14px}
+.lead{font-size:16.5px;color:var(--body);margin:0 0 16px}
+.meta{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:13.5px;color:var(--muted)}
+.meta b{color:var(--ink);font-weight:600}
+.lines{list-style:none;margin:0;padding:0}
+.lines li{display:grid;grid-template-columns:1fr auto;gap:4px 16px;padding:14px 0;border-top:1px solid var(--line)}
+.lines li:first-child{border-top:0;padding-top:4px}
+.lines .nm{font-weight:600}
+.lines .lb{grid-column:1;font-size:13.5px;color:var(--muted)}
+.lines .am{font-weight:600;text-align:right;white-space:nowrap}
+.lines .qt{grid-column:2;text-align:right;font-size:13px;color:var(--muted);white-space:nowrap}
+.tag{display:inline-block;font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:99px;background:var(--leafsoft);color:var(--moss);margin-left:6px;vertical-align:2px}
+.extra{display:flex;gap:14px;align-items:flex-start;padding:14px 16px;border:1.5px solid var(--line);border-radius:14px;margin-top:10px;cursor:pointer;transition:border-color .15s,background .15s}
+.extra:hover{border-color:#bcd3c2}
+.extra.on{border-color:var(--leaf);background:#f3f9f0}
+.extra input{width:20px;height:20px;accent-color:var(--moss);margin-top:2px;flex:none}
+.extra .x{flex:1}
+.extra .nm{font-weight:600}
+.extra .why{font-size:13.5px;color:var(--muted)}
+.extra .am{font-weight:600;white-space:nowrap}
+.extra.locked{cursor:default;opacity:.65}
+.howto{counter-reset:s;list-style:none;padding:0;margin:0;display:grid;gap:10px}
+.howto li{counter-increment:s;display:flex;gap:12px;align-items:flex-start;color:var(--body)}
+.howto li:before{content:counter(s);flex:none;width:26px;height:26px;border-radius:50%;background:var(--leafsoft);color:var(--moss);font-weight:700;font-size:13px;display:grid;place-items:center}
+ul.plain{margin:0;padding-left:18px;color:var(--body)}
+ul.plain li{margin:4px 0}
+details{color:var(--body);font-size:14px}
+summary{cursor:pointer;font-weight:600;color:var(--ink)}
+details ol{padding-left:18px}
+.side{position:sticky;top:20px}
+.sum .row{display:flex;justify-content:space-between;padding:6px 0;color:var(--body)}
+.sum .row.total{border-top:1.5px solid var(--ink);margin-top:8px;padding-top:12px;color:var(--ink);font-weight:700;font-size:20px}
+.sum .row.dep{color:var(--moss);font-weight:600}
+.sum .added{font-size:13px;color:var(--moss)}
+.btn{display:block;width:100%;border:0;border-radius:12px;padding:14px 16px;font:600 15.5px Inter,sans-serif;cursor:pointer;text-align:center;text-decoration:none;margin-top:10px;transition:transform .05s,background .15s}
+.btn:active{transform:translateY(1px)}
+.btn.primary{background:var(--moss);color:#fff}
+.btn.primary:hover{background:#25604a}
+.btn.ghost{background:#fff;color:var(--moss);border:1.5px solid #c9d8cd}
+.btn.ghost:hover{background:#f6faf6}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.links{display:flex;justify-content:space-between;margin-top:14px;font-size:13.5px}
+.links a,.links button{color:var(--muted);background:none;border:0;font:inherit;cursor:pointer;padding:0;text-decoration:underline;text-underline-offset:3px}
+.trust{display:flex;gap:10px;align-items:center;font-size:12.5px;color:var(--muted);margin-top:14px}
+.banner{border-radius:16px;padding:18px 20px;margin-bottom:18px;display:flex;gap:14px;align-items:flex-start;border:1px solid}
+.banner .ic{flex:none;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-weight:700}
+.banner.ok{background:#eef7ea;border-color:#cfe5c6}
+.banner.ok .ic{background:var(--leaf);color:#fff}
+.banner.info{background:#eef3f7;border-color:#d4e0ea}
+.banner.info .ic{background:#3e6a8a;color:#fff}
+.banner.warn{background:var(--warnbg);border-color:#f0dbb0}
+.banner.warn .ic{background:#d9a03f;color:#fff}
+.banner.muted{background:#f1efe9;border-color:var(--line)}
+.banner.muted .ic{background:#b9b3a6;color:#fff}
+.banner h3{margin:0 0 4px;font-size:16.5px}
+.banner p{margin:0;color:var(--body)}
+.banner .act{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+.banner .act .btn{width:auto;display:inline-block;margin:0;padding:11px 18px}
+.mobilebar{display:none}
+footer{text-align:center;color:var(--muted);font-size:12.5px;padding:0 20px 40px}
+dialog{border:0;border-radius:20px;padding:0;width:min(460px,calc(100vw - 32px));box-shadow:0 30px 80px rgba(0,0,0,.25)}
+dialog::backdrop{background:rgba(23,40,32,.45)}
+dialog form{padding:26px 24px 22px}
+dialog h2{margin-bottom:6px}
+dialog p{color:var(--body);margin:0 0 14px;font-size:14.5px}
+label.f{display:block;font-weight:600;font-size:14px;margin:12px 0 6px}
+input.t,textarea,select{width:100%;border:1.5px solid #d8d2c4;border-radius:12px;padding:12px 14px;font:15px Inter,sans-serif;color:var(--ink);background:#fff}
+input.t:focus,textarea:focus,select:focus{outline:0;border-color:var(--moss)}
+input.sig{font-family:Fraunces,Georgia,serif;font-size:22px}
+.check{display:flex;gap:10px;align-items:flex-start;font-size:14px;color:var(--body);margin:14px 0 4px}
+.check input{width:19px;height:19px;accent-color:var(--moss);flex:none;margin-top:2px}
+.fine{font-size:12.5px;color:var(--muted);margin-top:10px}
+.err{color:var(--red);font-size:13.5px;min-height:18px;margin-top:8px}
+.dlg-actions{display:flex;gap:10px;margin-top:16px}
+.dlg-actions .btn{margin:0}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:12px 18px;border-radius:12px;font-size:14px;box-shadow:0 10px 30px rgba(0,0,0,.2);z-index:9}
+@media (max-width:860px){
+  .wrap{grid-template-columns:1fr;padding-top:18px}
+  .side{position:static}
+  h1{font-size:28px}
+  .card{padding:20px 18px;border-radius:16px}
+  .mobilebar{display:flex;position:fixed;left:0;right:0;bottom:0;background:var(--paper);border-top:1px solid var(--line);padding:12px 16px calc(12px + env(safe-area-inset-bottom));align-items:center;justify-content:space-between;gap:12px;box-shadow:0 -8px 24px rgba(0,0,0,.06);z-index:5}
+  .mobilebar .t{font-size:13px;color:var(--muted)}
+  .mobilebar .t b{display:block;font-size:19px;color:var(--ink)}
+  .mobilebar .btn{width:auto;margin:0;padding:12px 20px}
+}
+</style>
+</head>
+<body>
+<div class="top"><div class="in">
+  <div class="brand"><svg width="28" height="28" viewBox="0 0 34 34" aria-hidden="true"><path d="M2 32C2 14 14 2 32 2c0 18-12 30-30 30z" fill="#7bb661"/><path d="M5 29L27 7" stroke="#1f4d3a" stroke-width="2"/></svg><b id="co">Mossgrove Landscapes</b></div>
+  <div class="ref" id="ref"></div>
+</div></div>
+<nav class="steps" aria-label="Progress"><ol id="steps"></ol></nav>
+<div class="wrap">
+  <main>
+    <div id="banner"></div>
+    <section class="card">
+      <div class="eyebrow" id="eyebrow"></div>
+      <h1 id="title"></h1>
+      <p class="lead" id="summary"></p>
+      <div class="meta" id="meta"></div>
+    </section>
+    <section class="card">
+      <h2>What's included</h2>
+      <ul class="lines" id="lines"></ul>
+    </section>
+    <section class="card" id="extrasCard" hidden>
+      <h2>Optional extras</h2>
+      <p style="margin:-6px 0 6px;color:var(--muted);font-size:14px" id="extrasHint">Tick anything you'd like added. The total updates as you go.</p>
+      <div id="extras"></div>
+    </section>
+    <section class="card">
+      <h2>How it works</h2>
+      <ol class="howto" id="howto"></ol>
+    </section>
+    <section class="card" id="assumeCard" hidden>
+      <h2>Good to know</h2>
+      <ul class="plain" id="assume"></ul>
+    </section>
+    <section class="card">
+      <details><summary>Terms</summary><ol id="terms"></ol></details>
+    </section>
+  </main>
+  <aside class="side">
+    <section class="card sum">
+      <h2 style="margin-bottom:8px">Your price</h2>
+      <div class="row"><span>Subtotal</span><span id="sSub"></span></div>
+      <div class="row"><span id="sVatL">VAT</span><span id="sVat"></span></div>
+      <div class="added" id="sAdded"></div>
+      <div class="row total"><span>Total</span><span id="sTot"></span></div>
+      <div class="row dep"><span id="sDepL">Deposit to book</span><span id="sDep"></span></div>
+      <div id="actions"></div>
+      <div class="links"><a id="pdfLink" href="#">Download PDF</a><button type="button" id="declineBtn">Decline</button></div>
+      <div class="trust"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><span>Your signature is recorded with the time and a fingerprint of this exact quote.</span></div>
+    </section>
+  </aside>
+</div>
+<div class="mobilebar" id="mobilebar"><div class="t">Total<b id="mTot"></b></div><button class="btn primary" id="mAccept">Accept quote</button></div>
+<footer id="foot"></footer>
+
+<dialog id="dAccept"><form method="dialog" id="fAccept">
+  <h2>Accept and sign</h2>
+  <p id="acceptText"></p>
+  <label class="f" for="sigName">Type your full name to sign</label>
+  <input class="t sig" id="sigName" autocomplete="name" placeholder="Your full name">
+  <label class="check"><input type="checkbox" id="sigAgree"><span id="agreeText"></span></label>
+  <div class="err" id="acceptErr"></div>
+  <div class="dlg-actions"><button class="btn ghost" value="cancel" formnovalidate>Back</button><button class="btn primary" id="acceptGo" value="go">Sign and accept</button></div>
+  <div class="fine">Typing your name counts as your signature. We record it with the date, time and a SHA-256 fingerprint of this quote, so neither side can change it afterwards.</div>
+</form></dialog>
+
+<dialog id="dAsk"><form method="dialog" id="fAsk">
+  <h2>Ask a question</h2>
+  <p>Ask about anything, or tell us what you'd like changed. We'll get back to you, usually the same day.</p>
+  <textarea id="askText" rows="5" placeholder="e.g. Could the path be a bit wider?"></textarea>
+  <div class="err" id="askErr"></div>
+  <div class="dlg-actions"><button class="btn ghost" value="cancel" formnovalidate>Back</button><button class="btn primary" id="askGo" value="go">Send</button></div>
+</form></dialog>
+
+<dialog id="dDecline"><form method="dialog" id="fDecline">
+  <h2>Decline this quote</h2>
+  <p>No problem. It helps us to know why (optional).</p>
+  <select id="declineReason">
+    <option value="">Choose a reason</option>
+    <option>The price is more than I expected</option>
+    <option>I went with another company</option>
+    <option>I've decided not to do the work</option>
+    <option>The timing doesn't work for me</option>
+    <option>Something else</option>
+  </select>
+  <div class="err" id="declineErr"></div>
+  <div class="dlg-actions"><button class="btn ghost" value="cancel" formnovalidate>Back</button><button class="btn primary" id="declineGo" value="go">Decline quote</button></div>
+</form></dialog>
+
+<script>
+var D = /*__DATA__*/null;
+(function () {
+  if (!D) return;
+  var q = D.quote, $ = function (id) { return document.getElementById(id); };
+  var gbp = function (n) { return '£' + (Math.round(Number(n || 0) * 100) / 100).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+  var unit = function (l) { var n = Math.round(l.quantity * 10) / 10; return l.unit === 'each' ? (n + ' × ' + gbp(l.unit_price)) : (n + ' ' + (l.unit === 'metre' ? (n === 1 ? 'metre' : 'metres') : l.unit) + ' × ' + gbp(l.unit_price)); };
+  var open = q.status === 'sent' && !q.expired && !D.preview;
+  var chosen = (q.chosen_extras || []).slice();
+
+  document.title = 'Quote ' + q.quote_id + ' · ' + D.company.name;
+  $('co').textContent = D.company.name;
+  $('ref').textContent = 'Quote ' + q.quote_id;
+  $('eyebrow').textContent = 'Quote ' + q.quote_id + ' · for ' + q.client_name;
+  $('title').textContent = q.job_title;
+  $('summary').textContent = q.summary;
+  $('meta').innerHTML = [q.sent_at ? 'Issued <b>' + esc(q.sent_day) + '</b>' : '', q.valid_until && ['sent', 'draft'].indexOf(q.status) >= 0 ? 'Valid until <b>' + esc(q.valid_day) + '</b>' : '', 'Prepared by <b>' + esc(q.estimator) + '</b>', q.job_days ? 'About <b>' + q.job_days + ' working day' + (q.job_days === 1 ? '' : 's') + '</b> on site' : ''].filter(Boolean).map(function (x) { return '<span>' + x + '</span>'; }).join('');
+  $('foot').textContent = D.company.legal + ' · ' + D.company.address + ' · ' + D.company.phone;
+  $('pdfLink').href = D.links.pdf;
+
+  // Progress
+  var stages = [['Quote', ['draft', 'sent']], ['Accepted', ['accepted']], ['Booked', ['scheduled']], ['Job done', ['completed']], ['Paid', ['paid']]];
+  var at = stages.findIndex(function (s) { return s[1].indexOf(q.status) >= 0; });
+  $('steps').innerHTML = stages.map(function (s, i) { var c = at < 0 ? '' : (i < at || q.status === 'paid' ? 'done' : (i === at ? 'now' : '')); return '<li class="' + c + '"><span class="dot">' + (c === 'done' ? '✓' : i + 1) + '</span>' + s[0] + '</li>'; }).join('');
+
+  // Lines
+  var html = q.lines.map(function (l) { return '<li><span class="nm">' + esc(l.item) + '</span><span class="am">' + gbp(l.amount) + '</span><span class="lb">' + esc(l.label) + '</span><span class="qt">' + esc(unit(l)) + '</span></li>'; }).join('');
+  html += (q.custom || []).map(function (c) { return '<li><span class="nm">' + esc(c.description) + '</span><span class="am">' + (c.amount == null ? '' : gbp(c.amount)) + '</span><span class="lb"></span><span class="qt">' + (c.unit_price == null ? '' : esc(unit(c))) + '</span></li>'; }).join('');
+  html += (q.extras || []).filter(function (x) { return !open && chosen.indexOf(x.code) >= 0; }).map(function (x) { return '<li><span class="nm">' + esc(x.item) + '<span class="tag">Extra you added</span></span><span class="am">' + gbp(x.amount) + '</span><span class="lb">' + esc(x.label) + '</span><span class="qt">' + esc(unit(x)) + '</span></li>'; }).join('');
+  $('lines').innerHTML = html;
+
+  // Extras
+  var offer = (q.extras || []).filter(function (x) { return open || chosen.indexOf(x.code) < 0; });
+  if (offer.length && (open || D.preview)) {
+    $('extrasCard').hidden = false;
+    if (!open) $('extrasHint').textContent = 'Offered with this quote.';
+    $('extras').innerHTML = offer.map(function (x) { return '<label class="extra' + (open ? '' : ' locked') + '" data-code="' + esc(x.code) + '"><input type="checkbox"' + (open ? '' : ' disabled') + '><div class="x"><div class="nm">' + esc(x.item) + '</div><div class="why">' + esc(x.why || x.label) + '</div></div><div class="am">+' + gbp(x.amount) + '</div></label>'; }).join('');
+    Array.prototype.forEach.call(document.querySelectorAll('.extra input'), function (cb) {
+      cb.addEventListener('change', function () {
+        var code = cb.closest('.extra').getAttribute('data-code');
+        cb.closest('.extra').classList.toggle('on', cb.checked);
+        chosen = chosen.filter(function (c) { return c !== code; });
+        if (cb.checked) chosen.push(code);
+        totals();
+      });
+    });
+  }
+
+  // How it works
+  var dep = D.settings.deposit_pct;
+  $('howto').innerHTML = ['Pick any extras, then accept and sign online.', 'Pay a ' + dep + '% deposit by card to book your start date.', 'We book the first free slot for our crew and confirm the date by email.', 'Pay the balance within ' + D.settings.payment_days + ' days of us finishing.'].map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('');
+  if ((q.assumptions || []).length) { $('assumeCard').hidden = false; $('assume').innerHTML = q.assumptions.map(function (a) { return '<li>' + esc(a) + '</li>'; }).join(''); }
+  $('terms').innerHTML = D.terms.map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('');
+
+  function totals() {
+    var add = (q.extras || []).filter(function (x) { return chosen.indexOf(x.code) >= 0; });
+    var sub = Math.round((q.subtotal + add.reduce(function (a, x) { return a + x.amount; }, 0)) * 100) / 100;
+    var vat = Math.round(sub * D.settings.vat_rate * 100) / 100;
+    var tot = Math.round((sub + vat) * 100) / 100;
+    var depo = q.accepted_at ? q.deposit_due : Math.round(tot * dep) / 100;
+    if (q.accepted_at) { sub = q.accepted_subtotal; vat = q.accepted_vat; tot = q.accepted_total; }
+    $('sSub').textContent = gbp(sub); $('sVat').textContent = gbp(vat); $('sVatL').textContent = 'VAT (' + Math.round(D.settings.vat_rate * 100) + '%)';
+    $('sTot').textContent = gbp(tot); $('mTot').textContent = gbp(tot);
+    $('sDep').textContent = gbp(depo); $('sDepL').textContent = (q.deposit_paid_at ? 'Deposit paid' : 'Deposit to book') + ' (' + dep + '%)';
+    $('sAdded').textContent = open && add.length ? 'Includes ' + add.length + ' extra' + (add.length > 1 ? 's' : '') + ': ' + add.map(function (x) { return x.item; }).join(', ') : '';
+    $('acceptText').innerHTML = 'You\'re accepting <b>' + esc(q.job_title) + '</b> for <b>' + gbp(tot) + '</b> including VAT' + (add.length ? ', with ' + add.length + ' extra' + (add.length > 1 ? 's' : '') : '') + '. Next you can pay the ' + gbp(depo) + ' deposit to book your start date.';
+    $('agreeText').textContent = 'I accept this quote and the terms, including the ' + dep + '% deposit (' + gbp(depo) + ').';
+  }
+  totals();
+
+  // State banner and buttons
+  var b = '', acts = '';
+  function banner(kind, icon, title, text, buttons) { return '<div class="banner ' + kind + '"><div class="ic">' + icon + '</div><div><h3>' + title + '</h3><p>' + text + '</p>' + (buttons ? '<div class="act">' + buttons + '</div>' : '') + '</div></div>'; }
+  if (D.preview && q.status === 'draft') b = banner('info', 'i', 'Preview', 'This is how the client will see the quote once you send it.');
+  else if (q.status === 'sent' && q.expired) b = banner('muted', '!', 'This quote has expired', 'Prices may have changed since ' + esc(q.sent_day) + '. Call us on ' + esc(D.company.phone) + ' and we\'ll update it for you.');
+  else if (q.status === 'accepted') { b = banner('ok', '✓', 'Thank you, ' + esc(q.first_name) + '! You accepted on ' + esc(q.accepted_day), 'Pay the ' + gbp(q.deposit_due) + ' deposit to book your start date.', '<a class="btn primary" href="' + esc(D.links.payDeposit) + '">Pay deposit ' + gbp(q.deposit_due) + '</a>'); acts = '<a class="btn primary" href="' + esc(D.links.payDeposit) + '">Pay deposit ' + gbp(q.deposit_due) + '</a>'; }
+  else if (q.status === 'scheduled') b = banner('ok', '✓', 'You\'re booked in', q.job_start ? 'We start on <b>' + esc(q.start_day) + '</b> and expect to finish by <b>' + esc(q.end_day) + '</b>. We\'ll confirm the arrival time the week before.' : 'Your deposit is in. We\'ll be in touch with your start date.');
+  else if (q.status === 'completed') { b = banner('warn', '£', 'All done! Your final invoice is ready', 'Invoice ' + esc(q.invoice_id) + ': <b>' + gbp(q.balance_due) + '</b> is due by ' + esc(q.due_day) + '.', '<a class="btn primary" href="' + esc(D.links.payBalance) + '">Pay ' + gbp(q.balance_due) + '</a><a class="btn ghost" href="' + esc(D.links.invoice) + '">Invoice PDF</a>'); acts = '<a class="btn primary" href="' + esc(D.links.payBalance) + '">Pay balance ' + gbp(q.balance_due) + '</a>'; }
+  else if (q.status === 'paid') b = banner('ok', '✓', 'Paid in full. Thank you!', 'We hope you enjoy the garden. Your receipt is ready.', '<a class="btn ghost" href="' + esc(D.links.receipt) + '">Download receipt</a>');
+  else if (q.status === 'declined') b = banner('muted', '–', 'You declined this quote', 'Changed your mind? Call us on ' + esc(D.company.phone) + '.');
+  else if (q.status === 'cancelled') b = banner('muted', '–', 'This quote was withdrawn', 'Please call us on ' + esc(D.company.phone) + ' if you have any questions.');
+  if (D.flash) b = banner('ok', '✓', esc(D.flash.title), esc(D.flash.text)) + b;
+  $('banner').innerHTML = b;
+  if (open) acts = '<button class="btn primary" id="accept">Accept quote</button><button class="btn ghost" id="ask">Ask a question</button>';
+  $('actions').innerHTML = acts;
+  $('declineBtn').hidden = !open;
+  if (!open) $('mobilebar').style.display = 'none';
+  if ((q.accepted_at || q.status === 'paid') && !acts) $('actions').innerHTML = '';
+
+  function post(body, errEl, btn, done) {
+    btn.disabled = true; $(errEl).textContent = '';
+    fetch(D.links.action, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ t: D.token }, body)) })
+      .then(function (r) { return r.json().catch(function () { return { ok: false, message: 'Something went wrong.' }; }); })
+      .then(function (r) { btn.disabled = false; if (!r.ok) { $(errEl).textContent = r.message || 'Something went wrong. Please try again.'; return; } done(r); })
+      .catch(function () { btn.disabled = false; $(errEl).textContent = 'Could not connect. Please check your internet and try again.'; });
+  }
+  function toast(t) { var d = document.createElement('div'); d.className = 'toast'; d.textContent = t; document.body.appendChild(d); setTimeout(function () { d.remove(); }, 4000); }
+  var openAccept = function () { $('sigName').value = ''; $('sigAgree').checked = false; $('acceptErr').textContent = ''; $('dAccept').showModal(); };
+  if (open) {
+    $('accept').onclick = openAccept; $('mAccept').onclick = openAccept;
+    $('ask').onclick = function () { $('askErr').textContent = ''; $('dAsk').showModal(); };
+  }
+  $('declineBtn').onclick = function () { $('dDecline').showModal(); };
+  $('acceptGo').onclick = function (e) {
+    e.preventDefault();
+    var name = $('sigName').value.trim();
+    if (name.length < 3 || name.indexOf(' ') < 0) { $('acceptErr').textContent = 'Please type your first and last name.'; return; }
+    if (!$('sigAgree').checked) { $('acceptErr').textContent = 'Please tick the box to accept the terms.'; return; }
+    post({ action: 'accept', name: name, agree: true, extras: chosen }, 'acceptErr', $('acceptGo'), function () { location.href = D.links.self + '&done=accepted'; });
+  };
+  $('askGo').onclick = function (e) {
+    e.preventDefault();
+    var t = $('askText').value.trim();
+    if (t.length < 3) { $('askErr').textContent = 'Please write your question.'; return; }
+    post({ action: 'question', message: t }, 'askErr', $('askGo'), function () { $('dAsk').close(); $('askText').value = ''; toast('Thanks! We\'ll get back to you soon.'); });
+  };
+  $('declineGo').onclick = function (e) {
+    e.preventDefault();
+    post({ action: 'decline', reason: $('declineReason').value }, 'declineErr', $('declineGo'), function () { location.href = D.links.self + '&done=declined'; });
+  };
+})();
+</script>
+</body>
+</html>

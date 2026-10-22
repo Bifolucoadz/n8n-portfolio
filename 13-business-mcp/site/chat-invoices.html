@@ -1,0 +1,44 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Claude + Brindle MCP</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script><style>
+*{box-sizing:border-box}body{margin:0;background:#f3f1ec;font:15px/1.6 Inter,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;color:#1f1f1d;-webkit-font-smoothing:antialiased}
+.app{display:grid;grid-template-columns:320px 1fr;min-height:100vh}
+.side{background:#1d2433;color:#d9deea;padding:26px 22px}
+.side h1{font-size:16px;color:#fff;margin:0 0 4px}.side .sub{font-size:12.5px;color:#9aa6bd;margin-bottom:22px}
+.srv{background:#263049;border-radius:12px;padding:12px 14px;margin-bottom:12px}
+.srv b{color:#fff;font-size:13px;display:flex;align-items:center;gap:8px}.srv b:before{content:"";width:8px;height:8px;border-radius:50%;background:#4ade80}
+.srv .u{font-family:ui-monospace,Menlo,monospace;font-size:11.5px;color:#9aa6bd;margin:2px 0 8px}
+.srv .t{display:flex;flex-wrap:wrap;gap:5px}.srv .t span{font-family:ui-monospace,Menlo,monospace;font-size:11px;background:#33405e;border-radius:6px;padding:2px 6px;color:#cfd6e6}
+.srv .t span.used{background:#d97757;color:#fff}
+.foot{font-size:11.5px;color:#7f8aa3;margin-top:18px;line-height:1.5}
+.main{padding:30px 44px 40px;max-width:1060px}
+.turn{margin-bottom:22px}
+.q{display:flex;justify-content:flex-end;margin-bottom:16px}.q div{background:#e7e2d8;border-radius:16px 16px 4px 16px;padding:11px 16px;max-width:80%;font-weight:500}
+.calls{display:flex;flex-direction:column;gap:6px;margin:0 0 14px}
+.call{display:inline-flex;align-items:center;gap:10px;align-self:flex-start;background:#fff;border:1px solid #e3ded3;border-radius:10px;padding:7px 12px;font-size:13px;max-width:100%}
+.call .s{font-size:11px;font-weight:700;letter-spacing:.3px;text-transform:uppercase;color:#d97757}.call .s.fin{color:#2f6f9f}
+.call .n{font-family:ui-monospace,Menlo,monospace;font-weight:600}
+.call .a{font-family:ui-monospace,Menlo,monospace;color:#6b6a65;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ans{background:#fff;border:1px solid #e6e1d6;border-radius:16px;padding:18px 22px}
+.ans p{margin:0 0 10px}.ans p:last-child{margin-bottom:0}.ans ul,.ans ol{margin:4px 0 10px;padding-left:22px}.ans li{margin:3px 0}
+.ans table{border-collapse:collapse;margin:8px 0 12px;font-size:13.5px;width:100%}.ans th,.ans td{border-bottom:1px solid #ece8df;padding:6px 8px;text-align:left}.ans th{font-size:12px;color:#6b6a65;font-weight:600}
+.ans strong{font-weight:650}.ans h1,.ans h2,.ans h3{font-size:15px;margin:12px 0 6px}
+</style></head><body>
+<div class="app"><aside class="side"><h1>Claude, connected to Brindle Studio</h1><div class="sub">Two MCP servers built in n8n · claude-opus-5-5</div><div class="srv"><b>brindle</b><div class="u">/mcp/brindle · bearer token</div><div class="t"><span class="">client_overview</span><span class="">create_task</span><span class="">list_tasks</span><span class="">log_time</span><span class="">my_week</span><span class="">project_status</span><span class="">search</span><span class="">team_capacity</span><span class="">update_task</span></div></div><div class="srv"><b>brindle-finance</b><div class="u">/mcp/brindle-finance · bearer token</div><div class="t"><span class="">client_finances</span><span class="">draft_invoice</span><span class="used">invoices</span><span class="">profitability</span></div></div>
+<div class="foot">A real session: Claude Code in headless mode with only these two servers. Tools in orange were used in this conversation. Data: Brindle Studio's Google Sheet (an invented studio).</div></aside>
+<main class="main"><div class="turn"><div class="q"><div>Which invoices are overdue, and how much are we owed in total?</div></div><div class="calls"><div class="call"><span class="s fin">brindle-finance</span><span class="n">invoices</span><span class="a">{&quot;status&quot;: &quot;unpaid&quot;}</span></div></div><div class="ans md">Two invoices are overdue, totalling **£11,460** inc. VAT. Across all unpaid invoices, we&#x27;re owed **£53,820** inc. VAT.
+
+**Overdue**
+
+| Invoice | Client | What | Due | Days late | Inc. VAT |
+|---|---|---|---|---|---|
+| INV-2041 | Kettleby Foods | Snack range packaging, final 50% | 29 Sep | 23 | £5,880 |
+| INV-2046 | Pennant Law | Website deposit, 30% | 4 Oct | 18 | £5,580 |
+
+**Sent but not due yet:** £42,360 in total
+- INV-2040 Rowan Gin, Christmas campaign deposit: £16,500, due 28 Oct
+- INV-2042 Brightwater Dental, September retainer: £2,280, due 31 Oct
+- INV-2045 Harbour &amp; Co, website deposit: £23,580, due 3 Nov
+
+The Kettleby invoice is the final payment on that project, so it&#x27;s the most important one to chase. The Pennant Law one is a deposit, so it&#x27;s worth checking whether work on that project has gone ahead without it being paid.</div></div></main></div>
+<script>document.querySelectorAll('.md').forEach(function (el) { el.innerHTML = marked.parse(el.textContent); });</script></body></html>

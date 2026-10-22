@@ -1,0 +1,4 @@
+{
+  "type": "object", "additionalProperties": false, "required": ["subject", "preheader", "body"],
+  "properties": { "subject": { "type": "string" }, "preheader": { "type": "string" }, "body": { "type": "string" } }
+}

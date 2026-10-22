@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Copperline Auto Repair (demo)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Instrument+Sans:wdth,wght@75..100,400..700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --copper: #b4532a;
+    --copper-dark: #8f3f1e;
+    --ink: #1f2328;
+    --muted: #5b6168;
+    --line: #e6e1dc;
+    --paper: #faf8f5;
+    --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+    --body: "Instrument Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 16px/1.55 var(--body); color: var(--ink); background: var(--paper); }
+  .demo-banner { background: var(--ink); color: #f3efe9; font-size: 14px; text-align: center; padding: 8px 16px; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px; }
+  header { border-bottom: 1px solid var(--line); background: #fff; }
+  header .wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-block: 16px; flex-wrap: wrap; }
+  .brand { display: flex; align-items: center; gap: 10px; font-family: var(--display); font-stretch: 112%; font-weight: 700; font-size: 20px; letter-spacing: -0.01em; }
+  .mark { width: 34px; height: 34px; border-radius: 8px; background: var(--copper); color: #fff; display: grid; place-items: center; font-weight: 800; }
+  .call { color: var(--ink); text-decoration: none; font-weight: 600; }
+  .top-links { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+  .chat-link { color: #fff; background: var(--copper); text-decoration: none; font-weight: 600; font-size: 15px; padding: 8px 14px; border-radius: 999px; }
+  .chat-link:hover { background: var(--copper-dark); }
+  .h2-link { margin-left: 12px; font-family: var(--body); font-size: 16px; font-weight: 600; color: var(--copper-dark); vertical-align: middle; }
+  .hero { padding-block: 64px 48px; display: grid; grid-template-columns: 1.3fr 1fr; gap: 40px; align-items: center; }
+  h1 { font-family: var(--display); font-stretch: 115%; font-weight: 750; font-size: clamp(32px, 5vw, 48px); line-height: 1.08; margin: 0 0 16px; letter-spacing: -0.025em; text-wrap: balance; }
+  h2, h3 { font-family: var(--display); font-stretch: 108%; }
+  .lead { font-size: 19px; color: var(--muted); margin: 0 0 28px; max-width: 34em; }
+  .btn { display: inline-block; border: 0; cursor: pointer; background: var(--copper); color: #fff; font: inherit; font-weight: 600; padding: 14px 22px; border-radius: 10px; text-decoration: none; }
+  .btn:hover { background: var(--copper-dark); }
+  .btn.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); margin-left: 8px; }
+  .facts { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 24px; }
+  .facts h2 { font-size: 15px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0 0 12px; }
+  .facts p { margin: 0 0 14px; }
+  .facts p:last-child { margin: 0; }
+  section.services { padding-block: 24px 64px; }
+  section.services h2 { font-size: 28px; margin: 0 0 20px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 16px; }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
+  .card h3 { margin: 0 0 6px; font-size: 17px; }
+  .price { color: var(--copper-dark); font-weight: 700; }
+  .card p { margin: 6px 0 0; color: var(--muted); font-size: 15px; }
+  .assistant { background: #fff; border-block: 1px solid var(--line); padding-block: 48px; }
+  .assistant .wrap { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 24px; }
+  .assistant h2 { grid-column: 1 / -1; margin: 0; font-size: 28px; }
+  .assistant h3 { margin: 0 0 6px; font-size: 17px; }
+  .assistant p { margin: 0; color: var(--muted); }
+  footer { padding-block: 32px; color: var(--muted); font-size: 14px; }
+  @media (max-width: 760px) { .hero { grid-template-columns: 1fr; padding-block: 40px 32px; } .btn.ghost { margin: 10px 0 0; } }
+</style>
+</head>
+<body>
+<div class="demo-banner">Demo website for a fictional shop. The chat assistant is real: it answers from the shop's info, checks a live calendar and books test appointments.</div>
+
+<header>
+  <div class="wrap">
+    <div class="brand"><span class="mark">C</span> Copperline Auto Repair</div>
+    <nav class="top-links"><a class="call" href="tel:+16175550142">(617) 555-0142</a><a class="chat-link" href="chat.html">Chat with us</a></nav>
+  </div>
+</header>
+
+<main>
+  <div class="wrap hero">
+    <div>
+      <h1>Honest car repair in Allston since 2009.</h1>
+      <p class="lead">ASE-certified technicians, written estimates before any work, and a 24-month / 24,000-mile warranty. Ask our assistant anything, or book your car in, any time of day.</p>
+      <a class="btn" href="chat.html">Chat or book now</a>
+      <a class="btn ghost" href="#services">See prices</a>
+    </div>
+    <aside class="facts">
+      <h2>Visit us</h2>
+      <p><strong>84 Foundry Lane, Allston, MA 02134</strong><br>Free parking out front</p>
+      <p><strong>Mon to Fri</strong> 7:30 am to 6:00 pm<br><strong>Sat</strong> 8:00 am to 2:00 pm<br><strong>Sun</strong> closed</p>
+      <p>Walk-ins welcome for oil changes, tire rotations, battery tests and state inspections.</p>
+    </aside>
+  </div>
+
+  <section class="services" id="services">
+    <div class="wrap">
+      <h2>Popular services</h2>
+      <div class="grid">
+        <div class="card"><h3>Full synthetic oil change</h3><span class="price">$99.99</span><p>Up to 5 quarts, new filter, multi-point inspection. About 45 minutes.</p></div>
+        <div class="card"><h3>Massachusetts state inspection</h3><span class="price">$35</span><p>Licensed inspection station. Bring your registration.</p></div>
+        <div class="card"><h3>Brake pads, per axle</h3><span class="price">from $229</span><p>Parts and labor. Brake inspections are free.</p></div>
+        <div class="card"><h3>Check-engine diagnostic</h3><span class="price">$139</span><p>First hour, credited toward the repair if you go ahead within 30 days.</p></div>
+        <div class="card"><h3>Four-wheel alignment</h3><span class="price">$129</span><p>About 1 hour. Free tire rotation with any oil change.</p></div>
+        <div class="card"><h3>AC recharge</h3><span class="price">from $169</span><p>R-134a from $169, R-1234yf (most newer cars) from $289.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="assistant">
+    <div class="wrap">
+      <h2>What the assistant can do <a class="h2-link" href="chat.html">Open the chat</a></h2>
+      <div><h3>Answer questions</h3><p>Hours, prices, warranty, EVs and hybrids, loaner cars. It only answers from the shop's own info and never guesses a price.</p></div>
+      <div><h3>Book your car in</h3><p>It checks the live bookings calendar, offers real drop-off times and sends a confirmation email.</p></div>
+      <div><h3>Get you a person</h3><p>Complaints, warranty claims or anything it can't answer go straight to the team with the full conversation.</p></div>
+      <div><h3>Keep you safe</h3><p>Describe failing brakes, overheating or a fuel smell and it tells you to stop driving and gives you the tow line first.</p></div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">Copperline Auto Repair is a fictional business. This page demonstrates an AI customer support assistant built with n8n, OpenAI and Supabase. Phone numbers use the reserved 555-01xx range.</div>
+</footer>
+</body>
+</html>

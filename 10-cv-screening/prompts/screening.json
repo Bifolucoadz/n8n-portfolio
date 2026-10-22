@@ -1,0 +1,13 @@
+{
+  "type": "object", "additionalProperties": false,
+  "required": ["criteria", "strengths", "gaps", "interview_questions", "summary"],
+  "properties": {
+    "criteria": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["id", "rating", "evidence", "reason"],
+      "properties": { "id": { "type": "string" }, "rating": { "type": "string", "enum": ["met", "partial", "not_met", "unclear"] },
+        "evidence": { "type": "string" }, "reason": { "type": "string" } } } },
+    "strengths": { "type": "array", "items": { "type": "string" } },
+    "gaps": { "type": "array", "items": { "type": "string" } },
+    "interview_questions": { "type": "array", "items": { "type": "string" } },
+    "summary": { "type": "string" }
+  }
+}

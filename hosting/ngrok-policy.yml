@@ -1,0 +1,9 @@
+# Only n8n's webhook URLs are reachable through the tunnel; the editor and REST API answer 404.
+on_http_request:
+  - expressions:
+      - "!req.url.path.startsWith('/webhook/')"
+    actions:
+      - type: custom-response
+        config:
+          status_code: 404
+          content: "Not found"

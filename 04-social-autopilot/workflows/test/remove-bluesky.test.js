@@ -1,0 +1,21 @@
+// node workflows/test/remove-bluesky.test.js : the migration finds the right columns and settings rows.
+const fs = require('fs');
+const path = require('path');
+const { DateTime } = require('/Users/mac/.npm-global/lib/node_modules/n8n/node_modules/luxon');
+const src = fs.readFileSync(path.join(__dirname, '..', 'setup', 'remove-bluesky.js'), 'utf8');
+const header = ['post_id', 'publish_at', 'topic', 'notes', 'link', 'image', 'platforms', 'status', 'linkedin_text', 'bluesky_text', 'telegram_text', 'image_link', 'linkedin_url', 'bluesky_url', 'telegram_url', 'error', 'drafted_at', 'approved_at', 'posted_at', 'feedback', 'image_file_id', 'preview_message_id', 'bluesky_uri', 'reminded_at', 'attempts', 'updated_at'];
+const settings = [['key', 'value', 'what it does'], ['facts', '... publishes to LinkedIn, Bluesky and Telegram.', 'x'], ['hashtags', '#a', 'old'], ['default_platforms', 'linkedin, bluesky, telegram', 'x'], ['telegram_channel', '', 'x'], ['bluesky_handle', '', 'x']];
+const nodes = { 'Read Calendar Header': { values: [header] }, 'Read Settings Tab': { values: settings } };
+const $ = n => ({ first: () => ({ json: nodes[n] }) });
+const out = new Function('$', 'DateTime', src)($, DateTime)[0].json;
+const assert = require('assert');
+assert.deepStrictEqual(out.structure_body.requests.slice(0, 3).map(r => r.deleteDimension.range.startIndex), [22, 13, 9]);
+assert.strictEqual(out.structure_body.requests[3].deleteDimension.range.startIndex, 5);
+assert.strictEqual(out.structure_body.requests[3].deleteDimension.range.sheetId, 1);
+const byRange = Object.fromEntries(out.values_body.data.map(d => [d.range, d.values[0][0]]));
+assert.strictEqual(byRange['Settings!B4'], 'linkedin, telegram');
+assert.strictEqual(byRange['Settings!B2'], '... publishes to LinkedIn and Telegram.');
+assert.ok(/Telegram none/.test(byRange['Settings!C3']));
+const remaining = header.filter((h, i) => !out.structure_body.requests.slice(0, 3).some(r => r.deleteDimension.range.startIndex === i));
+assert.ok(!remaining.some(h => h.includes('bluesky')) && remaining.length === 23);
+console.log('migration checks passed');

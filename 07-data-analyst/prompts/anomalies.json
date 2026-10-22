@@ -1,0 +1,6 @@
+{
+  "type": "object", "additionalProperties": false, "required": ["headline", "items"],
+  "properties": { "headline": { "type": "string" },
+    "items": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["branch", "metric", "what", "check"],
+      "properties": { "branch": { "type": "string" }, "metric": { "type": "string" }, "what": { "type": "string" }, "check": { "type": "string" } } } } }
+}

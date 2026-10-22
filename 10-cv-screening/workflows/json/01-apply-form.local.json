@@ -1,0 +1,380 @@
+{
+  "id": "ngtApplyForm0001",
+  "name": "Northgate 1: Apply Form",
+  "description": "CV screening (project 10): public application form. Checks the answers and the PDF CV, starts screening in the background and shows a thank-you page.",
+  "nodes": [
+    {
+      "id": "f0e614f3-e49d-427a-88a1-f4f2877efabc",
+      "name": "Application Form",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        200,
+        300
+      ],
+      "parameters": {
+        "formTitle": "Apply with Northgate Talent",
+        "formDescription": "Pick the role, attach your CV as a PDF and answer four quick questions. A recruiter reads every application.<br><small>Northgate Talent is a demo recruitment agency; the jobs are examples.</small>",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Job",
+              "fieldName": "job",
+              "fieldType": "dropdown",
+              "requiredField": true,
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Customer Success Manager · Leeds, hybrid (NG-101)"
+                  },
+                  {
+                    "option": "Junior Data Analyst · Remote, UK (NG-102)"
+                  },
+                  {
+                    "option": "Warehouse Team Leader, nights · Wakefield (NG-103)"
+                  }
+                ]
+              }
+            },
+            {
+              "fieldLabel": "Full name",
+              "fieldName": "name",
+              "fieldType": "text",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Email",
+              "fieldName": "email",
+              "fieldType": "email",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Phone",
+              "fieldName": "phone",
+              "fieldType": "text",
+              "placeholder": "Optional"
+            },
+            {
+              "fieldLabel": "LinkedIn profile",
+              "fieldName": "linkedin",
+              "fieldType": "text",
+              "placeholder": "Optional"
+            },
+            {
+              "fieldLabel": "CV (PDF)",
+              "fieldName": "cv",
+              "fieldType": "file",
+              "multipleFiles": false,
+              "acceptFileTypes": ".pdf",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Do you have the right to work in the UK?",
+              "fieldName": "right_to_work",
+              "fieldType": "dropdown",
+              "requiredField": true,
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Yes"
+                  },
+                  {
+                    "option": "No, I would need visa sponsorship"
+                  }
+                ]
+              }
+            },
+            {
+              "fieldLabel": "Notice period",
+              "fieldName": "notice",
+              "fieldType": "dropdown",
+              "requiredField": true,
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Available now"
+                  },
+                  {
+                    "option": "1 week"
+                  },
+                  {
+                    "option": "2 weeks"
+                  },
+                  {
+                    "option": "4 weeks"
+                  },
+                  {
+                    "option": "1 month"
+                  },
+                  {
+                    "option": "2 months"
+                  },
+                  {
+                    "option": "3 months or more"
+                  }
+                ]
+              }
+            },
+            {
+              "fieldLabel": "Salary expectation (£ a year)",
+              "fieldName": "salary",
+              "fieldType": "number",
+              "placeholder": "Optional, e.g. 40000"
+            },
+            {
+              "fieldLabel": "Privacy",
+              "fieldName": "consent",
+              "fieldType": "checkbox",
+              "requiredField": true,
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "I agree to Northgate Talent keeping my application and CV for this role"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "responseMode": "lastNode",
+        "options": {
+          "appendAttribution": false,
+          "buttonLabel": "Send application",
+          "path": "northgate-apply",
+          "customCss": ":root {\n  --font-family: -apple-system, \"Segoe UI\", Helvetica, Arial, sans-serif;\n  --color-background: #eef3f0;\n  --color-card-bg: #ffffff;\n  --color-card-border: #dbe5df;\n  --color-header: #10231a;\n  --color-label: #344054;\n  --color-focus-border: #0b6e4f;\n  --color-submit-btn-bg: #0b6e4f;\n  --color-submit-btn-text: #ffffff;\n  --border-radius-card: 14px;\n  --border-radius-input: 10px;\n  --font-size-header: 24px;\n}\n.form-header h1 { letter-spacing: -0.3px; }\nbutton[type=\"submit\"] { font-weight: 600; }\n",
+          "ignoreBots": true,
+          "useWorkflowTimezone": true
+        }
+      },
+      "webhookId": "d4608888-6348-47d8-8fb6-b116c54e65e1"
+    },
+    {
+      "id": "44fe4a83-faa3-4a3b-90bb-74b245171b41",
+      "name": "Prepare Application",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Checks the form answers and the CV, and gives the application an ID.\n// The CV goes on to screening as binary \"data\".\n// ---- lib-ngt.js (included by build.py): shared helpers for the Northgate workflows ----\nconst TZ = 'Europe/London';\nconst esc = s => String(s === null || s === undefined ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');\nconst settingsOf = items => Object.fromEntries(items.map(i => i.json).filter(r => r && r.key).map(r => [r.key, r.value]));\nconst parseJson = (s, d) => { try { return typeof s === 'string' ? JSON.parse(s) : (s === null || s === undefined ? d : s); } catch (e) { return d; } };\nconst nowIso = () => DateTime.now().setZone(TZ).toISO();\nconst newToken = n => Array.from({ length: n || 24 }, () => 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 56)]).join('');\nconst pounds = n => '£' + Math.round(Number(n) || 0).toLocaleString('en-GB');\nconst whenText = iso => DateTime.fromISO(String(iso), { zone: TZ }).toFormat(\"cccc d LLLL 'at' h:mm a\").replace(':00 ', ' ');\nconst firstName = name => String(name || '').trim().split(/\\s+/)[0] || 'there';\n\n// OpenAI node (Responses API) output: the JSON object from the first output_text part, or null.\nfunction aiJson(res) {\n  if (!res || res.error) return null;\n  const msg = (res.output || []).find(o => o && o.type === 'message');\n  const part = msg && (msg.content || []).find(c => c && c.type === 'output_text');\n  let t = part ? part.text : null;\n  if (typeof t === 'string') { try { t = JSON.parse(t); } catch (e) { t = null; } }\n  return t && typeof t === 'object' ? t : null;\n}\n\n// Plain, left-aligned email body with the agency's name at the top.\nfunction emailHtml(company, paragraphs, extraHtml) {\n  const p = paragraphs.map(t => '<p style=\"margin:0 0 14px;text-align:left\">' + t + '</p>').join('');\n  return '<div style=\"font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.55;color:#1f2933;max-width:560px;text-align:left\">'\n    + '<div style=\"font-weight:700;font-size:13px;letter-spacing:1px;text-transform:uppercase;color:#0b6e4f;margin:0 0 18px\">' + esc(company) + '</div>'\n    + p + (extraHtml || '') + '</div>';\n}\n\n// A small standalone web page for candidates (booking links, confirmations, problems).\nfunction pageHtml(company, title, bodyHtml) {\n  return '<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>' + esc(title) + ' · ' + esc(company) + '</title>'\n    + '<style>body{margin:0;background:#eef3f0;font:16px/1.55 -apple-system,\"Segoe UI\",Helvetica,Arial,sans-serif;color:#10231a}'\n    + '.card{max-width:520px;margin:48px auto;background:#fff;border:1px solid #dbe5df;border-radius:16px;padding:32px 30px;box-shadow:0 6px 24px rgba(16,35,26,.06)}'\n    + '.brand{font-size:12px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#0b6e4f;margin-bottom:18px}'\n    + 'h1{font-size:23px;margin:0 0 10px;letter-spacing:-.3px}p{color:#3d4f45;margin:0 0 12px}'\n    + '.slot{display:block;padding:12px 16px;border:1px solid #dbe5df;border-radius:12px;margin:8px 0;color:#0b6e4f;font-weight:600;text-decoration:none}.slot:hover{border-color:#0b6e4f;background:#f3faf6}'\n    + '.big{font-size:19px;font-weight:700;color:#10231a;margin:6px 0 14px}.muted{color:#6b7c72;font-size:13px}</style></head><body><div class=\"card\">'\n    + '<div class=\"brand\">' + esc(company) + '</div><h1>' + esc(title) + '</h1>' + bodyHtml + '</div></body></html>';\n}\n\nconst BAND_LABEL = { shortlist: 'Shortlist', review: 'Worth a look', unlikely: 'Unlikely fit', knockout: 'Knockout' };\n// ---- end lib-ngt.js ----\nconst item = $input.first();\nconst j = item.json;\nconst errors = [];\n\nconst jobMatch = String(j.job || '').match(/\\((NG-\\d+)\\)/);\nconst job_id = jobMatch ? jobMatch[1] : '';\nif (!job_id) errors.push('Please choose the job you are applying for.');\n\nconst name = String(j.name || '').trim().replace(/\\s+/g, ' ').slice(0, 80);\nif (name.length < 2) errors.push('Please enter your name.');\nconst email = String(j.email || '').trim().toLowerCase().slice(0, 120);\nif (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) errors.push('Please enter a valid email address.');\n\nconst [key, cv] = Object.entries(item.binary || {})[0] || [];\nlet size = 0;\nif (!cv) errors.push('Please attach your CV as a PDF.');\nelse {\n  const isPdf = /pdf/i.test(cv.mimeType || '') || /\\.pdf$/i.test(cv.fileName || '');\n  if (!isPdf) errors.push('Please send your CV as a PDF.');\n  size = (await this.helpers.getBinaryDataBuffer(0, key)).length;\n  if (size > 5 * 1024 * 1024) errors.push('Your CV is over 5 MB. Please send a smaller PDF.');\n}\nconst consent = [].concat(j.consent || []).length > 0;\nif (!consent) errors.push('Please agree to us keeping your application.');\n\nconst salary = Number(String(j.salary ?? '').replace(/[^0-9.]/g, '')) || 0;\nconst stamp = DateTime.now().setZone(TZ);\nconst candidate_id = 'C' + stamp.toFormat('LLdd') + '-' + newToken(4).toUpperCase();\n\nconst json = {\n  ok: errors.length === 0,\n  errors,\n  candidate_id,\n  job_id,\n  job_label: String(j.job || '').replace(/\\s*\\(NG-\\d+\\)\\s*$/, ''),\n  name,\n  email,\n  phone: String(j.phone || '').trim().slice(0, 40),\n  linkedin: String(j.linkedin || '').trim().slice(0, 200),\n  right_to_work: String(j.right_to_work || ''),\n  notice_period: String(j.notice || ''),\n  salary_expectation: salary,\n  cv_filename: cv ? (cv.fileName || 'cv.pdf') : '',\n  cv_bytes: size,\n  applied_at: stamp.toISO()\n};\nreturn [{ json, binary: cv ? { data: cv } : {} }];\n"
+      }
+    },
+    {
+      "id": "f914719b-f037-4cf2-8e98-eb058a13815a",
+      "name": "Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        680,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.ok }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "1e28b5ff-df8b-4cef-9557-370c415f0209",
+      "name": "Screen in Background",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        920,
+        200
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "ngtScreenApp0002",
+          "cachedResultName": "Northgate 2: Screen Application"
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      }
+    },
+    {
+      "id": "8adfc0a6-95db-437e-94e8-f1a2b6a59b16",
+      "name": "Thank-you Page",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1160,
+        200
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// The page the applicant sees after sending. No score or decision is shown to the applicant.\n// ---- lib-ngt.js (included by build.py): shared helpers for the Northgate workflows ----\nconst TZ = 'Europe/London';\nconst esc = s => String(s === null || s === undefined ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');\nconst settingsOf = items => Object.fromEntries(items.map(i => i.json).filter(r => r && r.key).map(r => [r.key, r.value]));\nconst parseJson = (s, d) => { try { return typeof s === 'string' ? JSON.parse(s) : (s === null || s === undefined ? d : s); } catch (e) { return d; } };\nconst nowIso = () => DateTime.now().setZone(TZ).toISO();\nconst newToken = n => Array.from({ length: n || 24 }, () => 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 56)]).join('');\nconst pounds = n => '£' + Math.round(Number(n) || 0).toLocaleString('en-GB');\nconst whenText = iso => DateTime.fromISO(String(iso), { zone: TZ }).toFormat(\"cccc d LLLL 'at' h:mm a\").replace(':00 ', ' ');\nconst firstName = name => String(name || '').trim().split(/\\s+/)[0] || 'there';\n\n// OpenAI node (Responses API) output: the JSON object from the first output_text part, or null.\nfunction aiJson(res) {\n  if (!res || res.error) return null;\n  const msg = (res.output || []).find(o => o && o.type === 'message');\n  const part = msg && (msg.content || []).find(c => c && c.type === 'output_text');\n  let t = part ? part.text : null;\n  if (typeof t === 'string') { try { t = JSON.parse(t); } catch (e) { t = null; } }\n  return t && typeof t === 'object' ? t : null;\n}\n\n// Plain, left-aligned email body with the agency's name at the top.\nfunction emailHtml(company, paragraphs, extraHtml) {\n  const p = paragraphs.map(t => '<p style=\"margin:0 0 14px;text-align:left\">' + t + '</p>').join('');\n  return '<div style=\"font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.55;color:#1f2933;max-width:560px;text-align:left\">'\n    + '<div style=\"font-weight:700;font-size:13px;letter-spacing:1px;text-transform:uppercase;color:#0b6e4f;margin:0 0 18px\">' + esc(company) + '</div>'\n    + p + (extraHtml || '') + '</div>';\n}\n\n// A small standalone web page for candidates (booking links, confirmations, problems).\nfunction pageHtml(company, title, bodyHtml) {\n  return '<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>' + esc(title) + ' · ' + esc(company) + '</title>'\n    + '<style>body{margin:0;background:#eef3f0;font:16px/1.55 -apple-system,\"Segoe UI\",Helvetica,Arial,sans-serif;color:#10231a}'\n    + '.card{max-width:520px;margin:48px auto;background:#fff;border:1px solid #dbe5df;border-radius:16px;padding:32px 30px;box-shadow:0 6px 24px rgba(16,35,26,.06)}'\n    + '.brand{font-size:12px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#0b6e4f;margin-bottom:18px}'\n    + 'h1{font-size:23px;margin:0 0 10px;letter-spacing:-.3px}p{color:#3d4f45;margin:0 0 12px}'\n    + '.slot{display:block;padding:12px 16px;border:1px solid #dbe5df;border-radius:12px;margin:8px 0;color:#0b6e4f;font-weight:600;text-decoration:none}.slot:hover{border-color:#0b6e4f;background:#f3faf6}'\n    + '.big{font-size:19px;font-weight:700;color:#10231a;margin:6px 0 14px}.muted{color:#6b7c72;font-size:13px}</style></head><body><div class=\"card\">'\n    + '<div class=\"brand\">' + esc(company) + '</div><h1>' + esc(title) + '</h1>' + bodyHtml + '</div></body></html>';\n}\n\nconst BAND_LABEL = { shortlist: 'Shortlist', review: 'Worth a look', unlikely: 'Unlikely fit', knockout: 'Knockout' };\n// ---- end lib-ngt.js ----\nconst a = $('Prepare Application').first().json;\nconst html = '<div style=\"text-align:left;max-width:460px;margin:0 auto\">'\n  + '<div style=\"width:48px;height:48px;border-radius:50%;background:#e7f6ef;color:#0b6e4f;display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 0 16px\">&#10003;</div>'\n  + '<h2 style=\"margin:0 0 8px;font-size:22px;color:#101828\">Thanks, ' + esc(firstName(a.name)) + '. Your application is in.</h2>'\n  + '<p style=\"margin:0 0 14px;color:#475467;font-size:15px\">We\\'ve received your CV for <b>' + esc(a.job_label) + '</b>. A recruiter reads every application, and you\\'ll hear from us within 3 working days either way.</p>'\n  + '<p style=\"margin:0 0 6px;color:#475467;font-size:14px\">A confirmation is on its way to <b>' + esc(a.email) + '</b>. Your reference is <b>' + esc(a.candidate_id) + '</b>.</p>'\n  + '<p style=\"margin:16px 0 0;color:#98a2b3;font-size:12px\">Northgate Talent is a demo recruitment agency. Your details are kept only for this application.</p>'\n  + '</div>';\nreturn [{ json: { html: pageHtml('Northgate Talent', 'Application received', html.replace(/<h2[^>]*>.*?<\\/h2>/, '<p class=\"big\">Thanks, ' + esc(firstName(a.name)) + '. Your application is in.</p>')) } }];\n"
+      }
+    },
+    {
+      "id": "84faca62-4a35-4ac7-bf43-2006e01682e7",
+      "name": "Show Thanks",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.5,
+      "position": [
+        1400,
+        200
+      ],
+      "parameters": {
+        "operation": "completion",
+        "respondWith": "showText",
+        "responseText": "={{ $json.html }}"
+      }
+    },
+    {
+      "id": "46789487-879f-4875-9989-c1edada50ec3",
+      "name": "Problem Page",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        920,
+        420
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Shown when the form answers or the file can't be used. Nothing is saved.\n// ---- lib-ngt.js (included by build.py): shared helpers for the Northgate workflows ----\nconst TZ = 'Europe/London';\nconst esc = s => String(s === null || s === undefined ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');\nconst settingsOf = items => Object.fromEntries(items.map(i => i.json).filter(r => r && r.key).map(r => [r.key, r.value]));\nconst parseJson = (s, d) => { try { return typeof s === 'string' ? JSON.parse(s) : (s === null || s === undefined ? d : s); } catch (e) { return d; } };\nconst nowIso = () => DateTime.now().setZone(TZ).toISO();\nconst newToken = n => Array.from({ length: n || 24 }, () => 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 56)]).join('');\nconst pounds = n => '£' + Math.round(Number(n) || 0).toLocaleString('en-GB');\nconst whenText = iso => DateTime.fromISO(String(iso), { zone: TZ }).toFormat(\"cccc d LLLL 'at' h:mm a\").replace(':00 ', ' ');\nconst firstName = name => String(name || '').trim().split(/\\s+/)[0] || 'there';\n\n// OpenAI node (Responses API) output: the JSON object from the first output_text part, or null.\nfunction aiJson(res) {\n  if (!res || res.error) return null;\n  const msg = (res.output || []).find(o => o && o.type === 'message');\n  const part = msg && (msg.content || []).find(c => c && c.type === 'output_text');\n  let t = part ? part.text : null;\n  if (typeof t === 'string') { try { t = JSON.parse(t); } catch (e) { t = null; } }\n  return t && typeof t === 'object' ? t : null;\n}\n\n// Plain, left-aligned email body with the agency's name at the top.\nfunction emailHtml(company, paragraphs, extraHtml) {\n  const p = paragraphs.map(t => '<p style=\"margin:0 0 14px;text-align:left\">' + t + '</p>').join('');\n  return '<div style=\"font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.55;color:#1f2933;max-width:560px;text-align:left\">'\n    + '<div style=\"font-weight:700;font-size:13px;letter-spacing:1px;text-transform:uppercase;color:#0b6e4f;margin:0 0 18px\">' + esc(company) + '</div>'\n    + p + (extraHtml || '') + '</div>';\n}\n\n// A small standalone web page for candidates (booking links, confirmations, problems).\nfunction pageHtml(company, title, bodyHtml) {\n  return '<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>' + esc(title) + ' · ' + esc(company) + '</title>'\n    + '<style>body{margin:0;background:#eef3f0;font:16px/1.55 -apple-system,\"Segoe UI\",Helvetica,Arial,sans-serif;color:#10231a}'\n    + '.card{max-width:520px;margin:48px auto;background:#fff;border:1px solid #dbe5df;border-radius:16px;padding:32px 30px;box-shadow:0 6px 24px rgba(16,35,26,.06)}'\n    + '.brand{font-size:12px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#0b6e4f;margin-bottom:18px}'\n    + 'h1{font-size:23px;margin:0 0 10px;letter-spacing:-.3px}p{color:#3d4f45;margin:0 0 12px}'\n    + '.slot{display:block;padding:12px 16px;border:1px solid #dbe5df;border-radius:12px;margin:8px 0;color:#0b6e4f;font-weight:600;text-decoration:none}.slot:hover{border-color:#0b6e4f;background:#f3faf6}'\n    + '.big{font-size:19px;font-weight:700;color:#10231a;margin:6px 0 14px}.muted{color:#6b7c72;font-size:13px}</style></head><body><div class=\"card\">'\n    + '<div class=\"brand\">' + esc(company) + '</div><h1>' + esc(title) + '</h1>' + bodyHtml + '</div></body></html>';\n}\n\nconst BAND_LABEL = { shortlist: 'Shortlist', review: 'Worth a look', unlikely: 'Unlikely fit', knockout: 'Knockout' };\n// ---- end lib-ngt.js ----\nconst a = $('Prepare Application').first().json;\nconst items = a.errors.map(e => '<li style=\"margin:4px 0\">' + esc(e) + '</li>').join('');\nconst html = '<div style=\"text-align:left;max-width:460px;margin:0 auto\">'\n  + '<h2 style=\"margin:0 0 8px;font-size:22px;color:#101828\">Something needs fixing</h2>'\n  + '<ul style=\"margin:0 0 14px;padding-left:20px;color:#b42318;font-size:15px\">' + items + '</ul>'\n  + '<p style=\"margin:0;color:#475467;font-size:14px\">Please go back and try again. Nothing has been saved.</p></div>';\nreturn [{ json: { html: pageHtml('Northgate Talent', 'Something needs fixing', html.replace(/<h2[^>]*>.*?<\\/h2>/, '')) } }];\n"
+      }
+    },
+    {
+      "id": "c564ad2e-5933-424d-bcf1-da3b50a8039d",
+      "name": "Show Problem",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.5,
+      "position": [
+        1160,
+        420
+      ],
+      "parameters": {
+        "operation": "completion",
+        "respondWith": "showText",
+        "responseText": "={{ $json.html }}"
+      }
+    },
+    {
+      "id": "1cc6520a-7a09-42cb-86ac-51dec70845b9",
+      "name": "Sticky Note 1cc6520a",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        160,
+        20
+      ],
+      "parameters": {
+        "content": "## Northgate 1: Apply Form\nThe public application form (`/form/northgate-apply`): job, name, email, CV as a PDF, right to work, notice period and salary expectation.\n\n**Prepare Application** checks the answers and the file (PDF, under 5 MB), then the CV goes to **Northgate 2** in the background. The applicant sees a thank-you page straight away and never sees a score.",
+        "color": 4,
+        "width": 900,
+        "height": 200
+      }
+    }
+  ],
+  "connections": {
+    "Application Form": {
+      "main": [
+        [
+          {
+            "node": "Prepare Application",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Application": {
+      "main": [
+        [
+          {
+            "node": "Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valid?": {
+      "main": [
+        [
+          {
+            "node": "Screen in Background",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Problem Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Screen in Background": {
+      "main": [
+        [
+          {
+            "node": "Thank-you Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Thank-you Page": {
+      "main": [
+        [
+          {
+            "node": "Show Thanks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Problem Page": {
+      "main": [
+        [
+          {
+            "node": "Show Problem",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "timezone": "Europe/London",
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "iTxd64lDk3gI0bKG"
+  }
+}

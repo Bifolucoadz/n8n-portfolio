@@ -1,0 +1,19 @@
+{
+  "type": "object",
+  "properties": {
+    "ideas": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "topic": { "type": "string" },
+          "notes": { "type": "string" }
+        },
+        "required": ["topic", "notes"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["ideas"],
+  "additionalProperties": false
+}

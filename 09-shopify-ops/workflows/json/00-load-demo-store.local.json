@@ -1,0 +1,1155 @@
+{
+  "id": "ktlLoadStore0000",
+  "name": "Kettle 0: Load Demo Store",
+  "description": "Shopify ops (project 9): loads the Kettle & Fern demo store (products, orders, abandoned checkouts, reviews) into the test tables.",
+  "nodes": [
+    {
+      "id": "88e39bb8-7bde-40ce-815d-0b98d1186975",
+      "name": "Load Demo Store",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        200,
+        300
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "a46ae9da-ee02-499d-aa75-c07c5ce63a61",
+      "name": "Clear Products",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        420,
+        300
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "deleteRows",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Ep9njyaWF13y9SHL",
+          "cachedResultName": "Kettle Products"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "gt",
+              "keyValue": "0"
+            }
+          ]
+        }
+      },
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "id": "d5f0bc63-14d7-4311-8218-cb769e365a6f",
+      "name": "Clear Orders",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        640,
+        300
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "deleteRows",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "KVudLSbZlietFc9a",
+          "cachedResultName": "Kettle Orders"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "gt",
+              "keyValue": "0"
+            }
+          ]
+        }
+      },
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "id": "392e1c17-550c-4ee7-a01d-ba90cd440758",
+      "name": "Clear Checkouts",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        860,
+        300
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "deleteRows",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "XluYD3lO9tEeAhBS",
+          "cachedResultName": "Kettle Checkouts"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "gt",
+              "keyValue": "0"
+            }
+          ]
+        }
+      },
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "id": "321d9a56-1ba7-488f-b8ef-43ff6aff6058",
+      "name": "Clear Reviews",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1080,
+        300
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "deleteRows",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "D2bbJsHicEHPMugS",
+          "cachedResultName": "Kettle Reviews"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "gt",
+              "keyValue": "0"
+            }
+          ]
+        }
+      },
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "id": "6553f5a0-edaf-4324-b0c5-373d9f57e11b",
+      "name": "Clear Messages",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1300,
+        300
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "deleteRows",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "V2SpiVAU4JiGBdNI",
+          "cachedResultName": "Kettle Messages"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "gt",
+              "keyValue": "0"
+            }
+          ]
+        }
+      },
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "id": "3eb8fbed-672d-4528-be25-f4fbede2bd8e",
+      "name": "Clear Outbox",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1520,
+        300
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "deleteRows",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "1crkkgyfXiNjy3HZ",
+          "cachedResultName": "Kettle Outbox"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "gt",
+              "keyValue": "0"
+            }
+          ]
+        }
+      },
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "id": "a0b0deb4-b261-421d-822b-8032656ea5fb",
+      "name": "Clear Reports",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1740,
+        300
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "deleteRows",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "AyZ17CcwolU182Td",
+          "cachedResultName": "Kettle Reports"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "gt",
+              "keyValue": "0"
+            }
+          ]
+        }
+      },
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "id": "efcc54a4-c773-40eb-96d8-e1d8cddb6250",
+      "name": "Demo Store",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1960,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// The demo store, dated relative to today so it always looks current. A seeded random generator makes\n// the same store every time. Everything is invented: products, people (example.com emails), tracking.\n// Stories in the data:\n// - three products are running low (Ceremonial Matcha, Jasmine Pearls, Glass Teapot);\n// - one order is stuck in transit (no tracking update for days), one is in transit and on time,\n//   one is waiting to ship and one was delivered;\n// - six abandoned checkouts that test every recovery rule;\n// - shipping complaints jump in the last 7 days.\n// ---- lib-kettle.js (included by build.py): shared helpers for the Kettle & Fern workflows ----\nconst TZ = 'America/Los_Angeles';\nconst esc = s => String(s === null || s === undefined ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');\nconst settingsOf = items => Object.fromEntries(items.map(i => i.json).filter(r => r && r.key).map(r => [r.key, r.value]));\nconst parseJson = (s, d) => { try { return typeof s === 'string' ? JSON.parse(s) : (s === null || s === undefined ? d : s); } catch (e) { return d; } };\nconst nowIso = () => DateTime.now().setZone(TZ).toISO();\nconst newId = (prefix, n) => prefix + Array.from({ length: n || 5 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 32)]).join('');\nconst usd = n => '$' + (Math.round(Number(n || 0) * 100) / 100).toFixed(2).replace(/\\.00$/, '');\nconst day = iso => iso ? DateTime.fromISO(String(iso), { zone: TZ }).toFormat('ccc d LLL') : '';\n\n// OpenAI node (Responses API) output: the JSON object from the first output_text part, or null.\nfunction aiJson(res) {\n  if (!res || res.error) return null;\n  const msg = (res.output || []).find(o => o && o.type === 'message');\n  const part = msg && (msg.content || []).find(c => c && c.type === 'output_text');\n  let t = part ? part.text : null;\n  if (typeof t === 'string') { try { t = JSON.parse(t); } catch (e) { t = null; } }\n  return t && typeof t === 'object' ? t : null;\n}\n\n// Store-branded email: a header with the shop name, paragraphs, optional extra HTML (buttons, tables).\nfunction emailHtml(store, paragraphs, extraHtml) {\n  const p = paragraphs.filter(Boolean).map(t => '<p style=\"margin:0 0 14px;text-align:left\">' + t + '</p>').join('');\n  return '<div style=\"font-family:Georgia,\\'Times New Roman\\',serif;font-size:16px;line-height:1.6;color:#2b2a26;max-width:560px;text-align:left\">'\n    + '<div style=\"font-family:Helvetica,Arial,sans-serif;font-weight:700;font-size:13px;letter-spacing:2px;text-transform:uppercase;color:#3f6b4a;margin:0 0 20px\">' + esc(store) + '</div>'\n    + p + (extraHtml || '') + '</div>';\n}\n// Plain text (blank lines between paragraphs) as escaped paragraphs for emailHtml.\nconst paragraphsOf = t => String(t || '').split(/\\n{2,}/).map(p => esc(p).replace(/\\n/g, '<br>'));\nconst button = (href, label) => '<p style=\"margin:6px 0 18px;text-align:left\"><a href=\"' + esc(href) + '\" style=\"display:inline-block;background:#3f6b4a;color:#fff;font-family:Helvetica,Arial,sans-serif;font-weight:600;padding:12px 22px;border-radius:999px;text-decoration:none\">' + esc(label) + '</a></p>';\n// ---- end lib-kettle.js ----\nlet seed = 20261021;\nconst rnd = () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };\nconst pick = a => a[Math.floor(rnd() * a.length)];\nconst poisson = l => { let k = 0, p = 1; const L = Math.exp(-l); do { k++; p *= rnd(); } while (p > L); return k - 1; };\nconst now = DateTime.now().setZone(TZ);\nconst today = now.startOf('day');\n\nconst P = [\n  ['EG-100', 'Earl Grey Cream 100g', 'Black tea', 16, 140, 2.1, 14, 50, 'Hillside Tea Imports', 'Bergamot with a vanilla cream finish. Brew 3 min at 95°C.'],\n  ['JP-050', 'Jasmine Pearls 50g', 'Green tea', 22, 14, 0.9, 14, 30, 'Fujian Leaf Co.', 'Hand-rolled pearls scented with jasmine. 2-3 min at 80°C; re-steep 3 times.'],\n  ['SK-100', 'Sencha Kyoto 100g', 'Green tea', 18, 85, 1.0, 21, 30, 'Uji Valley Trading', 'Grassy and bright. 1-2 min at 75°C.'],\n  ['MC-150', 'Masala Chai 150g', 'Black tea', 15, 120, 1.6, 10, 40, 'Hillside Tea Imports', 'Cardamom, ginger and clove. Simmer with milk for 5 min.'],\n  ['PM-075', 'Peppermint Leaf 75g', 'Herbal', 12, 95, 0.8, 10, 40, 'Oregon Herb Farm', 'Cool and clean. 5 min at 100°C.'],\n  ['CB-200', 'Ceylon Breakfast 200g', 'Black tea', 17, 110, 1.3, 14, 40, 'Hillside Tea Imports', 'Brisk and malty; takes milk well. 4 min at 100°C.'],\n  ['RV-100', 'Rooibos Vanilla 100g', 'Herbal', 14, 70, 0.7, 14, 30, 'Cape Botanicals', 'Caffeine-free and sweet. 5-6 min at 100°C.'],\n  ['OT-075', 'Tie Guan Yin Oolong 75g', 'Oolong', 24, 40, 0.5, 21, 20, 'Fujian Leaf Co.', 'Floral and creamy. 3 min at 90°C; re-steep 4 times.'],\n  ['MA-030', 'Ceremonial Matcha 30g', 'Green tea', 32, 9, 1.2, 21, 24, 'Uji Valley Trading', 'Sift first, then whisk 2 g with 70 ml of 75°C water.'],\n  ['CF-050', 'Chamomile Flowers 50g', 'Herbal', 13, 60, 0.6, 10, 30, 'Oregon Herb Farm', 'Whole flowers, honeyed and calm. 5 min at 100°C.'],\n  ['GT-600', 'Glass Teapot 600ml', 'Teaware', 38, 4, 0.4, 30, 12, 'Clearbrew Glassworks', 'Borosilicate glass with a steel infuser.'],\n  ['CK-800', 'Cast Iron Kettle 0.8L', 'Teaware', 64, 22, 0.2, 45, 6, 'Iwachu Imports', 'Enamel-lined cast iron.'],\n  ['IM-350', 'Tea Infuser Mug 350ml', 'Teaware', 24, 35, 0.6, 30, 24, 'Clearbrew Glassworks', 'Mug with lid and a fine-mesh infuser.'],\n  ['SB-008', 'Tasting Sampler Box', 'Gift', 29, 50, 0.9, 7, 20, 'In-house', 'Eight 10 g tins of our best sellers.']\n];\nconst products = P.map(p => ({ sku: p[0], title: p[1], category: p[2], price: p[3], inventory: p[4], lead_time_days: p[6], min_order_qty: p[7], supplier: p[8], notes: p[9] }));\nconst bySku = Object.fromEntries(products.map(p => [p.sku, p]));\n\nconst FIRST = ['Olivia', 'Liam', 'Ava', 'Noah', 'Mia', 'Ethan', 'Zoe', 'Lucas', 'Chloe', 'Mateo', 'Grace', 'Owen', 'Isla', 'Caleb', 'Nora', 'Leo', 'Ruby', 'Ezra', 'Ivy', 'Miles', 'Hazel', 'Jonah', 'Clara', 'Felix'];\nconst LAST = ['Nguyen', 'Patel', 'Garcia', 'Kim', 'Johnson', 'Okafor', 'Rossi', 'Cohen', 'Silva', 'Murphy', 'Haddad', 'Larsen', 'Ito', 'Brennan', 'Moreau', 'Alvarez'];\nconst CITIES = ['Portland, OR', 'Austin, TX', 'Denver, CO', 'Chicago, IL', 'Brooklyn, NY', 'Seattle, WA', 'Asheville, NC', 'Madison, WI', 'Boise, ID', 'Raleigh, NC'];\nconst person = () => { const f = pick(FIRST), l = pick(LAST); return { name: f + ' ' + l, email: (f + '.' + l).toLowerCase() + '@example.com' }; };\nconst trackNo = c => c === 'USPS' ? '9400' + String(Math.floor(rnd() * 1e15)).padStart(15, '0').slice(0, 15) : '1Z' + Array.from({ length: 16 }, () => '0123456789ABCDEFGHJKLMNPRTUVWXY'[Math.floor(rnd() * 31)]).join('');\n\n// Orders for the last 28 days, built from each product's daily sales rate.\nconst orders = [];\nlet num = 1601;\nfor (let d = 28; d >= 0; d--) {\n  const day = today.minus({ days: d });\n  const lines = [];\n  for (const p of P) { const q = poisson(p[5] * (d === 0 ? now.hour / 24 : 1)); for (let k = 0; k < q; k++) lines.push(p[0]); }\n  while (lines.length) {\n    const take = Math.min(lines.length, 1 + Math.floor(rnd() * 3));\n    const items = {};\n    for (const s of lines.splice(0, take)) items[s] = (items[s] || 0) + 1;\n    const who = person();\n    const created = day.set({ hour: 7 + Math.floor(rnd() * 15), minute: Math.floor(rnd() * 60) });\n    if (created > now) continue;\n    const list = Object.entries(items).map(([sku, qty]) => ({ sku, title: bySku[sku].title, qty, price: bySku[sku].price }));\n    const sub = list.reduce((t, l) => t + l.qty * l.price, 0);\n    orders.push({ order_number: '#' + (num++), email: who.email, customer_name: who.name, created_at: created.toISO(), total: Math.round((sub + (sub >= 50 ? 0 : 6.95)) * 100) / 100,\n      items_json: JSON.stringify(list), ship_city: pick(CITIES) });\n  }\n}\n// Fulfilment: ships the next working day; delivered 2-5 days after shipping.\nfor (const o of orders) {\n  const c = DateTime.fromISO(o.created_at, { zone: TZ });\n  let ship = c.plus({ days: 1 }).set({ hour: 15 });\n  if (ship.weekday === 6) ship = ship.plus({ days: 2 }); else if (ship.weekday === 7) ship = ship.plus({ days: 1 });\n  const carrier = rnd() < 0.6 ? 'USPS' : 'UPS';\n  const transit = 2 + Math.floor(rnd() * 4);\n  const eta = ship.plus({ days: transit });\n  Object.assign(o, { fulfillment_status: 'unfulfilled', shipped_at: '', carrier: '', tracking_number: '', tracking_url: '', tracking_status: '', estimated_delivery: '', last_event: '', last_event_at: '', delivered_at: '' });\n  if (ship < now) {\n    const tn = trackNo(carrier);\n    Object.assign(o, { fulfillment_status: 'fulfilled', shipped_at: ship.toISO(), carrier, tracking_number: tn, tracking_url: 'https://track.kettleandfern.example/' + tn, estimated_delivery: eta.toISODate() });\n    if (eta.set({ hour: 14 }) < now) Object.assign(o, { tracking_status: 'delivered', delivered_at: eta.set({ hour: 14 }).toISO(), last_event: 'Delivered, front door', last_event_at: eta.set({ hour: 14 }).toISO() });\n    else Object.assign(o, { tracking_status: 'in_transit', last_event: 'In transit to the destination facility', last_event_at: ship.plus({ days: 1 }).set({ hour: 9 }).toISO() });\n  }\n}\n// The four orders the help-chat demo uses (named customers, fixed stories).\nconst at = days => orders.filter(o => DateTime.fromISO(o.created_at) < now.minus({ days })).slice(-1)[0];\nconst stuck = at(9), moving = at(3), waiting = orders[orders.length - 2] || at(0), delivered = at(7);\nconst stuckNo = trackNo('USPS');\nObject.assign(stuck, { email: 'marcus.lee@example.com', customer_name: 'Marcus Lee', carrier: 'USPS', tracking_number: stuckNo, tracking_url: 'https://track.kettleandfern.example/' + stuckNo, tracking_status: 'in_transit', delivered_at: '',\n  estimated_delivery: now.minus({ days: 3 }).toISODate(), last_event: 'Arrived at USPS regional facility, Memphis TN', last_event_at: now.minus({ days: 6 }).set({ hour: 4, minute: 12 }).toISO() });\nObject.assign(moving, { email: 'sarah.chen@example.com', customer_name: 'Sarah Chen', tracking_status: 'in_transit', delivered_at: '',\n  estimated_delivery: now.plus({ days: 1 }).toISODate(), last_event: 'Departed USPS facility, Denver CO', last_event_at: now.minus({ hours: 10 }).toISO() });\nObject.assign(waiting, { email: 'priya.nair@example.com', customer_name: 'Priya Nair', fulfillment_status: 'unfulfilled', shipped_at: '', carrier: '', tracking_number: '', tracking_url: '', tracking_status: '', estimated_delivery: '', last_event: '', last_event_at: '', delivered_at: '' });\nObject.assign(delivered, { email: 'tom.becker@example.com', customer_name: 'Tom Becker' });\n\n// Abandoned checkouts: each one tests a recovery rule.\nconst ck = (id, who, hoursAgo, items, opts) => {\n  const list = items.map(([sku, qty]) => ({ sku, title: bySku[sku].title, qty, price: bySku[sku].price }));\n  return { checkout_id: id, email: who[1], first_name: who[0], created_at: now.minus({ minutes: Math.round(hoursAgo * 60) }).toISO(), items_json: JSON.stringify(list),\n    subtotal: list.reduce((t, l) => t + l.qty * l.price, 0), recovery_url: 'https://kettleandfern.example/checkouts/' + id + '/recover', completed: false, accepts_marketing: true,\n    orders_count: 0, contacted_at: '', offer: '', ...opts };\n};\nconst checkouts = [\n  ck('CK-7001', ['Ava', 'ava.morgan@example.com'], 3, [['MA-030', 1], ['IM-350', 1], ['CF-050', 1]], { orders_count: 0 }),\n  ck('CK-7002', ['Leo', 'leo.haddad@example.com'], 2, [['EG-100', 1], ['MC-150', 1], ['CF-050', 1]], { orders_count: 4 }),\n  ck('CK-7003', ['Nora', 'nora.ito@example.com'], 5, [['SB-008', 1], ['GT-600', 1]], { accepts_marketing: false }),\n  ck('CK-7004', ['Felix', 'felix.larsen@example.com'], 0.4, [['OT-075', 2]], {}),\n  ck('CK-7005', ['Isla', 'isla.brennan@example.com'], 6, [['JP-050', 1], ['SK-100', 1]], { completed: true }),\n  ck('CK-7006', ['Owen', 'owen.silva@example.com'], 120, [['CK-800', 1]], {})\n];\n\n// Reviews: the last 14 days. Shipping complaints jump in the last 7.\nconst R = [\n  // [days ago, sku, rating, title, body]\n  [1, 'EG-100', 2, 'Great tea, very slow delivery', 'The Earl Grey is lovely but my order took 9 days to arrive and tracking didn\\'t update for most of that time.'],\n  [1, 'MA-030', 3, 'Clumpy unless you sift', 'Good colour and flavour, but it clumps badly. The tin doesn\\'t say to sift it, I only found that on your website.'],\n  [2, 'MC-150', 2, 'Still waiting', 'Ordered over a week ago and it\\'s still \"in transit\". No reply to my email yet either.'],\n  [2, 'SB-008', 5, 'Perfect gift', 'Bought the sampler for my sister and she loved every tin. Beautiful packaging.'],\n  [2, 'CB-200', 5, 'My new everyday tea', 'Strong, malty and great with milk. Already reordered.'],\n  [3, 'JP-050', 2, 'Shipping took forever', 'Jasmine pearls are beautiful but delivery was 10 days. I\\'d order more if shipping were faster.'],\n  [3, 'GT-600', 4, 'Nice teapot', 'Looks great and the infuser works well. A little smaller than I expected.'],\n  [3, 'RV-100', 5, 'Dessert in a cup', 'Sweet, smooth and caffeine-free. Perfect at night.'],\n  [4, 'OT-075', 3, 'Confusing brewing instructions', 'The label says 3 minutes but the leaflet says 45 seconds for the first steep. Which is it? Tastes great once you get it right.'],\n  [4, 'EG-100', 1, 'Tin arrived dented', 'The tin was crushed in the box and some tea spilled out. Needs better packing.'],\n  [4, 'PM-075', 5, 'So fresh', 'Really fresh peppermint, much better than supermarket bags.'],\n  [5, 'MA-030', 2, 'Late and expensive', 'Arrived a week late, and $32 for 30 g is a lot when it shows up after my event.'],\n  [5, 'CF-050', 5, 'Helps me sleep', 'Whole flowers, lovely honey taste.'],\n  [5, 'IM-350', 4, 'Handy mug', 'Use it every day at work. The lid gets hot though.'],\n  [6, 'SK-100', 4, 'Bright and grassy', 'Great sencha. Wish it came in a bigger size.'],\n  [6, 'MC-150', 2, 'Delivery delay', 'Took 8 days. The chai itself is good.'],\n  [6, 'CB-200', 5, 'Excellent breakfast tea', 'Exactly what I was looking for.'],\n  [7, 'SB-008', 4, 'Good variety', 'Nice way to try things. Two tins were half empty though.'],\n  [8, 'EG-100', 5, 'Best Earl Grey', 'The cream note is amazing. Fast delivery too.'],\n  [8, 'JP-050', 5, 'Beautiful', 'Watching the pearls unfurl is half the fun.'],\n  [9, 'MA-030', 4, 'Good matcha', 'Smooth with no bitterness. Sift it first!'],\n  [9, 'GT-600', 5, 'Lovely teapot', 'Heat-proof and easy to clean.'],\n  [10, 'MC-150', 5, 'Proper chai', 'Simmered with oat milk, perfect.'],\n  [10, 'OT-075', 4, 'Floral', 'Lovely, and it re-steeps well.'],\n  [11, 'RV-100', 5, 'Kids love it', 'Caffeine-free so the kids can have it too.'],\n  [11, 'CK-800', 3, 'Heavy but nice', 'Beautiful kettle but pricey for what it is.'],\n  [12, 'PM-075', 4, 'Good mint', 'Nice and strong.'],\n  [12, 'EG-100', 3, 'Slow shipping', 'Took about a week. Tea is great.'],\n  [13, 'SK-100', 5, 'Superb', 'One of the best senchas I\\'ve had in the US.'],\n  [13, 'CB-200', 4, 'Solid', 'Good value for 200 g.']\n];\nconst reviews = R.map((r, i) => ({ review_id: 'RV-' + (5100 + i), sku: r[1], rating: r[2], title: r[3], body: r[4], author: pick(FIRST) + ' ' + pick(LAST)[0] + '.',\n  created_at: now.minus({ days: r[0], hours: Math.floor(rnd() * 10) }).toISO(), topics_json: '', sentiment: '', issue: '', analysed_at: '' }));\n\nreturn [\n  ...products.map(r => ({ json: { table: 'products', ...r } })),\n  ...orders.map(r => ({ json: { table: 'orders', ...r } })),\n  ...checkouts.map(r => ({ json: { table: 'checkouts', ...r } })),\n  ...reviews.map(r => ({ json: { table: 'reviews', ...r } }))\n];\n"
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "f205c768-8feb-448f-b82f-c7e76bf45545",
+      "name": "Which Table?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        2180,
+        300
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "outputKey": "products",
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.table }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "products"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "outputKey": "orders",
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.table }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "orders"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "outputKey": "checkouts",
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.table }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "checkouts"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "outputKey": "reviews",
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.table }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "reviews"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "dacd6b82-5e29-4e40-90f1-25b7138db711",
+      "name": "Add Products",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2420,
+        140
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "Ep9njyaWF13y9SHL",
+          "cachedResultName": "Kettle Products"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "sku": "={{ $json.sku }}",
+            "title": "={{ $json.title }}",
+            "category": "={{ $json.category }}",
+            "price": "={{ $json.price }}",
+            "inventory": "={{ $json.inventory }}",
+            "lead_time_days": "={{ $json.lead_time_days }}",
+            "min_order_qty": "={{ $json.min_order_qty }}",
+            "supplier": "={{ $json.supplier }}",
+            "notes": "={{ $json.notes }}"
+          },
+          "schema": [
+            {
+              "id": "sku",
+              "displayName": "sku",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "title",
+              "displayName": "title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "category",
+              "displayName": "category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "price",
+              "displayName": "price",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "inventory",
+              "displayName": "inventory",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "lead_time_days",
+              "displayName": "lead_time_days",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "min_order_qty",
+              "displayName": "min_order_qty",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "supplier",
+              "displayName": "supplier",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "notes",
+              "displayName": "notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ebc15ec7-8a3c-4187-bab7-6a98dc7c05ae",
+      "name": "Add Orders",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2420,
+        320
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "KVudLSbZlietFc9a",
+          "cachedResultName": "Kettle Orders"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "order_number": "={{ $json.order_number }}",
+            "email": "={{ $json.email }}",
+            "customer_name": "={{ $json.customer_name }}",
+            "created_at": "={{ $json.created_at }}",
+            "total": "={{ $json.total }}",
+            "items_json": "={{ $json.items_json }}",
+            "fulfillment_status": "={{ $json.fulfillment_status }}",
+            "shipped_at": "={{ $json.shipped_at }}",
+            "carrier": "={{ $json.carrier }}",
+            "tracking_number": "={{ $json.tracking_number }}",
+            "tracking_url": "={{ $json.tracking_url }}",
+            "tracking_status": "={{ $json.tracking_status }}",
+            "estimated_delivery": "={{ $json.estimated_delivery }}",
+            "last_event": "={{ $json.last_event }}",
+            "last_event_at": "={{ $json.last_event_at }}",
+            "delivered_at": "={{ $json.delivered_at }}",
+            "ship_city": "={{ $json.ship_city }}"
+          },
+          "schema": [
+            {
+              "id": "order_number",
+              "displayName": "order_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "customer_name",
+              "displayName": "customer_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "total",
+              "displayName": "total",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "items_json",
+              "displayName": "items_json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "fulfillment_status",
+              "displayName": "fulfillment_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "shipped_at",
+              "displayName": "shipped_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "carrier",
+              "displayName": "carrier",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "tracking_number",
+              "displayName": "tracking_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "tracking_url",
+              "displayName": "tracking_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "tracking_status",
+              "displayName": "tracking_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "estimated_delivery",
+              "displayName": "estimated_delivery",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "last_event",
+              "displayName": "last_event",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "last_event_at",
+              "displayName": "last_event_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "delivered_at",
+              "displayName": "delivered_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "ship_city",
+              "displayName": "ship_city",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "1225ff3b-1d65-44c9-806a-3431f78538df",
+      "name": "Add Checkouts",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2420,
+        500
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "XluYD3lO9tEeAhBS",
+          "cachedResultName": "Kettle Checkouts"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "checkout_id": "={{ $json.checkout_id }}",
+            "email": "={{ $json.email }}",
+            "first_name": "={{ $json.first_name }}",
+            "created_at": "={{ $json.created_at }}",
+            "items_json": "={{ $json.items_json }}",
+            "subtotal": "={{ $json.subtotal }}",
+            "recovery_url": "={{ $json.recovery_url }}",
+            "completed": "={{ $json.completed }}",
+            "accepts_marketing": "={{ $json.accepts_marketing }}",
+            "orders_count": "={{ $json.orders_count }}",
+            "contacted_at": "={{ $json.contacted_at }}",
+            "offer": "={{ $json.offer }}"
+          },
+          "schema": [
+            {
+              "id": "checkout_id",
+              "displayName": "checkout_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "first_name",
+              "displayName": "first_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "items_json",
+              "displayName": "items_json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "subtotal",
+              "displayName": "subtotal",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "recovery_url",
+              "displayName": "recovery_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "completed",
+              "displayName": "completed",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "accepts_marketing",
+              "displayName": "accepts_marketing",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "orders_count",
+              "displayName": "orders_count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "contacted_at",
+              "displayName": "contacted_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "offer",
+              "displayName": "offer",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "038d9c44-b619-4344-9636-e79d5ccd09f1",
+      "name": "Add Reviews",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2420,
+        680
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "D2bbJsHicEHPMugS",
+          "cachedResultName": "Kettle Reviews"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "review_id": "={{ $json.review_id }}",
+            "sku": "={{ $json.sku }}",
+            "rating": "={{ $json.rating }}",
+            "title": "={{ $json.title }}",
+            "body": "={{ $json.body }}",
+            "author": "={{ $json.author }}",
+            "created_at": "={{ $json.created_at }}",
+            "topics_json": "={{ $json.topics_json }}",
+            "sentiment": "={{ $json.sentiment }}",
+            "issue": "={{ $json.issue }}",
+            "analysed_at": "={{ $json.analysed_at }}"
+          },
+          "schema": [
+            {
+              "id": "review_id",
+              "displayName": "review_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "sku",
+              "displayName": "sku",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "rating",
+              "displayName": "rating",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "title",
+              "displayName": "title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "body",
+              "displayName": "body",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "author",
+              "displayName": "author",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "topics_json",
+              "displayName": "topics_json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "sentiment",
+              "displayName": "sentiment",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "issue",
+              "displayName": "issue",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "analysed_at",
+              "displayName": "analysed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "cfc75260-453c-4554-a46d-d37b7d18fa15",
+      "name": "Sticky Note cfc75260",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        160,
+        40
+      ],
+      "parameters": {
+        "content": "## Kettle 0: Load Demo Store (manual, destructive)\nClears the demo tables and loads a store dated relative to today: 14 products (three running low), about four weeks of orders with tracking (one stuck in transit, one on its way, one waiting to ship, one delivered), six abandoned checkouts that test each recovery rule, and two weeks of reviews with a jump in shipping complaints. A seeded generator makes the same store every time.",
+        "color": 3,
+        "width": 1200,
+        "height": 200
+      }
+    }
+  ],
+  "connections": {
+    "Load Demo Store": {
+      "main": [
+        [
+          {
+            "node": "Clear Products",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear Products": {
+      "main": [
+        [
+          {
+            "node": "Clear Orders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear Orders": {
+      "main": [
+        [
+          {
+            "node": "Clear Checkouts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear Checkouts": {
+      "main": [
+        [
+          {
+            "node": "Clear Reviews",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear Reviews": {
+      "main": [
+        [
+          {
+            "node": "Clear Messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear Messages": {
+      "main": [
+        [
+          {
+            "node": "Clear Outbox",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear Outbox": {
+      "main": [
+        [
+          {
+            "node": "Clear Reports",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear Reports": {
+      "main": [
+        [
+          {
+            "node": "Demo Store",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Demo Store": {
+      "main": [
+        [
+          {
+            "node": "Which Table?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Which Table?": {
+      "main": [
+        [
+          {
+            "node": "Add Products",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Add Orders",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Add Checkouts",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Add Reviews",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "timezone": "America/Los_Angeles",
+    "callerPolicy": "workflowsFromSameOwner"
+  }
+}

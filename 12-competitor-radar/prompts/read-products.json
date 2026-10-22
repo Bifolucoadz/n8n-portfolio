@@ -1,0 +1,23 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["is_product_listing", "page_looks_like", "products"],
+  "properties": {
+    "is_product_listing": { "type": "boolean" },
+    "page_looks_like": { "type": "string" },
+    "products": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "price", "was_price", "in_stock"],
+        "properties": {
+          "name": { "type": "string" },
+          "price": { "type": "number" },
+          "was_price": { "type": ["number", "null"] },
+          "in_stock": { "type": "boolean" }
+        }
+      }
+    }
+  }
+}

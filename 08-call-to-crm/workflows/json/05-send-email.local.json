@@ -1,0 +1,290 @@
+{
+  "id": "tdwSendEmail0005",
+  "name": "Tidewater 5: Send Email",
+  "description": "Call to CRM (project 8): sends an email with Gmail in live mode or writes it to the Tidewater Outbox table in test mode.",
+  "nodes": [
+    {
+      "id": "58660f4f-6036-493b-b85c-ab9b4edaa2e1",
+      "name": "When Called",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        200,
+        300
+      ],
+      "parameters": {
+        "inputSource": "passthrough"
+      }
+    },
+    {
+      "id": "0fe36419-2a86-41c0-8f77-5459262f6c94",
+      "name": "Read Settings",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        420,
+        300
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "IFuurjqqfST0GLCi",
+          "cachedResultName": "Tidewater Settings"
+        },
+        "returnAll": true
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "34488086-49d4-474c-a3b5-7f164de773e1",
+      "name": "Route",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        640,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// One item per email (items without a recipient are skipped), with the sending mode from Settings\n// (test writes to the Outbox table).\n// ---- lib-tdw.js (included by build.py): shared helpers for the Tidewater workflows ----\nconst TZ = 'America/New_York';\nconst esc = s => String(s === null || s === undefined ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');\nconst settingsOf = items => Object.fromEntries(items.map(i => i.json).filter(r => r && r.key).map(r => [r.key, r.value]));\nconst parseJson = (s, d) => { try { return typeof s === 'string' ? JSON.parse(s) : (s === null || s === undefined ? d : s); } catch (e) { return d; } };\nconst nowIso = () => DateTime.now().setZone(TZ).toISO();\nconst newId = (prefix, n) => prefix + Array.from({ length: n || 5 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 32)]).join('');\nconst newToken = n => Array.from({ length: n || 24 }, () => 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 56)]).join('');\nconst dollars = n => '$' + Math.round(Number(n) || 0).toLocaleString('en-US');\nconst mmss = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');\n\n// HubSpot's default sales pipeline.\nconst STAGES = [\n  ['appointmentscheduled', 'Appointment scheduled', 'A first meeting is booked.'],\n  ['qualifiedtobuy', 'Qualified to buy', 'Need, rough budget, decision process and timeline are understood.'],\n  ['presentationscheduled', 'Presentation scheduled', 'A demo or presentation is booked or has been given.'],\n  ['decisionmakerboughtin', 'Decision maker bought-in', 'The person who signs has seen it and supports it.'],\n  ['contractsent', 'Contract sent', 'A proposal or contract has been sent.'],\n  ['closedwon', 'Closed won', 'Signed.'],\n  ['closedlost', 'Closed lost', 'The prospect said no.']\n];\nconst stageIndex = id => STAGES.findIndex(s => s[0] === id);\nconst stageLabel = id => (STAGES.find(s => s[0] === id) || [id, id])[1];\n\n// OpenAI node (Responses API) output: the JSON object from the first output_text part, or null.\nfunction aiJson(res) {\n  if (!res || res.error) return null;\n  const msg = (res.output || []).find(o => o && o.type === 'message');\n  const part = msg && (msg.content || []).find(c => c && c.type === 'output_text');\n  let t = part ? part.text : null;\n  if (typeof t === 'string') { try { t = JSON.parse(t); } catch (e) { t = null; } }\n  return t && typeof t === 'object' ? t : null;\n}\n\n// Is this quote really in the transcript? (case, punctuation and spacing ignored)\nconst norm = s => String(s || '').toLowerCase().replace(/[’']/g, \"'\").replace(/[^a-z0-9' ]+/g, ' ').replace(/\\s+/g, ' ').trim();\nconst quoteFound = (quote, transcriptNorm) => { const q = norm(quote); return q.length >= 6 && transcriptNorm.includes(q); };\n\nfunction emailHtml(company, paragraphs, extraHtml) {\n  const p = paragraphs.map(t => '<p style=\"margin:0 0 14px;text-align:left\">' + t + '</p>').join('');\n  return '<div style=\"font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.55;color:#1f2933;max-width:560px;text-align:left\">'\n    + '<div style=\"font-weight:700;font-size:13px;letter-spacing:1px;text-transform:uppercase;color:#1d4ed8;margin:0 0 18px\">' + esc(company) + '</div>'\n    + p + (extraHtml || '') + '</div>';\n}\nconst plainToHtml = t => String(t || '').split(/\\n{2,}/).map(p => '<p style=\"margin:0 0 14px;text-align:left\">' + esc(p).replace(/\\n/g, '<br>') + '</p>').join('');\n// ---- end lib-tdw.js ----\nconst s = settingsOf($('Read Settings').all());\nreturn $('When Called').all().filter(i => i.json.to).map(i => ({ json: {\n  to: String(i.json.to || ''),\n  subject: String(i.json.subject || ''),\n  html: String(i.json.html || ''),\n  kind: String(i.json.kind || ''),\n  call_id: String(i.json.call_id || ''),\n  live: s.mode === 'live',\n  sender: s.rep_name ? s.rep_name + ' (' + (s.company || 'Tidewater Software') + ')' : 'Tidewater Software',\n  reply_to: s.rep_email || '',\n  at: nowIso()\n} }));\n"
+      }
+    },
+    {
+      "id": "b885fd6f-b359-4e7c-bb07-99a014fcc592",
+      "name": "Live Mode?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        860,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.live }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "df8af489-600e-44ad-b0f3-763e7600a0d8",
+      "name": "Send with Gmail",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1100,
+        200
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "emailType": "html",
+        "message": "={{ $json.html }}",
+        "options": {
+          "appendAttribution": false,
+          "senderName": "={{ $json.sender }}",
+          "replyTo": "={{ $json.reply_to }}"
+        }
+      },
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "7rH5EpTCyRAbJqwK",
+          "name": "Gmail account 2"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "id": "d52b8c6b-328b-49f1-a09c-d1ad14bf9516",
+      "name": "Write to Outbox",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1100,
+        400
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "VGQHvXZw7QIaNJgY",
+          "cachedResultName": "Tidewater Outbox"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "to": "={{ $json.to }}",
+            "subject": "={{ $json.subject }}",
+            "body": "={{ $json.html }}",
+            "kind": "={{ $json.kind }}",
+            "call_id": "={{ $json.call_id }}",
+            "at": "={{ $json.at }}"
+          },
+          "schema": [
+            {
+              "id": "to",
+              "displayName": "to",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "subject",
+              "displayName": "subject",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "body",
+              "displayName": "body",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "kind",
+              "displayName": "kind",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "call_id",
+              "displayName": "call_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "at",
+              "displayName": "at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "cfc39e13-f6da-4ea0-99b6-afcda37ec250",
+      "name": "Sticky Note cfc39e13",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        160,
+        40
+      ],
+      "parameters": {
+        "content": "## Tidewater 5: Send Email\nEvery email (follow-ups to prospects, notices to the rep) goes through here. With `mode = live` in **Tidewater Settings** it sends with Gmail; in test mode it writes to the **Tidewater Outbox** table instead, so nothing reaches a real prospect while testing.",
+        "color": 7,
+        "width": 900,
+        "height": 160
+      }
+    }
+  ],
+  "connections": {
+    "When Called": {
+      "main": [
+        [
+          {
+            "node": "Read Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Settings": {
+      "main": [
+        [
+          {
+            "node": "Route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route": {
+      "main": [
+        [
+          {
+            "node": "Live Mode?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Live Mode?": {
+      "main": [
+        [
+          {
+            "node": "Send with Gmail",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Write to Outbox",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "timezone": "America/New_York",
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "iTxd64lDk3gI0bKG"
+  }
+}

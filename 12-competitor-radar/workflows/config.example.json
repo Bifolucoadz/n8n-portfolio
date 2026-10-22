@@ -1,0 +1,8 @@
+{
+  "SHEET_ID": "<your SHEET_ID>",
+  "SHEETS_CRED_ID": "<your SHEETS_CRED_ID>",
+  "OPENAI_CRED_ID": "<your OPENAI_CRED_ID>",
+  "GMAIL_CRED_ID": "<your GMAIL_CRED_ID>",
+  "DASHBOARD_KEY": "<your DASHBOARD_KEY>",
+  "DEMO_KEY": "<your DEMO_KEY>"
+}

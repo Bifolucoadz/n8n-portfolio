@@ -1,0 +1,255 @@
+{
+  "id": "receptionist-vapi-tools",
+  "name": "Receptionist 1: Vapi Tools",
+  "nodes": [
+    {
+      "id": "1d01472e-b0d8-401c-b91a-0486eff7ab5d",
+      "name": "Vapi Tool Request",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        200,
+        300
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "fernhollow/tools",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "webhookId": "80b161b4-a81e-46f6-8e8b-c98a25b8c044"
+    },
+    {
+      "id": "d635735c-f664-4a16-b07c-f9359c71e172",
+      "name": "Read Settings",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        420,
+        300
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "qh2lP825xnkmt4z2",
+          "cachedResultName": "Receptionist Settings"
+        },
+        "returnAll": true
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "20f1ec0a-60ea-4da7-922b-1ce3f9f734aa",
+      "name": "Unpack Calls",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        640,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// One item per tool call in Vapi's request, after checking the shared secret header.\nconst req = $(\"Vapi Tool Request\").first().json;\nconst settings = Object.fromEntries($(\"Read Settings\").all().map(i => [i.json.key, i.json.value ?? \"\"]));\nconst key = (req.headers ?? {})[\"x-fernhollow-key\"] ?? \"\";\nif (!settings.webhook_secret || key !== settings.webhook_secret) return [{ json: { authorized: false } }];\n\nconst msg = req.body?.message ?? {};\nconst call = msg.call ?? {};\nconst list = Array.isArray(msg.toolCallList) && msg.toolCallList.length\n  ? msg.toolCallList\n  : (msg.toolWithToolCallList ?? []).map(t => t.toolCall).filter(Boolean);\n\nconst items = list.map(c => {\n  let args = c.function?.arguments ?? c.arguments ?? {};\n  if (typeof args === \"string\") { try { args = JSON.parse(args); } catch (e) { args = {}; } }\n  return {\n    json: {\n      authorized: true,\n      tool_call_id: c.id,\n      name: c.function?.name ?? c.name ?? \"\",\n      args,\n      caller_number: call.customer?.number ?? msg.customer?.number ?? \"\",\n      call_id: call.id ?? \"\",\n      call_type: call.type ?? \"\",\n      calendar_id: settings.calendar_id,\n      sheet_id: settings.sheet_id,\n      staff_chat_id: settings.staff_chat_id,\n    },\n  };\n});\nreturn items.length ? items : [{ json: { authorized: true, empty: true } }];\n"
+      }
+    },
+    {
+      "id": "d6236fe8-2f3e-4bb7-a0bb-d9d24d2f0fc8",
+      "name": "Authorized?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        860,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.authorized }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "fd3f692e-11b6-45cb-9055-0829480b8283",
+      "name": "Run Each Tool",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        1080,
+        220
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "rcpFernRunTool02",
+          "cachedResultName": "Receptionist 2: Run Tool"
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "349cc91b-28ea-4d23-8cd8-a6609fdab5ae",
+      "name": "Pack Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1300,
+        220
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Vapi wants { results: [{ toolCallId, result }] } with each result a flat, one-line string.\nconst calls = $(\"Unpack Calls\").all().map(i => i.json).filter(c => c.tool_call_id);\nconst byId = Object.fromEntries($input.all().map(i => i.json).filter(r => r && r.tool_call_id).map(r => [r.tool_call_id, r]));\nconst fallback = \"The scheduling system didn't respond. Apologize briefly and offer to take a message for the front desk.\";\nconst results = calls.map(c => {\n  const r = byId[c.tool_call_id];\n  const text = r && typeof r.result === \"string\" && r.result.trim() ? r.result : fallback;\n  return { name: c.name, toolCallId: c.tool_call_id, result: text.replace(/\\s*\\n\\s*/g, \" \").trim() };\n});\nreturn [{ json: { results } }];\n"
+      }
+    },
+    {
+      "id": "6f021cfd-1ec6-4cf7-9085-c23c62ae664c",
+      "name": "Send Results",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1520,
+        220
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      }
+    },
+    {
+      "id": "d92350c6-c493-4b70-853d-192416776c16",
+      "name": "Reject",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1080,
+        400
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{ \"error\": \"unauthorized\" }",
+        "options": {
+          "responseCode": 401
+        }
+      }
+    },
+    {
+      "id": "e97c5380-4d57-48ca-aa83-776b3f4ab726",
+      "name": "Sticky Note e97c5380",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        160,
+        -40
+      ],
+      "parameters": {
+        "content": "## Receptionist 1: Vapi Tools\n`POST /webhook/fernhollow/tools`, the server URL of every Vapi tool. Vapi sends a `tool-calls` message while the caller waits (Nora says \"one moment\").\n\n- The `x-fernhollow-key` header must match `webhook_secret` in **Receptionist Settings**; anything else gets a 401.\n- Each call in `toolCallList` runs through **Receptionist 2** (with the caller's number from the call).\n- The answer is `{ results: [{ toolCallId, result }] }` with flat one-line strings, as Vapi requires. A failed tool still answers, with \"offer to take a message\".",
+        "color": 4,
+        "width": 940,
+        "height": 240
+      }
+    }
+  ],
+  "connections": {
+    "Vapi Tool Request": {
+      "main": [
+        [
+          {
+            "node": "Read Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Settings": {
+      "main": [
+        [
+          {
+            "node": "Unpack Calls",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Unpack Calls": {
+      "main": [
+        [
+          {
+            "node": "Authorized?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Authorized?": {
+      "main": [
+        [
+          {
+            "node": "Run Each Tool",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reject",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Each Tool": {
+      "main": [
+        [
+          {
+            "node": "Pack Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pack Results": {
+      "main": [
+        [
+          {
+            "node": "Send Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {}
+}
